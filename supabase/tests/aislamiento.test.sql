@@ -2,7 +2,7 @@
 -- solo hace lo que le corresponde. Corre con: pnpm db:test
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(40);
 
 -- Negocios y usuarios del seed.
 \set A '\'a0000000-0000-4000-8000-000000000001\''
@@ -68,9 +68,12 @@ select lives_ok(
 select throws_ok(
   $$insert into pedidos (negocio_id, origen, total_centavos) values ('a0000000-0000-4000-8000-000000000001', 'mostrador', 0)$$,
   '42501', null, 'nadie inserta pedidos directo: solo por RPC con total recalculado');
+select throws_ok('truncate pedidos', '42501', null, 'TRUNCATE (que saltea RLS) no está permitido');
 -- update/delete sobre filas invisibles no fallan: no afectan nada. Se verifica al final.
 update productos set precio_centavos = 1 where negocio_id = :B;
-delete from pedidos where negocio_id = :B;
+select throws_ok(
+  $$delete from pedidos where negocio_id = 'b0000000-0000-4000-8000-000000000001'$$,
+  '42501', null, 'cajero no borra pedidos directo');
 
 -- Dueño de A --------------------------------------------------------------------------------
 reset role;
@@ -83,6 +86,18 @@ select throws_ok(
   $$insert into productos (negocio_id, categoria_id, nombre, precio_centavos) values ('a0000000-0000-4000-8000-000000000001', 'b1000000-0000-4000-8000-000000000001', 'x', 1)$$,
   '23503', null, 'FK compuesta: un producto de A no puede usar una categoría de B');
 select is(es_miembro(:B), false, 'es_miembro(B) es false para dueño A');
+select throws_ok(
+  $$insert into miembros (negocio_id, user_id, rol) values ('a0000000-0000-4000-8000-000000000001', '00000000-0000-4000-a000-0000000000b1', 'dueno')$$,
+  '42501', null, 'roles solo por RPC: dueño A no agrega miembros ni en su negocio');
+select throws_ok(
+  $$delete from miembros where user_id = '00000000-0000-4000-a000-0000000000a3'$$,
+  '42501', null, 'dueño A no borra miembros desde la web');
+select throws_ok(
+  $$update negocios set wa_phone_number_id = '123' where id = 'a0000000-0000-4000-8000-000000000001'$$,
+  '42501', null, 'dueño no toca wa_phone_number_id (solo servidor)');
+select lives_ok(
+  $$update negocios set nombre = 'El Ceibo' where id = 'a0000000-0000-4000-8000-000000000001'$$,
+  'dueño sí edita datos operativos de su negocio');
 update negocios set nombre = 'hackeado' where id = :B;
 delete from productos where negocio_id = :B;
 
@@ -93,7 +108,9 @@ select pg_temp.como(:cocina_a);
 select is((select count(*) from pedidos), 1::bigint, 'cocina A ve los pedidos de A');
 select is((select count(*) from clientes), 0::bigint, 'cocina no ve clientes (teléfonos)');
 select is((select count(*) from conversaciones), 0::bigint, 'cocina no ve conversaciones');
-update pedidos set total_centavos = 0, estado = 'entregado';
+select throws_ok(
+  $$update pedidos set total_centavos = 0, estado = 'entregado'$$,
+  '42501', null, 'cocina no edita pedidos directo (solo avanzar_estado, Fase 3)');
 
 -- Dueño de B (simetría) ---------------------------------------------------------------------
 reset role;
@@ -108,10 +125,21 @@ reset role;
 select set_config('request.jwt.claims', '', true);
 set local role anon;
 
-select is((select count(*) from productos), 0::bigint, 'anónimo no ve nada');
+select throws_ok('select count(*) from productos', '42501', null, 'anónimo no tiene permiso de lectura');
+
+-- Escrituras privilegiadas con negocio_id incoherente --------------------------------------
+reset role;
+
+select throws_ok(
+  $$insert into pedido_items (negocio_id, pedido_id, nombre_snapshot, precio_unitario_centavos, cantidad)
+    values ('a0000000-0000-4000-8000-000000000001', 'b4000000-0000-4000-8000-000000000001', 'x', 1, 1)$$,
+  '23503', null, 'item de A no puede colgar de un pedido de B (ni con permisos de servidor)');
+select throws_ok(
+  $$insert into mensajes (negocio_id, conversacion_id, rol, contenido)
+    values ('a0000000-0000-4000-8000-000000000001', 'b3000000-0000-4000-8000-000000000001', 'cliente', 'x')$$,
+  '23503', null, 'mensaje de A no puede colgar de una conversación de B');
 
 -- Verificación: las escrituras de arriba no cambiaron nada ----------------------------------
-reset role;
 
 select is((select min(precio_centavos) from productos where negocio_id = :B), 16000, 'precios de B intactos');
 select is((select count(*) from productos where negocio_id = :B), 3::bigint, 'productos de B intactos');
