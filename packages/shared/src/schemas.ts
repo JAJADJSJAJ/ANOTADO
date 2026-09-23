@@ -45,3 +45,16 @@ export type ItemBorrador = z.infer<typeof ItemBorradorSchema>;
 export type Borrador = z.infer<typeof BorradorSchema>;
 export type Origen = z.infer<typeof OrigenSchema>;
 export type ConfirmarPedido = z.infer<typeof ConfirmarPedidoSchema>;
+
+/**
+ * Lo que la IA no pudo resolver sola, guardado en conversaciones.pendientes.
+ * dudosos y preguntas se acumulan hasta que el cajero los resuelve; errores son de la
+ * última interpretación.
+ */
+export const PendientesSchema = z.object({
+  dudosos: z.array(z.string().max(300)).max(30).default([]),
+  preguntas: z.array(z.string().max(300)).max(30).default([]),
+  errores: z.array(z.string().max(300)).max(30).default([]),
+});
+
+export type Pendientes = z.infer<typeof PendientesSchema>;
