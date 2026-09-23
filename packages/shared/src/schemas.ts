@@ -1,0 +1,36 @@
+import { z } from 'zod';
+import { MAX_CANTIDAD, MAX_DIRECCION, MAX_ITEMS, MAX_MESA, MAX_NOTAS, MAX_NOTAS_ITEM } from './reglas.ts';
+
+export const EntregaSchema = z.discriminatedUnion('modo', [
+  z.object({ modo: z.literal('retiro') }),
+  z.object({ modo: z.literal('delivery'), direccion: z.string().trim().min(1).max(MAX_DIRECCION) }),
+  z.object({ modo: z.literal('mesa'), mesa: z.string().trim().min(1).max(MAX_MESA) }),
+]);
+
+export const ItemBorradorSchema = z.object({
+  producto_id: z.uuid(),
+  cantidad: z.int().min(1).max(MAX_CANTIDAD),
+  notas: z.string().trim().max(MAX_NOTAS_ITEM).optional(),
+});
+
+/** Pedido en armado: lo edita el cajero a mano (Fase 1) o la IA vía acciones (Fase 2). */
+export const BorradorSchema = z.object({
+  items: z.array(ItemBorradorSchema).max(MAX_ITEMS),
+  entrega: EntregaSchema.nullable(),
+});
+
+export const OrigenSchema = z.enum(['whatsapp', 'mostrador', 'telefono', 'mesa']);
+
+/** Lo que la web manda a la RPC confirmar_pedido. Sin precios: los pone el servidor. */
+export const ConfirmarPedidoSchema = z.object({
+  origen: OrigenSchema,
+  items: z.array(ItemBorradorSchema).min(1).max(MAX_ITEMS),
+  entrega: EntregaSchema.nullable(),
+  notas: z.string().trim().max(MAX_NOTAS).optional(),
+});
+
+export type Entrega = z.infer<typeof EntregaSchema>;
+export type ItemBorrador = z.infer<typeof ItemBorradorSchema>;
+export type Borrador = z.infer<typeof BorradorSchema>;
+export type Origen = z.infer<typeof OrigenSchema>;
+export type ConfirmarPedido = z.infer<typeof ConfirmarPedidoSchema>;

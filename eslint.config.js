@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   // supabase/functions es Deno: lo chequea `deno lint`, no ESLint.
-  { ignores: ['**/dist/**', '**/node_modules/**', 'supabase/**'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', 'supabase/**', '**/database.types.ts'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
