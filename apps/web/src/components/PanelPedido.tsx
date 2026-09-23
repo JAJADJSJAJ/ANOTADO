@@ -10,18 +10,18 @@ import {
 } from '@anotado/shared';
 import { useState } from 'react';
 import type { Producto } from '../hooks/useMenu.ts';
+import type { DatosEntrega, ModoEntrega } from '../lib/pedidos.ts';
 import { MensajeError } from './Estado.tsx';
 
-export type ModoEntrega = 'retiro' | 'delivery' | 'mesa';
-
-export type DatosEntrega = { modo: ModoEntrega; direccion: string; mesa: string };
-
 type Props = {
+  titulo?: string;
+  vacio?: string;
   borrador: Borrador;
   onBorrador: (b: Borrador) => void;
   productos: ReadonlyMap<string, Producto>;
-  origen: Origen;
-  onOrigen: (o: Origen) => void;
+  /** Sin origen (p. ej. tarjetas de WhatsApp) no se muestra el selector. */
+  origen?: Origen;
+  onOrigen?: (o: Origen) => void;
   entrega: DatosEntrega;
   onEntrega: (e: DatosEntrega) => void;
   notas: string;
@@ -49,11 +49,11 @@ export function PanelPedido(p: Props) {
   const vacio = p.borrador.items.length === 0;
 
   return (
-    <section aria-label="Pedido" className="flex flex-col gap-4 rounded-xl bg-white p-4">
-      <h2 className="text-xl font-bold">Pedido</h2>
+    <section aria-label={p.titulo ?? 'Pedido'} className="flex flex-col gap-4 rounded-xl bg-white p-4">
+      <h2 className="text-xl font-bold">{p.titulo ?? 'Pedido'}</h2>
 
       {vacio ? (
-        <p className="text-neutral-500">Tocá los productos para agregarlos.</p>
+        <p className="text-neutral-500">{p.vacio ?? 'Tocá los productos para agregarlos.'}</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {p.borrador.items.map((it, i) => (
@@ -71,7 +71,9 @@ export function PanelPedido(p: Props) {
         </ul>
       )}
 
-      <Segmentado titulo="Origen" opciones={ORIGENES} valor={p.origen} onCambio={p.onOrigen} />
+      {p.origen && p.onOrigen && (
+        <Segmentado titulo="Origen" opciones={ORIGENES} valor={p.origen} onCambio={p.onOrigen} />
+      )}
       <Segmentado
         titulo="Entrega"
         opciones={MODOS}
@@ -179,7 +181,7 @@ function LineaItem(p: {
 function Segmentado<T extends string>(p: {
   titulo: string;
   opciones: { valor: T; texto: string }[];
-  valor: T;
+  valor: T | null;
   onCambio: (v: T) => void;
 }) {
   return (

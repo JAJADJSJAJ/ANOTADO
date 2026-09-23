@@ -1,38 +1,39 @@
-import {
-  agregarItem,
-  type Borrador,
-  borradorVacio,
-  ConfirmarPedidoSchema,
-  type Entrega,
-  formatearPrecio,
-  type Origen,
-} from '@anotado/shared';
+import { agregarItem, type Borrador, borradorVacio, formatearPrecio, type Origen } from '@anotado/shared';
 import { useMemo, useState } from 'react';
 import { Catalogo } from '../components/Catalogo.tsx';
 import { Cargando, MensajeError } from '../components/Estado.tsx';
-import { type DatosEntrega, PanelPedido } from '../components/PanelPedido.tsx';
+import { PanelPedido } from '../components/PanelPedido.tsx';
+import { PedidosWhatsApp } from '../components/PedidosWhatsApp.tsx';
 import { UltimosPedidos } from '../components/UltimosPedidos.tsx';
 import { useMenu } from '../hooks/useMenu.ts';
 import { useNegocio } from '../hooks/useNegocio.ts';
-import { supabase } from '../lib/supabase.ts';
+import { confirmarPedido, type DatosEntrega, ENTREGA_RETIRO, type PedidoConfirmado } from '../lib/pedidos.ts';
 
-const ENTREGA_INICIAL: DatosEntrega = { modo: 'retiro', direccion: '', mesa: '' };
-
-type Confirmado = { numero: number; total_centavos: number };
+type Pestana = 'manual' | 'whatsapp';
+type Confirmado = PedidoConfirmado & { etiqueta?: string };
 
 export function Mostrador() {
   const negocio = useNegocio();
   const menu = useMenu(negocio.id);
   const productos = useMemo(() => new Map(menu.productos.map((p) => [p.id, p])), [menu.productos]);
+  const activos = useMemo(() => menu.productos.filter((p) => p.activo), [menu.productos]);
 
+  const [pestana, setPestana] = useState<Pestana>('manual');
+  const [confirmado, setConfirmado] = useState<Confirmado | null>(null);
+  const [version, setVersion] = useState(0);
+
+  // Carga manual.
   const [borrador, setBorrador] = useState<Borrador>(borradorVacio);
   const [origen, setOrigen] = useState<Origen>('mostrador');
-  const [entrega, setEntrega] = useState<DatosEntrega>(ENTREGA_INICIAL);
+  const [entrega, setEntrega] = useState<DatosEntrega>(ENTREGA_RETIRO);
   const [notas, setNotas] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmado, setConfirmado] = useState<Confirmado | null>(null);
-  const [version, setVersion] = useState(0);
+
+  function avisarConfirmado(pedido: PedidoConfirmado, etiqueta?: string) {
+    setConfirmado({ ...pedido, etiqueta });
+    setVersion((v) => v + 1);
+  }
 
   function cambiarOrigen(o: Origen) {
     setOrigen(o);
@@ -40,88 +41,86 @@ export function Mostrador() {
     if (o === 'mesa') setEntrega((e) => ({ ...e, modo: 'mesa' }));
   }
 
-  async function confirmar() {
+  async function confirmarManual() {
     setError(null);
     setConfirmado(null);
-
-    if (entrega.modo === 'delivery' && !entrega.direccion.trim()) return setError('Escribí la dirección del delivery.');
-    if (entrega.modo === 'mesa' && !entrega.mesa.trim()) return setError('Escribí el número de mesa.');
-
-    const datosEntrega: Entrega =
-      entrega.modo === 'delivery'
-        ? { modo: 'delivery', direccion: entrega.direccion }
-        : entrega.modo === 'mesa'
-          ? { modo: 'mesa', mesa: entrega.mesa }
-          : { modo: 'retiro' };
-
-    const pedido = ConfirmarPedidoSchema.safeParse({
-      origen,
-      items: borrador.items,
-      entrega: datosEntrega,
-      notas: notas.trim() || undefined,
-    });
-    if (!pedido.success) return setError('Revisá el pedido: hay datos inválidos.');
-
     setEnviando(true);
-    // Sin precios: el servidor los toma de la base y calcula el total.
-    const { data, error } = await supabase.rpc('confirmar_pedido', {
-      p_negocio_id: negocio.id,
-      p_origen: pedido.data.origen,
-      p_items: pedido.data.items,
-      p_entrega: pedido.data.entrega,
-      p_notas: pedido.data.notas,
-    });
+    const r = await confirmarPedido({ negocioId: negocio.id, origen, borrador, entrega, notas });
     setEnviando(false);
-
-    if (error) {
-      setError(error.message);
+    if (!r.ok) {
+      setError(r.error);
       // Si un producto se agotó mientras se armaba, refrescar el menú.
       void menu.recargar();
       return;
     }
-    setConfirmado(data as Confirmado);
+    avisarConfirmado(r.pedido);
     setBorrador(borradorVacio());
-    setEntrega(ENTREGA_INICIAL);
+    setEntrega(ENTREGA_RETIRO);
     setOrigen('mostrador');
     setNotas('');
-    setVersion((v) => v + 1);
   }
 
   if (menu.cargando) return <Cargando />;
   if (menu.error) return <div className="p-4"><MensajeError>{menu.error}</MensajeError></div>;
 
+  const pestanaClase = (p: Pestana) =>
+    `flex-1 rounded-xl py-3 text-lg font-bold ${pestana === p ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700'}`;
+
   return (
-    <main className="grid flex-1 gap-4 p-4 lg:grid-cols-[1fr_24rem]">
-      <div className="flex flex-col gap-4">
-        {confirmado && (
-          <p role="status" className="rounded-xl border-2 border-emerald-400 bg-emerald-50 p-4 text-xl font-bold text-emerald-900">
-            Pedido #{confirmado.numero} confirmado · {formatearPrecio(confirmado.total_centavos)}
-          </p>
-        )}
-        <Catalogo
-          categorias={menu.categorias}
-          productos={menu.productos}
-          onElegir={(p) => {
-            setConfirmado(null);
-            setBorrador((b) => agregarItem(b, p.id));
-          }}
-        />
-        <UltimosPedidos negocioId={negocio.id} version={version} />
+    <main className="flex flex-1 flex-col gap-4 p-4">
+      <div role="tablist" className="flex gap-2">
+        <button type="button" role="tab" aria-selected={pestana === 'manual'} className={pestanaClase('manual')} onClick={() => setPestana('manual')}>
+          Carga manual
+        </button>
+        <button type="button" role="tab" aria-selected={pestana === 'whatsapp'} className={pestanaClase('whatsapp')} onClick={() => setPestana('whatsapp')}>
+          WhatsApp
+        </button>
       </div>
-      <div className="lg:sticky lg:top-4 lg:self-start">
-        <PanelPedido
-          borrador={borrador}
-          onBorrador={setBorrador}
+
+      {confirmado && (
+        <p role="status" className="rounded-xl border-2 border-emerald-400 bg-emerald-50 p-4 text-xl font-bold text-emerald-900">
+          Pedido #{confirmado.numero}
+          {confirmado.etiqueta ? ` de ${confirmado.etiqueta}` : ''} confirmado · {formatearPrecio(confirmado.total_centavos)}
+        </p>
+      )}
+
+      {/* Las dos pestañas quedan montadas: cambiar de pestaña no pierde lo que se estaba armando. */}
+      <div hidden={pestana !== 'manual'} className="grid gap-4 lg:grid-cols-[1fr_24rem]">
+        <div className="flex flex-col gap-4">
+          <Catalogo
+            categorias={menu.categorias}
+            productos={menu.productos}
+            onElegir={(p) => {
+              setConfirmado(null);
+              setBorrador((b) => agregarItem(b, p.id));
+            }}
+          />
+          <UltimosPedidos negocioId={negocio.id} version={version} />
+        </div>
+        <div className="lg:sticky lg:top-4 lg:self-start">
+          <PanelPedido
+            borrador={borrador}
+            onBorrador={setBorrador}
+            productos={productos}
+            origen={origen}
+            onOrigen={cambiarOrigen}
+            entrega={entrega}
+            onEntrega={setEntrega}
+            notas={notas}
+            onNotas={setNotas}
+            onConfirmar={() => void confirmarManual()}
+            enviando={enviando}
+            error={error}
+          />
+        </div>
+      </div>
+
+      <div hidden={pestana !== 'whatsapp'}>
+        <PedidosWhatsApp
+          negocioId={negocio.id}
           productos={productos}
-          origen={origen}
-          onOrigen={cambiarOrigen}
-          entrega={entrega}
-          onEntrega={setEntrega}
-          notas={notas}
-          onNotas={setNotas}
-          onConfirmar={() => void confirmar()}
-          enviando={enviando}
-          error={error}
+          activos={activos}
+          onConfirmado={(pedido, etiqueta) => avisarConfirmado(pedido, etiqueta || undefined)}
         />
       </div>
     </main>

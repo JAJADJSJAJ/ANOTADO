@@ -3,6 +3,9 @@ import { agregarItem, quitarItem } from './borrador.ts';
 import { MAX_CANTIDAD, MAX_DIRECCION, MAX_ITEMS, MAX_MESA, MAX_NOTAS_ITEM } from './reglas.ts';
 import type { Borrador, EntregaBorrador } from './schemas.ts';
 
+/** Sin la referencia interna (p7…): al cajero no le dice nada. */
+const PRODUCTO_DESCONOCIDO = 'La IA nombró un producto que no está en el menú';
+
 /** Producto del menú tal como se le mostró a la IA. */
 export type ProductoMenu = {
   id: string;
@@ -47,7 +50,7 @@ export function aplicarAcciones(
       case 'agregar': {
         const p = porRef.get(a.producto);
         if (!p) {
-          errores.push(`Producto desconocido: "${a.producto}"`);
+          errores.push(PRODUCTO_DESCONOCIDO);
           break;
         }
         const error = validarProducto(p) ?? validarCantidad(p, a.cantidad) ?? validarNotas(p, a.notas);
@@ -72,7 +75,7 @@ export function aplicarAcciones(
       case 'quitar': {
         const p = porRef.get(a.producto);
         if (!p) {
-          errores.push(`Producto desconocido: "${a.producto}"`);
+          errores.push(PRODUCTO_DESCONOCIDO);
           break;
         }
         const lineas = lineasDe(p.id);
@@ -88,7 +91,7 @@ export function aplicarAcciones(
       case 'modificar': {
         const p = porRef.get(a.producto);
         if (!p) {
-          errores.push(`Producto desconocido: "${a.producto}"`);
+          errores.push(PRODUCTO_DESCONOCIDO);
           break;
         }
         const lineas = lineasDe(p.id);
