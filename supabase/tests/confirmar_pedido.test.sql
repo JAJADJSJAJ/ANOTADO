@@ -3,6 +3,10 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(27);
 
+-- Estado conocido: sin pedidos previos (p. ej. de pruebas manuales). El rollback final lo deshace.
+delete from pedidos;
+delete from contadores_pedidos;
+
 \set A '\'a0000000-0000-4000-8000-000000000001\''
 
 create function pg_temp.como(p_user uuid) returns void language plpgsql as $$
