@@ -6,3 +6,5 @@ export const MAX_NOTAS_ITEM = 200;
 export const MAX_NOTAS = 500;
 export const MAX_DIRECCION = 200;
 export const MAX_MESA = 20;
+/** Máximo de acciones que se aceptan de una sola respuesta de la IA. */
+export const MAX_ACCIONES = 40;
