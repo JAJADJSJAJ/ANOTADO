@@ -26,7 +26,7 @@ Requisitos: Node 24, pnpm y Docker Desktop.
 ```bash
 pnpm install
 pnpm db:start          # levanta Supabase local, aplica migraciones y seed
-pnpm db:test           # tests de la base (aislamiento, roles, numeración)
+pnpm db:test           # tests de la base (aislamiento, roles, numeración, confirmar_pedido)
 pnpm test              # tests de packages/shared
 ```
 

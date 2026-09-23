@@ -43,6 +43,29 @@ TS 7 (compilador nativo) todavía no es compatible con typescript-eslint. Volver
 ### Supabase CLI como devDependency
 Queda fijada la versión en el lockfile y no hace falta instalarla global: `pnpm supabase …`.
 
+## Fase 1
+
+### confirmar_pedido es una RPC, no una Edge Function
+El plan decía Edge Function + RPC. La Edge Function no sumaba seguridad: todo lo que valida (rol, productos activos del negocio, cantidades, entrega) lo hace la RPC `security definer`, que además recalcula precios y total desde `productos` en la misma transacción. Menos piezas (sin Deno ni deploy de funciones) y se testea con pgTAP. `parse-order` (Fase 2) sí va como Edge Function porque maneja la clave de la IA.
+
+### La RPC no recibe precios ni totales
+Los items llegan como `{producto_id, cantidad, notas}`; cualquier otro campo se ignora. La entrega se reconstruye con solo los campos conocidos. Errores de validación con `22023` y mensaje en español, que la web muestra tal cual.
+
+### Límites espejados en tres lugares
+`packages/shared/src/reglas.ts` (UI y Zod), la RPC y el `check` de `pedido_items`. Si cambia uno, cambian los tres.
+
+### El borrador es la misma estructura para carga manual y para la IA
+`Borrador = { items, entrega }` en `shared`. El mostrador lo edita con operaciones puras (`agregarItem`, `cambiarCantidad`…); en Fase 2 las acciones de la IA van a aplicar sobre lo mismo.
+
+### Sin datos de cliente en Fase 1
+El pedido manual lleva origen, entrega y notas. Teléfono y nombre llegan con WhatsApp.
+
+### Solo login con contraseña
+Magic link queda para cuando haya usuarios reales (necesita SMTP configurado en Supabase cloud).
+
+### El total que ve el cajero es estimado
+La web suma precios para mostrar mientras arma el pedido; el que vale es el que devuelve la RPC, y es el que se muestra al confirmar.
+
 ## Pendiente de decidir
 
 - **Conversación al pegar un mensaje (Fase 2).** Sin teléfono no hay `cliente_id`, y el índice `una_abierta` no aplica a nulls. Definir si cada pegado abre una conversación o el cajero elige una.
