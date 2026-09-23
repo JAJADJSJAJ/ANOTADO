@@ -66,8 +66,27 @@ Magic link queda para cuando haya usuarios reales (necesita SMTP configurado en 
 ### El total que ve el cajero es estimado
 La web suma precios para mostrar mientras arma el pedido; el que vale es el que devuelve la RPC, y es el que se muestra al confirmar.
 
+## Fase 2
+
+### Proveedor de IA: API compatible con OpenAI, vía OpenRouter
+El cliente (`shared/src/ia/cliente.ts`) habla el formato compatible con OpenAI, que usan OpenRouter, NVIDIA, Groq, DeepSeek y muchos más. Cambiar de proveedor o modelo es configuración (URL, key, modelo), no código. Se usa OpenRouter como puerta única: una key, cientos de modelos, y filtro de proveedores que no retienen datos.
+
+### Modelos baratos (DeepSeek, Qwen), pero no por su API directa
+Cuestan entre ~US$ 0,30 y 3 por local por mes, contra ~US$ 10 de Haiku. La API directa de DeepSeek guarda los datos en China y entrena con ellos por defecto: con direcciones de clientes eso choca con la Ley 18.331. Se usan los mismos modelos abiertos a través de proveedores que no retienen datos. El modelo final lo eligen los evals, no el precio solo.
+
+### La IA ve referencias cortas (p1, p2…), no uuids
+Los modelos chicos copian mal los ids largos. El prompt numera los productos activos; el reducer traduce la referencia al uuid y rechaza cualquier referencia que no exista. Además ahorra tokens.
+
+### Los rangos no invalidan toda la respuesta
+Zod valida la forma de la respuesta de la IA. Las reglas (cantidad 1–20, producto activo, largo de notas) las aplica el reducer acción por acción: una cantidad absurda se rechaza y se le muestra al cajero, y el resto del pedido se aplica igual.
+
+### Entrega incompleta mientras se arma
+El borrador acepta "delivery" sin dirección todavía (`EntregaBorradorSchema`). Confirmar exige la entrega completa (`EntregaSchema`).
+
+### WhatsApp: número de prueba de Meta, no Twilio
+Meta da un número de prueba gratis con hasta 5 destinatarios autorizados, con la misma API que producción. Twilio cobra por mensaje y usa otro formato, que habría que reescribir al pasar al número real. El orden queda: parser (Fase 2) → webhook con número de prueba (parte de Fase 5, adelantada) → cocina y deploy (Fase 3).
+
 ## Pendiente de decidir
 
 - **Conversación al pegar un mensaje (Fase 2).** Sin teléfono no hay `cliente_id`, y el índice `una_abierta` no aplica a nulls. Definir si cada pegado abre una conversación o el cajero elige una.
 - **Compartir `packages/shared` con Deno (Fase 2).** Hacer una prueba chica de import + deploy antes de depender de eso.
-- **Proveedor y modelo de IA (antes de Fase 2).**
