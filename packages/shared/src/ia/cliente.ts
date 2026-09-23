@@ -19,6 +19,11 @@ export type ConfigIA = {
   timeoutMs?: number;
   /** Headers extra que pide el proveedor (OpenRouter acepta HTTP-Referer y X-Title). */
   headers?: Record<string, string>;
+  /**
+   * Campos extra del cuerpo, propios del proveedor. Ej. en OpenRouter:
+   * {"reasoning":{"enabled":false}} para que el modelo no "piense" (más rápido y barato).
+   */
+  cuerpoExtra?: Record<string, unknown>;
 };
 
 export type ResultadoIA = {
@@ -70,6 +75,7 @@ async function intentar(config: ConfigIA, mensajes: Mensaje[]): Promise<Resultad
         ...config.headers,
       },
       body: JSON.stringify({
+        ...config.cuerpoExtra,
         model: config.modelo,
         messages: mensajes,
         temperature: 0,
@@ -107,7 +113,8 @@ async function intentar(config: ConfigIA, mensajes: Mensaje[]): Promise<Resultad
   }
   const validado = RespuestaIASchema.safeParse(json);
   if (!validado.success) {
-    throw new ErrorIA(`La respuesta de la IA no tiene el formato esperado: ${validado.error.issues[0]?.message}`, true);
+    const problema = validado.error.issues[0];
+    throw new ErrorIA(`La respuesta de la IA no tiene el formato esperado: ${problema?.path.join(".")} ${problema?.message}`, true);
   }
 
   return {
@@ -126,11 +133,11 @@ function extraerJson(texto: string): string {
 
 /**
  * Deja el JSON Schema en el subconjunto que aceptan los modos estrictos:
- * oneOf → anyOf, y sin $schema, minimum/maximum ni maxItems (los límites los valida Zod
+ * oneOf → anyOf, y sin $schema, default, minimum/maximum ni maxItems (los límites los valida Zod
  * y el reducer después).
  */
 function limpiarEsquema(nodo: unknown): Record<string, unknown> {
-  const quitar = new Set(['$schema', 'minimum', 'maximum', 'maxItems', 'minItems']);
+  const quitar = new Set(['$schema', 'minimum', 'maximum', 'maxItems', 'minItems', 'default']);
   const recorrer = (n: unknown): unknown => {
     if (Array.isArray(n)) return n.map(recorrer);
     if (n && typeof n === 'object') {

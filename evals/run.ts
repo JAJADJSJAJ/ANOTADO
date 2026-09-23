@@ -45,6 +45,7 @@ const config: ConfigIA = {
   modelo: requerida('IA_MODELO'),
   formato: process.env.IA_FORMATO === 'json_object' ? 'json_object' : 'json_schema',
   headers: { 'X-Title': 'Anotado evals' },
+  cuerpoExtra: process.env.IA_EXTRA ? (JSON.parse(process.env.IA_EXTRA) as Record<string, unknown>) : undefined,
 };
 const precioEntrada = Number(process.env.IA_PRECIO_ENTRADA ?? 0); // US$ por millón de tokens
 const precioSalida = Number(process.env.IA_PRECIO_SALIDA ?? 0);
@@ -79,6 +80,7 @@ for (const caso of casos) {
   const preguntas: string[] = [];
   const errores: string[] = [];
   let fallaIA: string | null = null;
+  const respuestas: unknown[] = [];
   const inicio = Date.now();
 
   // Igual que parse-order: un mensaje a la vez, con el borrador acumulado.
@@ -88,6 +90,7 @@ for (const caso of casos) {
       const r = await llamarIA(config, construirMensajes(texto, menu, borrador, historial.slice(-MAX_HISTORIAL)));
       tokensEntrada += r.tokensEntrada;
       tokensSalida += r.tokensSalida;
+      respuestas.push(r.respuesta);
       const aplicado = aplicarAcciones(borrador, r.respuesta.acciones, menu);
       borrador = aplicado.borrador;
       dudosos.push(...aplicado.dudosos);
@@ -113,7 +116,7 @@ for (const caso of casos) {
     for (const p of problemas) console.log(`    - ${p}`);
     console.log(`    obtenido: ${JSON.stringify({ items: obtenido, entrega: borrador.entrega, dudosos, preguntas, errores })}`);
   }
-  resultados.push({ id: caso.id, categoria: caso.categoria, ok, problemas, obtenido, entrega: borrador.entrega, dudosos, preguntas, errores });
+  resultados.push({ id: caso.id, categoria: caso.categoria, ok, problemas, obtenido, entrega: borrador.entrega, dudosos, preguntas, errores, respuestas });
 }
 
 // Resumen por categoría.

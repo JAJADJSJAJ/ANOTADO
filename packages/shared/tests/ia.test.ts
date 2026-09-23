@@ -126,3 +126,20 @@ describe('llamarIA', () => {
     expect(fetchFalso).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('RespuestaIASchema', () => {
+  it('acepta campos omitidos como null (modelos en modo JSON simple)', async () => {
+    const { RespuestaIASchema } = await import('../src/index.ts');
+    const r = RespuestaIASchema.parse({
+      acciones: [
+        { tipo: 'agregar', producto: 'p1', cantidad: 2 },
+        { tipo: 'entrega', modo: 'retiro' },
+      ],
+      listo_para_confirmar: false,
+    });
+    expect(r.acciones).toEqual([
+      { tipo: 'agregar', producto: 'p1', cantidad: 2, notas: null },
+      { tipo: 'entrega', modo: 'retiro', direccion: null, mesa: null },
+    ]);
+  });
+});
