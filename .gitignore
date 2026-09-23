@@ -24,3 +24,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Config local de Claude Code
+.claude/
