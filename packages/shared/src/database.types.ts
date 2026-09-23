@@ -127,8 +127,10 @@ export type Database = {
           cliente_id: string | null
           created_at: string
           estado: string
+          etiqueta: string | null
           id: string
           negocio_id: string
+          pendientes: Json
           ultimo_mensaje_at: string
         }
         Insert: {
@@ -136,8 +138,10 @@ export type Database = {
           cliente_id?: string | null
           created_at?: string
           estado?: string
+          etiqueta?: string | null
           id?: string
           negocio_id: string
+          pendientes?: Json
           ultimo_mensaje_at?: string
         }
         Update: {
@@ -145,8 +149,10 @@ export type Database = {
           cliente_id?: string | null
           created_at?: string
           estado?: string
+          etiqueta?: string | null
           id?: string
           negocio_id?: string
+          pendientes?: Json
           ultimo_mensaje_at?: string
         }
         Relationships: [
@@ -505,8 +511,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cerrar_conversacion: {
+        Args: { p_conversacion_id: string }
+        Returns: undefined
+      }
       confirmar_pedido: {
         Args: {
+          p_conversacion_id?: string
           p_entrega?: Json
           p_items: Json
           p_negocio_id: string
