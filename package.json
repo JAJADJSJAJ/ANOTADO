@@ -16,5 +16,8 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:test": "supabase test db"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3"
   }
 }
