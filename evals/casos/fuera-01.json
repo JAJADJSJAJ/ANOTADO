@@ -1,0 +1,17 @@
+{
+  "id": "fuera-01",
+  "menu": "demo",
+  "categoria": "fuera_del_menu",
+  "mensajes": [
+    "una hamburguesa completa y un sushi"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Hamburguesa completa",
+        "cantidad": 1
+      }
+    ],
+    "debe_dudar": true
+  }
+}

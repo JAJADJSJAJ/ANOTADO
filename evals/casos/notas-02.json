@@ -1,0 +1,25 @@
+{
+  "id": "notas-02",
+  "menu": "demo",
+  "categoria": "notas",
+  "mensajes": [
+    "un chivito al plato bien cocido y unas papas sin sal, retiro yo"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Chivito canadiense al plato",
+        "cantidad": 1,
+        "notas": "bien cocid"
+      },
+      {
+        "producto": "Papas fritas",
+        "cantidad": 1,
+        "notas": "sin sal"
+      }
+    ],
+    "entrega": {
+      "modo": "retiro"
+    }
+  }
+}

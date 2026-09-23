@@ -1,0 +1,20 @@
+{
+  "id": "simple-03",
+  "menu": "demo",
+  "categoria": "simple",
+  "mensajes": [
+    "3 empanadas de carne y 3 de jamón y queso"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Empanada de carne",
+        "cantidad": 3
+      },
+      {
+        "producto": "Empanada de jamón y queso",
+        "cantidad": 3
+      }
+    ]
+  }
+}

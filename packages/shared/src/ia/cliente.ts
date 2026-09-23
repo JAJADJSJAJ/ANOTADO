@@ -29,13 +29,13 @@ export type ResultadoIA = {
 };
 
 export class ErrorIA extends Error {
-  constructor(
-    message: string,
-    /** true si vale la pena reintentar (timeout, 429, 5xx, JSON inválido). */
-    readonly reintentable: boolean,
-  ) {
+  /** true si vale la pena reintentar (timeout, 429, 5xx, JSON inválido). */
+  readonly reintentable: boolean;
+
+  constructor(message: string, reintentable: boolean) {
     super(message);
     this.name = 'ErrorIA';
+    this.reintentable = reintentable;
   }
 }
 

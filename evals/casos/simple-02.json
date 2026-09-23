@@ -1,0 +1,23 @@
+{
+  "id": "simple-02",
+  "menu": "demo",
+  "categoria": "simple",
+  "mensajes": [
+    "buenas! una muzza y una fainá para retirar"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Pizza muzzarella",
+        "cantidad": 1
+      },
+      {
+        "producto": "Fainá (porción)",
+        "cantidad": 1
+      }
+    ],
+    "entrega": {
+      "modo": "retiro"
+    }
+  }
+}

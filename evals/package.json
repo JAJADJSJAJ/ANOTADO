@@ -1,0 +1,16 @@
+{
+  "name": "@anotado/evals",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "eval": "node --env-file-if-exists=.env run.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anotado/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.6",
+    "typescript": "~6.0.3"
+  }
+}

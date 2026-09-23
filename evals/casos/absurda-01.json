@@ -1,0 +1,12 @@
+{
+  "id": "absurda-01",
+  "menu": "demo",
+  "categoria": "cantidades_absurdas",
+  "mensajes": [
+    "mandame 500 empanadas de carne"
+  ],
+  "esperado": {
+    "items": [],
+    "rechazado": true
+  }
+}

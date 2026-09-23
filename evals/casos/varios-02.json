@@ -1,0 +1,21 @@
+{
+  "id": "varios-02",
+  "menu": "demo",
+  "categoria": "varios_mensajes",
+  "mensajes": [
+    "una muzza",
+    "y otra muzza más",
+    "para retirar a las 21"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Pizza muzzarella",
+        "cantidad": 2
+      }
+    ],
+    "entrega": {
+      "modo": "retiro"
+    }
+  }
+}

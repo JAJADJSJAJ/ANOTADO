@@ -1,0 +1,12 @@
+{
+  "id": "vago-01",
+  "menu": "demo",
+  "categoria": "referencias_vagas",
+  "mensajes": [
+    "lo de siempre porfa"
+  ],
+  "esperado": {
+    "items": [],
+    "debe_dudar": true
+  }
+}

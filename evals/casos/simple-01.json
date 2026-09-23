@@ -1,0 +1,23 @@
+{
+  "id": "simple-01",
+  "menu": "demo",
+  "categoria": "simple",
+  "mensajes": [
+    "hola, me mandás 2 hamburguesas completas y una coca de litro y medio? paso a buscar"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Hamburguesa completa",
+        "cantidad": 2
+      },
+      {
+        "producto": "Coca-Cola 1,5 L",
+        "cantidad": 1
+      }
+    ],
+    "entrega": {
+      "modo": "retiro"
+    }
+  }
+}

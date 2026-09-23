@@ -1,0 +1,17 @@
+{
+  "id": "cambio-02",
+  "menu": "demo",
+  "categoria": "cambio_de_opinion",
+  "mensajes": [
+    "3 empanadas de carne",
+    "perdón, que sean 5"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Empanada de carne",
+        "cantidad": 5
+      }
+    ]
+  }
+}

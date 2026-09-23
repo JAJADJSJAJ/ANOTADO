@@ -1,0 +1,173 @@
+[
+  {
+    "id": "agua-sin-gas-600-ml",
+    "nombre": "Agua sin gas 600 ml",
+    "alias": [
+      "agua"
+    ],
+    "activo": true
+  },
+  {
+    "id": "cerveza-pilsen-1-l",
+    "nombre": "Cerveza Pilsen 1 L",
+    "alias": [
+      "pilsen",
+      "birra",
+      "cerveza"
+    ],
+    "activo": true
+  },
+  {
+    "id": "chivito-canadiense-al-pan",
+    "nombre": "Chivito canadiense al pan",
+    "alias": [
+      "chivito",
+      "chivito al pan",
+      "chivi"
+    ],
+    "activo": true
+  },
+  {
+    "id": "chivito-canadiense-al-plato",
+    "nombre": "Chivito canadiense al plato",
+    "alias": [
+      "chivito al plato",
+      "al plato"
+    ],
+    "activo": true
+  },
+  {
+    "id": "coca-cola-15-l",
+    "nombre": "Coca-Cola 1,5 L",
+    "alias": [
+      "coca grande",
+      "coca 1.5",
+      "coca de litro y medio"
+    ],
+    "activo": true
+  },
+  {
+    "id": "coca-cola-225-l",
+    "nombre": "Coca-Cola 2,25 L",
+    "alias": [
+      "coca 2.25",
+      "coca de 2 litros"
+    ],
+    "activo": true
+  },
+  {
+    "id": "coca-cola-600-ml",
+    "nombre": "Coca-Cola 600 ml",
+    "alias": [
+      "coca chica",
+      "coca 600"
+    ],
+    "activo": true
+  },
+  {
+    "id": "empanada-de-carne",
+    "nombre": "Empanada de carne",
+    "alias": [
+      "carne",
+      "emp carne"
+    ],
+    "activo": true
+  },
+  {
+    "id": "empanada-de-jamon-y-queso",
+    "nombre": "Empanada de jamón y queso",
+    "alias": [
+      "jyq",
+      "jamón y queso"
+    ],
+    "activo": true
+  },
+  {
+    "id": "faina-porcion",
+    "nombre": "Fainá (porción)",
+    "alias": [
+      "faina",
+      "fainá"
+    ],
+    "activo": true
+  },
+  {
+    "id": "hamburguesa-completa",
+    "nombre": "Hamburguesa completa",
+    "alias": [
+      "completa",
+      "compl",
+      "la completa",
+      "hambur completa"
+    ],
+    "activo": true
+  },
+  {
+    "id": "hamburguesa-simple",
+    "nombre": "Hamburguesa simple",
+    "alias": [
+      "simple",
+      "hambur simple",
+      "hamburguesa"
+    ],
+    "activo": true
+  },
+  {
+    "id": "milanesa-al-pan-completa",
+    "nombre": "Milanesa al pan completa",
+    "alias": [
+      "mila al pan",
+      "milanesa al pan",
+      "mila completa"
+    ],
+    "activo": true
+  },
+  {
+    "id": "milanesa-napolitana-al-plato",
+    "nombre": "Milanesa napolitana al plato",
+    "alias": [
+      "napo",
+      "napolitana",
+      "mila napo"
+    ],
+    "activo": true
+  },
+  {
+    "id": "papas-fritas",
+    "nombre": "Papas fritas",
+    "alias": [
+      "papas",
+      "fritas",
+      "porción de papas"
+    ],
+    "activo": true
+  },
+  {
+    "id": "pascualina-porcion",
+    "nombre": "Pascualina (porción)",
+    "alias": [
+      "pascualina"
+    ],
+    "activo": false
+  },
+  {
+    "id": "pizza-especial",
+    "nombre": "Pizza especial",
+    "alias": [
+      "especial",
+      "pizza con jamón"
+    ],
+    "activo": true
+  },
+  {
+    "id": "pizza-muzzarella",
+    "nombre": "Pizza muzzarella",
+    "alias": [
+      "muzza",
+      "muza",
+      "pizza común",
+      "pizza"
+    ],
+    "activo": true
+  }
+]

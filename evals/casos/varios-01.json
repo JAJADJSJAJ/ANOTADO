@@ -1,0 +1,27 @@
+{
+  "id": "varios-01",
+  "menu": "demo",
+  "categoria": "varios_mensajes",
+  "mensajes": [
+    "hola",
+    "quiero 2 chivitos al pan",
+    "ah y una pilsen",
+    "es para 18 de julio 1020"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Chivito canadiense al pan",
+        "cantidad": 2
+      },
+      {
+        "producto": "Cerveza Pilsen 1 L",
+        "cantidad": 1
+      }
+    ],
+    "entrega": {
+      "modo": "delivery",
+      "direccion": "18 de julio 1020"
+    }
+  }
+}

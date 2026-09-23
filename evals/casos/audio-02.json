@@ -1,0 +1,20 @@
+{
+  "id": "audio-02",
+  "menu": "demo",
+  "categoria": "audio_transcrito",
+  "mensajes": [
+    "quiero una mila napo al plato y una agua sin gas"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Milanesa napolitana al plato",
+        "cantidad": 1
+      },
+      {
+        "producto": "Agua sin gas 600 ml",
+        "cantidad": 1
+      }
+    ]
+  }
+}
