@@ -1,4 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // DOM solo por fetch, Response y AbortSignal (existen igual en Deno y Node).
+    // No usar APIs de navegador (window, document…): este código corre en el servidor.
+    "lib": ["ES2023", "DOM"]
+  },
   "include": ["src", "tests"]
 }
