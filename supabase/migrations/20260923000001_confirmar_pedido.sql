@@ -49,7 +49,11 @@ begin
   end if;
 
   -- 2. Items.
-  if p_items is null or jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
+  -- Primero el tipo, después el largo: jsonb_array_length falla sobre algo que no es array.
+  if jsonb_typeof(p_items) is distinct from 'array' then
+    raise exception 'Los productos tienen que venir como lista' using errcode = '22023';
+  end if;
+  if jsonb_array_length(p_items) = 0 then
     raise exception 'El pedido no tiene productos' using errcode = '22023';
   end if;
   if jsonb_array_length(p_items) > c_max_items then

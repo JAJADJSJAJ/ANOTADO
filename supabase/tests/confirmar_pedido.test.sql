@@ -1,7 +1,7 @@
 -- confirmar_pedido: permisos, recálculo del total en el servidor y validaciones.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(36);
 
 -- Estado conocido: sin pedidos previos (p. ej. de pruebas manuales). El rollback final lo deshace.
 delete from pedidos;
@@ -94,6 +94,9 @@ select lives_ok(
   'dueño crea pedido con cantidad 20 y retiro');
 select throws_ok($$select pg_temp.pedir('[]')$$, '22023', null, 'sin items');
 select throws_ok($$select pg_temp.pedir(null)$$, '22023', null, 'items null');
+select throws_ok($$select pg_temp.pedir('{"producto_id":"x"}')$$, '22023', null, 'items como objeto en vez de lista');
+select throws_ok($$select pg_temp.pedir('"hola"')$$, '22023', null, 'items como texto');
+select throws_ok($$select pg_temp.pedir('[1]')$$, '22023', null, 'item que no es objeto');
 select throws_ok(
   $$select pg_temp.pedir(jsonb_build_array(jsonb_build_object('producto_id', (select de_b from p), 'cantidad', 1)))$$,
   '22023', null, 'producto de otro negocio');
@@ -128,9 +131,33 @@ select throws_ok(
   $$select pg_temp.pedir(jsonb_build_array(jsonb_build_object('producto_id', (select coca from p), 'cantidad', 1)), '{"modo":"avion"}')$$,
   '22023', null, 'modo de entrega inválido');
 
+-- Máximos de texto: el límite exacto pasa, uno más falla.
+select lives_ok(
+  $$select pg_temp.pedir(jsonb_build_array(jsonb_build_object('producto_id', (select coca from p), 'cantidad', 1, 'notas', repeat('x', 200))),
+    jsonb_build_object('modo', 'delivery', 'direccion', repeat('d', 200)), repeat('n', 500))$$,
+  'notas de item 200, dirección 200 y notas 500 caracteres pasan');
+select throws_ok(
+  $$select pg_temp.pedir(jsonb_build_array(jsonb_build_object('producto_id', (select coca from p), 'cantidad', 1, 'notas', repeat('x', 201))))$$,
+  '22023', null, 'notas de item de 201 caracteres');
+select throws_ok(
+  $$select pg_temp.pedir(jsonb_build_array(jsonb_build_object('producto_id', (select coca from p), 'cantidad', 1)), null, repeat('n', 501))$$,
+  '22023', null, 'notas del pedido de 501 caracteres');
+select throws_ok(
+  $$select pg_temp.pedir(jsonb_build_array(jsonb_build_object('producto_id', (select coca from p), 'cantidad', 1)),
+    jsonb_build_object('modo', 'delivery', 'direccion', repeat('d', 201)))$$,
+  '22023', null, 'dirección de 201 caracteres');
+select lives_ok(
+  $$select pg_temp.pedir(jsonb_build_array(jsonb_build_object('producto_id', (select coca from p), 'cantidad', 1)),
+    jsonb_build_object('modo', 'mesa', 'mesa', repeat('9', 20)))$$,
+  'mesa de 20 caracteres pasa');
+select throws_ok(
+  $$select pg_temp.pedir(jsonb_build_array(jsonb_build_object('producto_id', (select coca from p), 'cantidad', 1)),
+    jsonb_build_object('modo', 'mesa', 'mesa', repeat('9', 21)))$$,
+  '22023', null, 'mesa de 21 caracteres');
+
 -- Atomicidad: si un item falla, no queda nada creado ------------------------------------------
 reset role;
-select is((select count(*) from pedidos where negocio_id = :A), 2::bigint, 'solo los 2 pedidos válidos existen');
+select is((select count(*) from pedidos where negocio_id = :A), 4::bigint, 'solo los 4 pedidos válidos existen');
 select is(
   (select count(*) from pedidos pe where negocio_id = :A and not exists (select 1 from pedido_items i where i.pedido_id = pe.id)),
   0::bigint, 'ningún pedido quedó sin items');
