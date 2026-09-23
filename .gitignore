@@ -27,3 +27,6 @@ Thumbs.db
 
 # Config local de Claude Code
 .claude/
+
+# Seed local con datos personales
+supabase/seed.local.sql

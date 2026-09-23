@@ -38,6 +38,10 @@ pnpm dev
 
 Usuarios de prueba (contraseña `anotado123`): `dueno@elceibo.test`, `cajero@elceibo.test`, `cocina@elceibo.test`, `dueno@laesquina.test`.
 
+Para entrar con tu propio mail, copiá `supabase/seed.local.example.sql` a `supabase/seed.local.sql` (ignorado por git), poné tu mail y corré `pnpm db:reset`.
+
+Panel local: Studio en http://127.0.0.1:54323 (tablas, usuarios, SQL) y Mailpit en http://127.0.0.1:54324 (mails que manda Auth).
+
 ## Estructura
 
 ```
