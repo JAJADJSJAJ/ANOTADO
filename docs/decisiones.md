@@ -25,6 +25,11 @@ Supabase da `ALL` (incluido `TRUNCATE`, que no pasa por RLS) a `anon` y `authent
 ### Roles y alta de negocio solo por RPC (Fase 4)
 Desde la web `miembros` es solo lectura. Con `ALL` para el dueño, podía nombrar dueños, sacar a otros dueños o dejar al negocio sin dueño. Invitar/cambiar roles y crear un negocio con su primer dueño (atómico, validando identidad) van por RPC en Fase 4. Hoy nadie puede crear negocios desde la web: no hay policy ni GRANT de insert.
 
+### Convenciones para migraciones nuevas
+- Nombres calificados con esquema (`public.es_miembro`, `public.rol_miembro`) en policies, grants y funciones. Las policies ya creadas quedan ligadas por OID al crearse, así que las viejas no dependen del `search_path`; esto es para que se lea claro y no sorprenda.
+- Toda tabla o función nueva declara sus `GRANT` (los default privileges están revocados, también para `PUBLIC`).
+- Toda FK hacia una tabla con `negocio_id` es compuesta, con su test de cruce entre negocios en `aislamiento.test.sql`.
+
 ### service_role vs RPC security definer
 - **Edge Function con `service_role`**: saltea RLS y GRANTs. La función verifica JWT, membresía y rol antes de tocar nada.
 - **RPC `security definer`**: corre como su dueño, también saltea RLS. Tiene que validar `auth.uid()`, que sea miembro con el rol correcto del `negocio_id` recibido, y **recalcular precios y total desde `productos`**, ignorando cualquier total que mande el cliente.

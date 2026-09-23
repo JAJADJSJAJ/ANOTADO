@@ -2,7 +2,7 @@
 -- solo hace lo que le corresponde. Corre con: pnpm db:test
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(40);
+select plan(45);
 
 -- Negocios y usuarios del seed.
 \set A '\'a0000000-0000-4000-8000-000000000001\''
@@ -138,6 +138,27 @@ select throws_ok(
   $$insert into mensajes (negocio_id, conversacion_id, rol, contenido)
     values ('a0000000-0000-4000-8000-000000000001', 'b3000000-0000-4000-8000-000000000001', 'cliente', 'x')$$,
   '23503', null, 'mensaje de A no puede colgar de una conversación de B');
+select throws_ok(
+  $$insert into pedido_items (negocio_id, pedido_id, producto_id, nombre_snapshot, precio_unitario_centavos, cantidad)
+    values ('a0000000-0000-4000-8000-000000000001', 'a4000000-0000-4000-8000-000000000001',
+            (select id from productos where negocio_id = 'b0000000-0000-4000-8000-000000000001' limit 1), 'x', 1, 1)$$,
+  '23503', null, 'item de A no puede usar un producto de B');
+select throws_ok(
+  $$insert into conversaciones (negocio_id, cliente_id)
+    values ('a0000000-0000-4000-8000-000000000001', 'b2000000-0000-4000-8000-000000000001')$$,
+  '23503', null, 'conversación de A no puede ser de un cliente de B');
+select throws_ok(
+  $$insert into pedidos (negocio_id, origen, cliente_id)
+    values ('a0000000-0000-4000-8000-000000000001', 'mostrador', 'b2000000-0000-4000-8000-000000000001')$$,
+  '23503', null, 'pedido de A no puede ser de un cliente de B');
+select throws_ok(
+  $$insert into pedidos (negocio_id, origen, conversacion_id)
+    values ('a0000000-0000-4000-8000-000000000001', 'whatsapp', 'b3000000-0000-4000-8000-000000000001')$$,
+  '23503', null, 'pedido de A no puede salir de una conversación de B');
+select throws_ok(
+  $$insert into uso_ia (negocio_id, conversacion_id, modelo, tokens_entrada, tokens_salida)
+    values ('a0000000-0000-4000-8000-000000000001', 'b3000000-0000-4000-8000-000000000001', 'x', 1, 1)$$,
+  '23503', null, 'uso de IA de A no puede apuntar a una conversación de B');
 
 -- Verificación: las escrituras de arriba no cambiaron nada ----------------------------------
 
