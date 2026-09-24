@@ -2,7 +2,7 @@
 -- cambia el operador (nadie desde la web).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(7);
+select plan(10);
 
 \set A '\'a0000000-0000-4000-8000-000000000001\''
 
@@ -15,6 +15,14 @@ end;
 $$;
 
 select is((select ia_permitida from negocios where slug = 'el-ceibo'), true, 'seed: El Ceibo con IA');
+
+-- Permisos: UPDATE solo por columnas, nunca sobre la tabla entera.
+select ok(not has_table_privilege('authenticated', 'public.negocios', 'UPDATE'),
+  'authenticated no tiene UPDATE sobre toda la tabla negocios');
+select ok(not has_column_privilege('authenticated', 'public.negocios', 'ia_permitida', 'UPDATE'),
+  'authenticated no tiene UPDATE sobre ia_permitida');
+select ok(not has_table_privilege('anon', 'public.negocios', 'SELECT, UPDATE'),
+  'anon no lee ni edita negocios');
 insert into negocios (nombre, slug) values ('Nuevo', 'nuevo');
 select is((select ia_permitida from negocios where slug = 'nuevo'), false, 'un negocio nuevo arranca sin IA');
 
