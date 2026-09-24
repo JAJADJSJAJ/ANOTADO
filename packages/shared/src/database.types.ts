@@ -544,6 +544,13 @@ export type Database = {
     }
     Functions: {
       alias_validos: { Args: { alias: string[] }; Returns: boolean }
+      avanzar_estado: {
+        Args: {
+          p_desde: Database["public"]["Enums"]["estado_pedido"]
+          p_pedido_id: string
+        }
+        Returns: Json
+      }
       cerrar_conversacion: {
         Args: { p_conversacion_id: string }
         Returns: undefined
@@ -586,6 +593,31 @@ export type Database = {
           conversacion_id: string
           version: number
         }[]
+      }
+      mover_estado: {
+        Args: {
+          p_desde: Database["public"]["Enums"]["estado_pedido"]
+          p_hacia: Database["public"]["Enums"]["estado_pedido"]
+          p_pedido_id: string
+        }
+        Returns: Json
+      }
+      negocio_de_topic: { Args: { p_topic: string }; Returns: string }
+      pedidos_cocina: { Args: { p_negocio_id: string }; Returns: Json }
+      puede_mover_estado: {
+        Args: {
+          p_desde: Database["public"]["Enums"]["estado_pedido"]
+          p_hacia: Database["public"]["Enums"]["estado_pedido"]
+          p_negocio_id: string
+        }
+        Returns: boolean
+      }
+      retroceder_estado: {
+        Args: {
+          p_desde: Database["public"]["Enums"]["estado_pedido"]
+          p_pedido_id: string
+        }
+        Returns: Json
       }
       tiene_rol: {
         Args: { n: string; roles: Database["public"]["Enums"]["rol_miembro"][] }
