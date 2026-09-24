@@ -160,10 +160,10 @@ Los navegadores bloquean el audio y la pantalla completa hasta un gesto del usua
 - **Edge Function con `@supabase/server`**: exige las claves de firma JWT nuevas (asimétricas) del proyecto y rechaza los tokens HS256 viejos. Queda como paso a chequear en `docs/deploy.md`.
 - **El seed no sube a la nube.** El local de demo se crea con `supabase/demo/negocio-demo.sql`, con usuarios creados a mano y contraseñas propias.
 - **Sin usuario público en la demo**, para no dejar abierto el gasto de IA. Se da acceso a mano.
+- **Edge Functions con `packages/shared`: resuelto.** `functions deploy` empaqueta con Docker siguiendo el import map, y `shared` va adentro (1,7 MB). Verificado en la nube con `scripts/verificar-parse-order.mjs`, con sesiones reales: la función responde con sus propios mensajes, cocina recibe 403 y con la IA apagada no se registra uso.
 - **Ping diario** (GitHub Actions) para que el plan gratis no pause el proyecto.
 - Registro de usuarios desactivado en la nube y Realtime solo con canales privados (configuración del dashboard).
 
 ## Pendiente de decidir
 
-- **Deploy de Edge Functions que importan `packages/shared`.** En local funciona (import map en `supabase/functions/parse-order/deno.json`). Se confirma en el primer deploy con `scripts/verificar-parse-order.mjs`, con sesiones reales: un 401 sin sesión lo da el gateway sin arrancar la función, así que no prueba nada. El plan B está en `docs/deploy.md`.
 - **Clave de idempotencia para tarjetas nuevas de WhatsApp** (Fase 2). No bloquea.
