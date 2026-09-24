@@ -4,7 +4,8 @@
 // confirmar_pedido. Flujo:
 //   1. Solicitud: POST, JSON, tamaño acotado, configuración de IA válida.
 //   2. JWT válido (withSupabase) y rol dueño/cajero en el negocio.
-//   3. Límite atómico por usuario y por negocio (consumir_limite_ia).
+//   3. Límite atómico por usuario y por negocio (consumir_limite_ia). Cuenta INTENTOS, no
+//      interpretaciones exitosas: a propósito, un intento fallido también le cuesta al proveedor.
 //   4. Lecturas: menú activo, conversación (del negocio, abierta, versión) e historial.
 //   5. IA sin escribir nada: timeout 15 s y un reintento (llamarIA), respuesta validada con Zod.
 //   6. Reducer de shared: valida productos, cantidades y largos acción por acción.
@@ -44,7 +45,7 @@ const EntradaSchema = z.object({
   negocio_id: z.uuid(),
   /** null = conversación nueva (tarjeta nueva). */
   conversacion_id: z.uuid().nullable().default(null),
-  /** Versión de la conversación que tiene la pantalla. Si la base tiene otra, 409. */
+  /** Versión de la conversación que tiene la pantalla (obligatoria si hay conversacion_id). */
   version: z.int().min(0).optional(),
   mensaje: z.string().trim().min(1).max(2000),
   etiqueta: z.string().trim().max(40).optional(),
@@ -63,7 +64,16 @@ function leerConfigIA(): ConfigIA | string {
   const apiKey = Deno.env.get('IA_API_KEY');
   const modelo = Deno.env.get('IA_MODELO');
   if (!baseUrl || !apiKey || !modelo) return 'faltan IA_BASE_URL, IA_API_KEY o IA_MODELO';
-  if (!/^https?:\/\//.test(baseUrl)) return 'IA_BASE_URL no es una URL http(s)';
+  // La URL la pone solo el operador (secreto del servidor), nunca la solicitud. Igual se valida:
+  // https obligatorio salvo para desarrollo local.
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    return 'IA_BASE_URL no es una URL válida';
+  }
+  const local = ['localhost', '127.0.0.1', 'host.docker.internal'].includes(url.hostname);
+  if (url.protocol !== 'https:' && !(local && url.protocol === 'http:')) return 'IA_BASE_URL tiene que ser https';
   let cuerpoExtra: Record<string, unknown> | undefined;
   const extra = Deno.env.get('IA_EXTRA');
   if (extra) {
@@ -86,14 +96,15 @@ function leerConfigIA(): ConfigIA | string {
 }
 
 /** Cuerpo JSON con tamaño máximo (no se confía en Content-Length). */
-async function leerCuerpo(req: Request): Promise<unknown> {
-  if (!req.headers.get('content-type')?.toLowerCase().startsWith('application/json')) return null;
+async function leerCuerpo(req: Request): Promise<{ cuerpo: unknown } | { status: 400 | 413 | 415 }> {
+  const tipo = req.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
+  if (tipo !== 'application/json') return { status: 415 };
   const texto = await req.text();
-  if (new TextEncoder().encode(texto).length > MAX_CUERPO_BYTES) return null;
+  if (new TextEncoder().encode(texto).length > MAX_CUERPO_BYTES) return { status: 413 };
   try {
-    return JSON.parse(texto);
+    return { cuerpo: JSON.parse(texto) };
   } catch {
-    return null;
+    return { status: 400 };
   }
 }
 
@@ -106,8 +117,15 @@ export default {
       console.error(`parse-order: configuración de IA inválida: ${config}`);
       return error(500, 'La IA no está configurada');
     }
-    const entrada = EntradaSchema.safeParse(await leerCuerpo(req));
+    const leido = await leerCuerpo(req);
+    if ('status' in leido) return error(leido.status, leido.status === 413 ? 'Mensaje demasiado largo' : 'Datos inválidos');
+    const entrada = EntradaSchema.safeParse(leido.cuerpo);
     if (!entrada.success) return error(400, 'Datos inválidos');
+    // Una tarjeta existente tiene que decir de qué versión parte: si no, no se sabría si la
+    // pantalla estaba desactualizada (control optimista completo).
+    if (entrada.data.conversacion_id && entrada.data.version === undefined) {
+      return error(400, 'Falta la versión de la conversación');
+    }
     const { negocio_id, mensaje, etiqueta } = entrada.data;
 
     // 2. Rol, con el cliente del usuario: tiene_rol usa auth.uid() de quien llama.
@@ -156,7 +174,7 @@ export default {
         .maybeSingle();
       if (errConv) return error(500, 'No se pudo cargar la conversación');
       if (!conv || conv.estado !== 'abierta') return error(409, 'La conversación no existe o ya está cerrada');
-      if (entrada.data.version !== undefined && entrada.data.version !== conv.version) {
+      if (entrada.data.version !== conv.version) {
         return error(409, 'Esta tarjeta cambió en otra pantalla. Recargá la página.');
       }
       version = conv.version;
@@ -234,6 +252,7 @@ export default {
       pendientes,
       /** Solo lo de este mensaje, para resaltarlo en pantalla. */
       nuevos: { dudosos: aplicado.dudosos, preguntas: aplicado.preguntas },
+      // Solo una sugerencia para la pantalla: nunca autoriza nada. Confirmar exige al cajero y la RPC.
       listo_para_confirmar: resultado.respuesta.listo_para_confirmar,
     });
   }),

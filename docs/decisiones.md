@@ -110,7 +110,11 @@ Sin WhatsApp conectado no hay teléfono para saber de quién es cada mensaje: el
 Revisión de seguridad de la Fase 2. La función hace todas las lecturas y validaciones, llama a la IA **sin escribir nada**, y guarda mensaje, borrador, pendientes y uso de IA en **una sola transacción** (`guardar_interpretacion`). Si algo falla antes, no queda nada a medias (ni conversaciones vacías ni mensajes duplicados al reintentar: el texto sigue en la pantalla del cajero). Esto cambia el paso 4 del plan original ("guardar el mensaje antes de la IA"): para WhatsApp real, el mensaje lo va a guardar el webhook al recibirlo, antes de interpretar.
 
 - **Concurrencia:** `conversaciones.version`. La función lee la versión antes de la IA y `guardar_interpretacion` bloquea la fila y exige la misma versión: si otro mensaje se guardó en el medio, 409 y no se pierde nada. La pantalla también manda su versión: si está desactualizada (otra pestaña), 409.
-- **Límite atómico:** `consumir_limite_ia` incrementa contadores por minuto con upsert: 20 por usuario y 60 por negocio. Un cajero no agota solo la cuota del local.
+- **Límite atómico:** `consumir_limite_ia` incrementa contadores por minuto con upsert: 20 por usuario y 60 por negocio. Un cajero no agota solo la cuota del local. Cuenta **intentos**, no interpretaciones exitosas: a propósito, porque un intento fallido también le cuesta al proveedor.
+- **Versión obligatoria** al mandar un mensaje a una tarjeta existente (400 si falta): control optimista completo, también contra pantallas viejas.
+- **Defensa en la base:** `guardar_interpretacion` rechaza borradores con productos de otro negocio aunque la función ya los filtre.
+- **Textos de la IA acotados:** dudosos y preguntas se recortan a 300 caracteres en el reducer. Los errores del proveedor se loguean solo con el código HTTP (su cuerpo podría repetir parte del prompt).
+- `listo_para_confirmar` es solo una sugerencia para la pantalla: nunca confirma nada.
 - **Entrada acotada:** solo `application/json`, cuerpo de hasta 32 KB, configuración de IA validada al inicio (un `IA_EXTRA` mal formado da 500 claro, no una excepción suelta). Respuesta de la IA de hasta 200.000 caracteres.
 - **Cada consulta chequea su error** y todas las lecturas con service_role filtran por `negocio_id`, incluido el historial.
 - `guardar_interpretacion` y `consumir_limite_ia` reciben el negocio y el usuario por parámetro: por eso **solo las puede ejecutar service_role** (test: authenticated recibe 42501).

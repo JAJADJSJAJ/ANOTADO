@@ -46,3 +46,15 @@ describe('ConfirmarPedidoSchema', () => {
     expect(r.success).toBe(false);
   });
 });
+
+describe('BorradorSchema', () => {
+  it('descarta campos extra (precios, totales) que mande el navegador', async () => {
+    const { BorradorSchema } = await import('../src/index.ts');
+    const b = BorradorSchema.parse({
+      items: [{ producto_id: COCA, cantidad: 1, precio_centavos: 1, descuento: 100 }],
+      entrega: null,
+      total_centavos: 0,
+    });
+    expect(b).toEqual({ items: [{ producto_id: COCA, cantidad: 1 }], entrega: null });
+  });
+});

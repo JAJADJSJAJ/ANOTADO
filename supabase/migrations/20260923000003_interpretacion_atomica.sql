@@ -76,6 +76,20 @@ begin
   if p_mensaje is null or length(p_mensaje) not between 1 and 2000 then
     raise exception 'mensaje inválido' using errcode = '22023';
   end if;
+  -- Defensa en profundidad: la Edge Function ya filtra, pero la base tampoco acepta un
+  -- borrador con productos de otro negocio (ifs separados: primero el tipo, después recorrer).
+  if jsonb_typeof(coalesce(p_borrador -> 'items', '[]')) is distinct from 'array' then
+    raise exception 'borrador.items tiene que ser una lista' using errcode = '22023';
+  end if;
+  if exists (
+    select 1 from jsonb_array_elements(coalesce(p_borrador -> 'items', '[]')) i
+    where not exists (
+      select 1 from public.productos p
+      where p.negocio_id = p_negocio_id and p.id::text = i ->> 'producto_id'
+    )
+  ) then
+    raise exception 'El borrador tiene productos que no son de este negocio' using errcode = '22023';
+  end if;
 
   if v_id is null then
     insert into public.conversaciones (negocio_id, etiqueta, borrador, pendientes, version, ultimo_mensaje_at)

@@ -94,9 +94,10 @@ async function intentar(config: ConfigIA, mensajes: Mensaje[]): Promise<Resultad
   }
 
   if (!res.ok) {
-    // El cuerpo del error puede traer detalles útiles, pero nunca datos del cliente.
-    const detalle = (await res.text().catch(() => '')).slice(0, 300);
-    throw new ErrorIA(`La IA respondió ${res.status}: ${detalle}`, res.status === 429 || res.status >= 500);
+    // Solo el código: el cuerpo del error del proveedor podría repetir parte del prompt
+    // (datos del cliente), y este mensaje se loguea.
+    await res.body?.cancel();
+    throw new ErrorIA(`La IA respondió ${res.status}`, res.status === 429 || res.status >= 500);
   }
 
   // Tope al tamaño: con max_tokens 1500 una respuesta legítima ocupa unos pocos KB.

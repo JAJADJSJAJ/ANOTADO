@@ -181,3 +181,12 @@ it('es pura: no muta el borrador de entrada', () => {
   aplicar([agregar('p1', 1), { tipo: 'quitar', producto: 'p1' }, agregar('p2', 3)], inicial);
   expect(inicial).toEqual(copia);
 });
+
+it('recorta dudosos y preguntas largos que vengan de la IA', () => {
+  const r = aplicar([
+    { tipo: 'dudoso', texto_original: 'x'.repeat(5000) },
+    { tipo: 'aclarar', pregunta: 'y'.repeat(5000) },
+  ]);
+  expect(r.dudosos[0]).toHaveLength(300);
+  expect(r.preguntas[0]).toHaveLength(300);
+});

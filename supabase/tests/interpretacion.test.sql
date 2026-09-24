@@ -1,7 +1,7 @@
 -- guardar_interpretacion y consumir_limite_ia: atomicidad, versión y permisos.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(18);
 
 delete from limites_ia;
 
@@ -59,6 +59,12 @@ select throws_ok(
 select throws_ok(
   $$select guardar_interpretacion('a0000000-0000-4000-8000-000000000001', null, null, null, '', '{}', '{}', 'x', 1, 1)$$,
   '22023', null, 'mensaje vacío');
+select throws_ok(
+  format($$select guardar_interpretacion('a0000000-0000-4000-8000-000000000001', null, null, null, 'hola',
+    jsonb_build_object('items', jsonb_build_array(jsonb_build_object('producto_id', %L, 'cantidad', 1)), 'entrega', null),
+    '{}', 'x', 1, 1)$$,
+    (select id from productos where negocio_id = 'b0000000-0000-4000-8000-000000000001' limit 1)),
+  '22023', null, 'la base rechaza un borrador con productos de otro negocio');
 
 -- Límite: 2 por usuario, 3 por negocio.
 select is(consumir_limite_ia(:A, '00000000-0000-4000-a000-0000000000a1', 3, 2), true, 'usuario 1: 1ra llamada');

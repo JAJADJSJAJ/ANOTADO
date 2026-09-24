@@ -6,6 +6,9 @@ import type { Borrador, EntregaBorrador } from './schemas.ts';
 /** Sin la referencia interna (p7…): al cajero no le dice nada. */
 const PRODUCTO_DESCONOCIDO = 'La IA nombró un producto que no está en el menú';
 
+/** Largo máximo de un dudoso o una pregunta (lo que venga de la IA se recorta). */
+export const MAX_TEXTO_PENDIENTE = 300;
+
 /** Producto del menú tal como se le mostró a la IA. */
 export type ProductoMenu = {
   id: string;
@@ -140,13 +143,13 @@ export function aplicarAcciones(
       }
 
       case 'dudoso': {
-        const texto = a.texto_original.trim();
+        const texto = a.texto_original.trim().slice(0, MAX_TEXTO_PENDIENTE);
         if (texto) dudosos.push(texto);
         break;
       }
 
       case 'aclarar': {
-        const pregunta = a.pregunta.trim();
+        const pregunta = a.pregunta.trim().slice(0, MAX_TEXTO_PENDIENTE);
         if (pregunta) preguntas.push(pregunta);
         break;
       }
