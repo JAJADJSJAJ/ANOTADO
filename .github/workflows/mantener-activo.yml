@@ -1,0 +1,27 @@
+name: Mantener activa la demo
+
+# El plan gratis de Supabase pausa los proyectos sin actividad. Un pedido por día alcanza.
+# Usa variables del repo (no secretos: la URL y la publishable key son públicas).
+on:
+  schedule:
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    if: vars.SUPABASE_URL != ''
+    steps:
+      - name: Consulta a la API
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          # Sin sesión la base responde 401 (anon no tiene permisos): igual cuenta como actividad.
+          # Falla solo si el proyecto no responde o da error del servidor.
+          codigo=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" "$SUPABASE_URL/rest/v1/negocios?select=id&limit=1")
+          echo "HTTP $codigo"
+          test "$codigo" -ge 200 -a "$codigo" -lt 500
