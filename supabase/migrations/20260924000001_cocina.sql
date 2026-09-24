@@ -50,13 +50,13 @@ begin
             where i.pedido_id = p.id and i.negocio_id = p_negocio_id
           ), '[]'::jsonb)
         )
-        order by p.created_at, p.numero)
+        order by p.created_at, p.numero, p.id)
       from (
         select * from public.pedidos
         where negocio_id = p_negocio_id
           and estado in ('pendiente', 'en_cocina', 'listo')
           and created_at > now() - interval '24 hours'
-        order by created_at
+        order by created_at, numero, id  -- desempate estable; el límite va después del filtro
         limit c_max_pedidos
       ) p
     ), '[]'::jsonb)
@@ -177,7 +177,9 @@ create policy "miembros escuchan los pedidos de su negocio" on realtime.messages
     and public.es_miembro(public.negocio_de_topic(realtime.topic()))
   );
 
--- Después de crear un pedido o cambiar su estado. Corre dentro de la transacción del
+-- Al crear un pedido y cuando su estado cambia de verdad (un update al mismo estado no
+-- avisa). Dos triggers porque el WHEN de un trigger de insert no puede mirar OLD.
+-- Corre dentro de la transacción del
 -- pedido: el aviso sale al confirmar. realtime.send no falla nunca (loguea y sigue), así
 -- que un problema de Realtime no impide crear ni mover pedidos.
 create function public.avisar_pedido() returns trigger
@@ -195,6 +197,11 @@ $$;
 
 revoke all on function public.avisar_pedido() from public, anon, authenticated;
 
-create trigger pedidos_avisar
-  after insert or update of estado on public.pedidos
+create trigger pedidos_avisar_alta
+  after insert on public.pedidos
   for each row execute function public.avisar_pedido();
+
+create trigger pedidos_avisar_estado
+  after update of estado on public.pedidos
+  for each row when (old.estado is distinct from new.estado)
+  execute function public.avisar_pedido();

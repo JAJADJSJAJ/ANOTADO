@@ -1,7 +1,7 @@
 -- Cocina: lectura acotada (pedidos_cocina), cambios de estado por rol y avisos en tiempo real.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(54);
+select plan(57);
 
 delete from pedidos;
 delete from contadores_pedidos;
@@ -62,7 +62,34 @@ select ok(exists (
 select is((
   select array_agg(k order by k) from realtime.messages m, jsonb_object_keys(m.payload) k
   where m.topic = :topic_a and m.payload ->> 'pedido_id' = 'a4000000-0000-4000-8000-000000000001'
-), array['estado', 'id', 'pedido_id'], 'el aviso lleva solo el id y el estado (sin dirección ni datos del cliente)');
+), array['estado', 'id', 'pedido_id'], 'el aviso lleva solo el pedido y el estado (sin dirección ni datos del cliente)');
+-- La clave id la agrega realtime.send: es el id del mensaje, no del pedido. La web la ignora
+-- (AvisoPedidoSchema lee pedido_id y estado).
+select isnt((
+  select payload ->> 'id' from realtime.messages
+  where topic = :topic_a and payload ->> 'pedido_id' = 'a4000000-0000-4000-8000-000000000001'
+), 'a4000000-0000-4000-8000-000000000001', 'id del aviso es del mensaje, no del pedido');
+
+-- Un update al mismo estado no avisa.
+create temp table antes as select count(*) as n from realtime.messages where topic = :topic_a;
+update pedidos set estado = 'pendiente' where id = 'a4000000-0000-4000-8000-000000000001';
+update pedidos set notas = 'otra cosa' where id = 'a4000000-0000-4000-8000-000000000002';
+select is((select count(*) from realtime.messages where topic = :topic_a), (select n from antes),
+  'mismo estado u otra columna: sin aviso');
+update pedidos set notas = null where id = 'a4000000-0000-4000-8000-000000000002';
+
+-- Qué puede ejecutar la web: solo las RPC públicas; los helpers no.
+select results_eq(
+  $$select p.proname::text collate "default", has_function_privilege('authenticated', p.oid, 'EXECUTE'),
+           has_function_privilege('anon', p.oid, 'EXECUTE')
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname in ('pedidos_cocina', 'puede_mover_estado', 'mover_estado',
+      'avanzar_estado', 'retroceder_estado', 'negocio_de_topic', 'avisar_pedido', 'cancelar_pedido')
+    order by 1$$,
+  $$values ('avanzar_estado', true, false), ('avisar_pedido', false, false), ('cancelar_pedido', true, false),
+           ('mover_estado', false, false), ('negocio_de_topic', true, false), ('pedidos_cocina', true, false),
+           ('puede_mover_estado', false, false), ('retroceder_estado', true, false)$$,
+  'authenticated ejecuta solo las RPC públicas; anon nada');
 select ok(exists (
   select 1 from realtime.messages
   where topic = :topic_a and payload ->> 'pedido_id' = 'a4000000-0000-4000-8000-000000000003'
