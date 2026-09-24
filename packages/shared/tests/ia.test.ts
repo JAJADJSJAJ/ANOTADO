@@ -143,3 +143,14 @@ describe('RespuestaIASchema', () => {
     ]);
   });
 });
+
+describe('llamarIA: límites', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('rechaza respuestas gigantes sin reintentar', async () => {
+    const fetchFalso = vi.fn().mockImplementation(async () => new Response('x'.repeat(300_000)));
+    vi.stubGlobal('fetch', fetchFalso);
+    await expect(llamarIA({ baseUrl: 'https://ia.test', apiKey: 'k', modelo: 'm' }, [])).rejects.toThrow('demasiado grande');
+    expect(fetchFalso).toHaveBeenCalledTimes(1);
+  });
+});

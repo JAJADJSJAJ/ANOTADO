@@ -46,6 +46,8 @@ export class ErrorIA extends Error {
 
 type Mensaje = { role: 'system' | 'user'; content: string };
 
+const MAX_RESPUESTA_CARACTERES = 200_000;
+
 /** JSON Schema de la respuesta, limpio para el modo estricto de los proveedores. */
 export const ESQUEMA_RESPUESTA = limpiarEsquema(z.toJSONSchema(RespuestaIASchema));
 
@@ -97,11 +99,19 @@ async function intentar(config: ConfigIA, mensajes: Mensaje[]): Promise<Resultad
     throw new ErrorIA(`La IA respondió ${res.status}: ${detalle}`, res.status === 429 || res.status >= 500);
   }
 
-  const datos = (await res.json()) as {
+  // Tope al tamaño: con max_tokens 1500 una respuesta legítima ocupa unos pocos KB.
+  const texto = await res.text();
+  if (texto.length > MAX_RESPUESTA_CARACTERES) throw new ErrorIA('La respuesta de la IA es demasiado grande', false);
+  let datos: {
     model?: string;
     choices?: { message?: { content?: string | null } }[];
     usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
+  try {
+    datos = JSON.parse(texto);
+  } catch {
+    throw new ErrorIA('La IA devolvió una respuesta que no es JSON', true);
+  }
   const contenido = datos.choices?.[0]?.message?.content;
   if (!contenido) throw new ErrorIA('La IA devolvió una respuesta vacía', true);
 

@@ -106,6 +106,15 @@ Lo que más movió los números no fue el modelo sino la configuración:
 ### Tarjetas de WhatsApp en el mostrador
 Sin WhatsApp conectado no hay teléfono para saber de quién es cada mensaje: el cajero abre una tarjeta por cliente y pega ahí sus mensajes. Cada tarjeta es una `conversacion` (con `etiqueta` y `pendientes`), así recargar la página no pierde nada. La pantalla manda su borrador (el cajero pudo editarlo) y `parse-order` lo revalida: descarta productos que no sean activos del negocio. Confirmar vincula el pedido a la conversación y la cierra; "Descartar" la cierra sin pedido. Con WhatsApp real, la conversación se identifica sola por el teléfono.
 
+### parse-order: la IA no escribe; todo se guarda junto al final
+Revisión de seguridad de la Fase 2. La función hace todas las lecturas y validaciones, llama a la IA **sin escribir nada**, y guarda mensaje, borrador, pendientes y uso de IA en **una sola transacción** (`guardar_interpretacion`). Si algo falla antes, no queda nada a medias (ni conversaciones vacías ni mensajes duplicados al reintentar: el texto sigue en la pantalla del cajero). Esto cambia el paso 4 del plan original ("guardar el mensaje antes de la IA"): para WhatsApp real, el mensaje lo va a guardar el webhook al recibirlo, antes de interpretar.
+
+- **Concurrencia:** `conversaciones.version`. La función lee la versión antes de la IA y `guardar_interpretacion` bloquea la fila y exige la misma versión: si otro mensaje se guardó en el medio, 409 y no se pierde nada. La pantalla también manda su versión: si está desactualizada (otra pestaña), 409.
+- **Límite atómico:** `consumir_limite_ia` incrementa contadores por minuto con upsert: 20 por usuario y 60 por negocio. Un cajero no agota solo la cuota del local.
+- **Entrada acotada:** solo `application/json`, cuerpo de hasta 32 KB, configuración de IA validada al inicio (un `IA_EXTRA` mal formado da 500 claro, no una excepción suelta). Respuesta de la IA de hasta 200.000 caracteres.
+- **Cada consulta chequea su error** y todas las lecturas con service_role filtran por `negocio_id`, incluido el historial.
+- `guardar_interpretacion` y `consumir_limite_ia` reciben el negocio y el usuario por parámetro: por eso **solo las puede ejecutar service_role** (test: authenticated recibe 42501).
+
 ### WhatsApp: número de prueba de Meta, no Twilio
 Meta da un número de prueba gratis con hasta 5 destinatarios autorizados, con la misma API que producción. Twilio cobra por mensaje y usa otro formato, que habría que reescribir al pasar al número real. El orden queda: parser (Fase 2) → webhook con número de prueba (parte de Fase 5, adelantada) → cocina y deploy (Fase 3).
 

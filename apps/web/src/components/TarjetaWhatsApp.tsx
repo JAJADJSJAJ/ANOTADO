@@ -15,6 +15,8 @@ import { PanelPedido } from './PanelPedido.tsx';
 /** Estado inicial de una tarjeta: nueva (sin conversación) o recuperada de la base. */
 export type DatosTarjeta = {
   conversacionId: string | null;
+  /** Versión de la conversación en la base (se manda para detectar cambios en otra pantalla). */
+  version: number | null;
   etiqueta: string;
   borrador: Borrador;
   pendientes: Pendientes;
@@ -22,6 +24,7 @@ export type DatosTarjeta = {
 
 type RespuestaParse = {
   conversacion_id: string;
+  version: number;
   borrador: Borrador;
   pendientes: Pendientes;
 };
@@ -44,6 +47,7 @@ export function TarjetaWhatsApp({
   onCerrada: (confirmado: PedidoConfirmado | null, etiqueta: string) => void;
 }) {
   const [conversacionId, setConversacionId] = useState(inicial.conversacionId);
+  const [version, setVersion] = useState(inicial.version);
   const [etiqueta, setEtiqueta] = useState(inicial.etiqueta);
   const [borrador, setBorrador] = useState<Borrador>(inicial.borrador);
   const [entrega, setEntrega] = useState<DatosEntrega>(desdeEntregaBorrador(inicial.borrador.entrega));
@@ -63,6 +67,7 @@ export function TarjetaWhatsApp({
       body: {
         negocio_id: negocioId,
         conversacion_id: conversacionId,
+        ...(version !== null && { version }),
         mensaje,
         etiqueta: etiqueta.trim(),
         // Lo que se ve en pantalla (el cajero pudo haberlo editado): el servidor lo revalida.
@@ -76,6 +81,7 @@ export function TarjetaWhatsApp({
       return;
     }
     setConversacionId(data.conversacion_id);
+    setVersion(data.version);
     setBorrador(data.borrador);
     setEntrega(desdeEntregaBorrador(data.borrador.entrega));
     setPendientes(data.pendientes);

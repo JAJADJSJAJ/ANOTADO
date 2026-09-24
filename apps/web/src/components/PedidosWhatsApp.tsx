@@ -10,6 +10,7 @@ type Tarjeta = { clave: string; datos: DatosTarjeta };
 
 const TARJETA_NUEVA: DatosTarjeta = {
   conversacionId: null,
+  version: null,
   etiqueta: '',
   borrador: borradorVacio(),
   pendientes: { dudosos: [], preguntas: [], errores: [] },
@@ -39,7 +40,7 @@ export function PedidosWhatsApp({
   useEffect(() => {
     void supabase
       .from('conversaciones')
-      .select('id, etiqueta, borrador, pendientes')
+      .select('id, version, etiqueta, borrador, pendientes')
       .eq('negocio_id', negocioId)
       .eq('estado', 'abierta')
       .order('created_at')
@@ -50,6 +51,7 @@ export function PedidosWhatsApp({
             clave: c.id,
             datos: {
               conversacionId: c.id,
+              version: c.version,
               etiqueta: c.etiqueta ?? '',
               borrador: BorradorSchema.catch(borradorVacio()).parse(c.borrador),
               pendientes: PendientesSchema.catch({ dudosos: [], preguntas: [], errores: [] }).parse(c.pendientes),
