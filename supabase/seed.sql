@@ -32,10 +32,11 @@ select pg_temp.crear_usuario('00000000-0000-4000-a000-0000000000a3', 'cocina@elc
 select pg_temp.crear_usuario('00000000-0000-4000-a000-0000000000b1', 'dueno@laesquina.test');
 select pg_temp.crear_usuario('00000000-0000-4000-a000-0000000000b2', 'cajero@laesquina.test');
 
-insert into negocios (id, nombre, slug, horarios) values
-  ('a0000000-0000-4000-8000-000000000001', 'Rotisería El Ceibo', 'el-ceibo',
+-- El Ceibo tiene la IA habilitada; La Esquina no (para ver ese estado en local).
+insert into negocios (id, nombre, slug, ia_permitida, horarios) values
+  ('a0000000-0000-4000-8000-000000000001', 'Rotisería El Ceibo', 'el-ceibo', true,
    '{"mar":[["19:00","00:30"]],"mie":[["19:00","00:30"]],"jue":[["19:00","00:30"]],"vie":[["19:00","01:30"]],"sab":[["19:00","01:30"]],"dom":[["11:30","14:30"],["19:00","00:30"]]}'),
-  ('b0000000-0000-4000-8000-000000000001', 'Pizzería La Esquina', 'la-esquina',
+  ('b0000000-0000-4000-8000-000000000001', 'Pizzería La Esquina', 'la-esquina', false,
    '{"vie":[["20:00","00:00"]],"sab":[["20:00","00:00"]]}');
 
 insert into miembros (negocio_id, user_id, rol) values

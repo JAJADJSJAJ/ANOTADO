@@ -282,6 +282,8 @@ export type Database = {
           created_at: string
           hora_corte_jornada: string
           horarios: Json
+          ia_activa: boolean
+          ia_permitida: boolean
           id: string
           nombre: string
           slug: string
@@ -294,6 +296,8 @@ export type Database = {
           created_at?: string
           hora_corte_jornada?: string
           horarios?: Json
+          ia_activa?: boolean
+          ia_permitida?: boolean
           id?: string
           nombre: string
           slug: string
@@ -306,6 +310,8 @@ export type Database = {
           created_at?: string
           hora_corte_jornada?: string
           horarios?: Json
+          ia_activa?: boolean
+          ia_permitida?: boolean
           id?: string
           nombre?: string
           slug?: string
@@ -371,6 +377,8 @@ export type Database = {
       }
       pedidos: {
         Row: {
+          cancelado_motivo: string | null
+          cancelado_por: string | null
           cliente_id: string | null
           conversacion_id: string | null
           creado_por: string | null
@@ -388,6 +396,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cancelado_motivo?: string | null
+          cancelado_por?: string | null
           cliente_id?: string | null
           conversacion_id?: string | null
           creado_por?: string | null
@@ -405,6 +415,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cancelado_motivo?: string | null
+          cancelado_por?: string | null
           cliente_id?: string | null
           conversacion_id?: string | null
           creado_por?: string | null
@@ -549,6 +561,10 @@ export type Database = {
           p_desde: Database["public"]["Enums"]["estado_pedido"]
           p_pedido_id: string
         }
+        Returns: Json
+      }
+      cancelar_pedido: {
+        Args: { p_motivo?: string; p_pedido_id: string }
         Returns: Json
       }
       cerrar_conversacion: {

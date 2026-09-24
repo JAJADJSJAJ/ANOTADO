@@ -3,7 +3,8 @@
 // El pedido NUNCA se crea acá: la IA propone, el cajero revisa y confirma con la RPC
 // confirmar_pedido. Flujo:
 //   1. Solicitud: POST, JSON, tamaño acotado, configuración de IA válida.
-//   2. JWT válido (withSupabase) y rol dueño/cajero en el negocio.
+//   2. JWT válido (withSupabase), rol dueño/cajero en el negocio y la IA habilitada para el
+//      negocio (ia_permitida por el operador, ia_activa por el dueño).
 //   3. Límite atómico por usuario y por negocio (consumir_limite_ia). Cuenta INTENTOS, no
 //      interpretaciones exitosas: a propósito, un intento fallido también le cuesta al proveedor.
 //   4. Lecturas: menú activo, conversación (del negocio, abierta, versión) e historial.
@@ -153,6 +154,17 @@ export default {
 
     // Desde acá, service_role (salta RLS): TODAS las consultas filtran por negocio_id.
     const admin = ctx.supabaseAdmin;
+
+    // 2b. Acceso a la IA: el operador la permite y el dueño la tiene prendida. Va antes del
+    // límite y de la IA: con alguna apagada no se gasta nada.
+    const { data: negocio, error: errNegocio } = await admin
+      .from('negocios')
+      .select('ia_permitida, ia_activa')
+      .eq('id', negocio_id)
+      .maybeSingle();
+    if (errNegocio || !negocio) return error(500, 'No se pudo cargar el negocio');
+    if (!negocio.ia_permitida) return error(403, 'La IA no está habilitada para este local');
+    if (!negocio.ia_activa) return error(403, 'La IA está apagada. El dueño la puede prender en Ajustes.');
 
     // 3. Límite atómico (por usuario y por negocio).
     const { data: dentroDelLimite, error: errLimite } = await admin.rpc('consumir_limite_ia', {
