@@ -8,6 +8,7 @@ import { RequiereSesion } from './components/RequiereSesion.tsx';
 import { SesionProvider } from './components/SesionProvider.tsx';
 import { SoloRoles } from './components/SoloRoles.tsx';
 import { AdminMenu } from './routes/AdminMenu.tsx';
+import { Cocina } from './routes/Cocina.tsx';
 import { Inicio } from './routes/Inicio.tsx';
 import { Login } from './routes/Login.tsx';
 import { Mostrador } from './routes/Mostrador.tsx';
@@ -29,6 +30,14 @@ const router = createBrowserRouter([
             element: (
               <SoloRoles roles={['dueno', 'cajero']}>
                 <Mostrador />
+              </SoloRoles>
+            ),
+          },
+          {
+            path: 'cocina',
+            element: (
+              <SoloRoles roles={['dueno', 'cocina']}>
+                <Cocina />
               </SoloRoles>
             ),
           },

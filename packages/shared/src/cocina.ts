@@ -148,3 +148,25 @@ export function textoEntrega(p: Pick<PedidoCocina, 'modo_entrega' | 'mesa'>): st
   if (p.modo_entrega === 'retiro') return 'Retira';
   return 'Sin definir';
 }
+
+/** Respuesta de avanzar_estado, retroceder_estado y cancelar_pedido. */
+export const ResultadoEstadoSchema = z.object({
+  id: z.uuid(),
+  estado: EstadoPedidoSchema,
+  cambiado: z.boolean(),
+});
+
+export const ETIQUETA_ESTADO: Record<EstadoPedido, string> = {
+  pendiente: 'Pendiente',
+  en_cocina: 'En cocina',
+  listo: 'Listo',
+  entregado: 'Entregado',
+  cancelado: 'Cancelado',
+};
+
+export const ETIQUETA_ORIGEN: Record<PedidoCocina['origen'], string> = {
+  whatsapp: 'WhatsApp',
+  mostrador: 'Mostrador',
+  telefono: 'Teléfono',
+  mesa: 'Salón',
+};

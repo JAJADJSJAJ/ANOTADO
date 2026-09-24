@@ -17,21 +17,35 @@ export function NegocioLayout() {
   const userId = sesion?.user.id;
   const [negocio, setNegocio] = useState<NegocioActual | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     if (!slug || !userId) return;
     void supabase
       .from('negocios')
-      .select('id, nombre, slug, miembros!inner(rol)')
+      .select('id, nombre, slug, ia_permitida, ia_activa, config, miembros!inner(rol)')
       .eq('slug', slug)
       .eq('miembros.user_id', userId)
       .maybeSingle()
       .then(({ data, error }) => {
         if (error) return setError(error.message);
         const rol = data?.miembros[0]?.rol;
-        setNegocio(data && rol ? { id: data.id, nombre: data.nombre, slug: data.slug, rol } : null);
+        setNegocio(
+          data && rol
+            ? {
+                id: data.id,
+                nombre: data.nombre,
+                slug: data.slug,
+                rol,
+                iaPermitida: data.ia_permitida,
+                iaActiva: data.ia_activa,
+                config: data.config,
+                recargar: () => setVersion((v) => v + 1),
+              }
+            : null,
+        );
       });
-  }, [slug, userId]);
+  }, [slug, userId, version]);
 
   if (error) {
     return (
@@ -58,16 +72,26 @@ export function NegocioLayout() {
       <div className="flex min-h-screen flex-col bg-neutral-100 text-neutral-900">
         <header className="flex flex-wrap items-center gap-2 bg-neutral-900 px-4 py-2 text-white">
           <span className="mr-2 text-lg font-bold">{negocio.nombre}</span>
-          <nav className="flex gap-1">
+          <nav className="flex flex-wrap gap-1">
             {negocio.rol !== 'cocina' && (
               <NavLink to="mostrador" className={tab}>
                 Mostrador
               </NavLink>
             )}
-            {negocio.rol === 'dueno' && (
-              <NavLink to="admin/menu" className={tab}>
-                Menú
+            {negocio.rol !== 'cajero' && (
+              <NavLink to="cocina" className={tab}>
+                Cocina
               </NavLink>
+            )}
+            {negocio.rol === 'dueno' && (
+              <>
+                <NavLink to="admin/menu" className={tab}>
+                  Menú
+                </NavLink>
+                <NavLink to="admin/ajustes" className={tab}>
+                  Ajustes
+                </NavLink>
+              </>
             )}
           </nav>
           <BotonSalir className="ml-auto text-neutral-300" />
@@ -81,8 +105,5 @@ export function NegocioLayout() {
 /** /:negocio a secas: cada rol a su pantalla principal. */
 export function InicioNegocio() {
   const { rol } = useNegocioActual();
-  if (rol === 'cocina') {
-    return <p className="p-8 text-center text-lg text-neutral-600">La pantalla de cocina llega en la Fase 3.</p>;
-  }
-  return <Navigate to="mostrador" replace />;
+  return <Navigate to={rol === 'cocina' ? 'cocina' : 'mostrador'} replace />;
 }

@@ -1,1 +1,11 @@
 @import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Tarjeta de cocina recién llegada: late tres veces para que se note. */
+@keyframes llegada {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgb(129 140 248 / 0); }
+  50% { transform: scale(1.03); box-shadow: 0 0 0 10px rgb(129 140 248 / 0.6); }
+}
