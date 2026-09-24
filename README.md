@@ -2,7 +2,13 @@
 
 > Los pedidos de WhatsApp, anotados solos.
 
-![El cajero carga un pedido en la compu y aparece al instante en la tablet de la cocina](docs/img/demo-cocina.gif)
+**1. Se pega el mensaje de WhatsApp y la IA arma el pedido** (demo en la nube, con la IA real):
+
+![El cajero pega un mensaje de WhatsApp y la IA arma el pedido con productos, notas y dirección](docs/img/demo-ia.gif)
+
+**2. Se confirma y aparece al instante en la tablet de la cocina:**
+
+![El cajero confirma un pedido en la compu y aparece al instante en la tablet de la cocina](docs/img/demo-cocina.gif)
 
 Los locales de comida reciben pedidos por WhatsApp y los anotan en papel: se mezclan, se pierden, llegan tarde. Anotado convierte esos mensajes en pedidos ordenados que aparecen en la pantalla de cocina en tiempo real. **La IA propone el pedido, una persona lo confirma.** El cliente no cambia nada: sigue escribiendo por WhatsApp como siempre.
 
