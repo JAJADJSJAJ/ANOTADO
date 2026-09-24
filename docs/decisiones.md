@@ -126,6 +126,45 @@ Revisión de seguridad de la Fase 2. La función hace todas las lecturas y valid
 ### WhatsApp: número de prueba de Meta, no Twilio
 Meta da un número de prueba gratis con hasta 5 destinatarios autorizados, con la misma API que producción. Twilio cobra por mensaje y usa otro formato, que habría que reescribir al pasar al número real. El orden queda: parser (Fase 2) → webhook con número de prueba (parte de Fase 5, adelantada) → cocina y deploy (Fase 3).
 
+## Fase 3
+
+### Cocina lee por una RPC, no por la tabla
+Resuelve lo pendiente de la Fase 0: RLS filtra filas, no columnas, y cocina veía la dirección de delivery y el mensaje original. Ahora `pedidos` y `pedido_items` solo los leen dueño y cajero; cocina usa `pedidos_cocina(negocio_id)`, que devuelve número, estado, modo de entrega, mesa, notas e items. No incluye dirección, teléfono, mensaje original ni precios. También devuelve la hora del servidor, para que el temporizador no dependa del reloj de la tablet.
+
+### Realtime por Broadcast, con aviso mínimo
+El plan decía suscribirse a los cambios de `pedidos`, pero `postgres_changes` manda la fila completa (con la dirección) y escala peor. Un trigger manda por Broadcast al canal privado `negocio:<id>:pedidos` solo `{pedido_id, estado}`, y la pantalla recarga por la RPC. Solo avisa al crear el pedido y cuando el estado cambia de verdad: un update al mismo estado no manda nada. Una policy en `realtime.messages` deja suscribirse solo a los miembros del negocio. No hay policy de insert: nadie manda avisos desde el navegador. `realtime.send` loguea y sigue si falla, así que un problema de Realtime no impide crear ni mover pedidos.
+
+### Nunca perder un pedido: la lista siempre sale de la base
+El aviso solo dice "algo cambió". La lista completa se recarga al suscribirse (también en cada reconexión), al volver internet, al volver a la pestaña y cada 30 s. Lo último es por las tablets que se duermen y dejan el websocket muerto sin avisar. Probado: un pedido creado con la red cortada aparece al volver.
+
+### avanzar_estado recibe el estado que se ve en pantalla
+El plan decía `avanzar_estado(pedido_id)`. Con eso, un doble toque o un reintento después de un corte saltean un paso. `avanzar_estado(pedido_id, desde)` solo mueve si el pedido sigue en `desde`; si no, no hace nada y devuelve el estado real con `cambiado = false`. Un pedido de otro negocio o inexistente da el mismo error (`P0002`), para no revelar qué ids existen.
+
+### Cada rol mueve lo de su área
+Cocina pasa de pendiente a en cocina y de en cocina a listo. El mostrador (cajero) marca listo → entregado. El dueño puede todo. Deshacer (`retroceder_estado`) lo puede quien pudo hacer el paso, y en pantalla se ofrece durante 10 s: sirve para corregir un toque equivocado. Las reglas están espejadas en `shared/src/cocina.ts`, solo para UX.
+
+### Cancelar: desde el mostrador, con motivo y sin deshacer
+Cajero o dueño cancelan un pedido que no se entregó (`cancelar_pedido`), con motivo opcional y quién canceló. Cocina no cancela. Un cancelado no se revive. Si ya se cobró, la devolución se hace por fuera de la app: Anotado no maneja plata. En la tablet, el cancelado sale al instante y queda una franja roja hasta que alguien toca "Entendido".
+
+### IA por local con dos llaves
+`ia_permitida` la cambia solo el operador de Anotado: no está en el GRANT de update, así que nadie la toca desde la web. `ia_activa` la prende o apaga el dueño. `parse-order` chequea las dos antes del límite y de la IA, así que con alguna apagada no se gasta nada. Un negocio nuevo arranca sin IA. Para cortar la IA de todos los locales a la vez se revoca la key en OpenRouter. Hoy se opera con SQL desde el dashboard; un panel del operador vendría después.
+
+### Temporizador configurable por el dueño, para todo el local
+Minutos para amarillo y rojo (10 y 20 por defecto) en `negocios.config.cocina`, desde *Ajustes*. Sin migración: `config` ya existía y el dueño ya podía editarla. Como es jsonb libre, se lee siempre con Zod: si falta o está mal, se usan los valores por defecto.
+
+### Tablet: arranque con un toque
+Los navegadores bloquean el audio y la pantalla completa hasta un gesto del usuario, por eso la cocina arranca con "Empezar". El sonido se genera con Web Audio (sin archivos): uno para pedido nuevo y otro, distinto, para cancelado. Se usa Wake Lock y se vuelve a pedir al volver a la pestaña. Si la tablet no lo soporta, se avisa que hay que configurarla para que no se apague.
+
+### Deploy
+- **Vercel** con `apps/web` como raíz. `vercel.json` redirige las rutas al SPA y pone una CSP que solo permite conectarse a `*.supabase.co`, probada con el build.
+- **Edge Function con `@supabase/server`**: exige las claves de firma JWT nuevas (asimétricas) del proyecto y rechaza los tokens HS256 viejos. Queda como paso a chequear en `docs/deploy.md`.
+- **El seed no sube a la nube.** El local de demo se crea con `supabase/demo/negocio-demo.sql`, con usuarios creados a mano y contraseñas propias.
+- **Sin usuario público en la demo**, para no dejar abierto el gasto de IA. Se da acceso a mano.
+- **Edge Functions con `packages/shared`: resuelto.** `functions deploy` empaqueta con Docker siguiendo el import map, y `shared` va adentro (1,7 MB). Verificado en la nube con `scripts/verificar-parse-order.mjs`, con sesiones reales: la función responde con sus propios mensajes, cocina recibe 403 y con la IA apagada no se registra uso.
+- **Verificado en la nube** (2026-09-24): un pedido confirmado en la compu aparece solo en el celular que hace de tablet; con modo avión aparece "Sin conexión" y el pedido creado durante el corte llega al volver; cancelar desde el mostrador llega a cocina; apagar la IA desde Ajustes y por `ia_permitida` funciona; la IA interpreta un pedido real.
+- **Ping diario** (GitHub Actions) para que el plan gratis no pause el proyecto.
+- Registro de usuarios desactivado en la nube y Realtime solo con canales privados (configuración del dashboard).
+
 ## Pendiente de decidir
 
-- **Deploy de Edge Functions que importan `packages/shared` (Fase 3).** En local funciona (import map en `supabase/functions/parse-order/deno.json`); falta confirmar que `supabase functions deploy` empaqueta archivos de fuera de `supabase/functions`.
+- **Clave de idempotencia para tarjetas nuevas de WhatsApp** (Fase 2). No bloquea.

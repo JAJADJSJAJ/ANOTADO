@@ -140,12 +140,12 @@ export function TarjetaWhatsApp({
           maxLength={2000}
           placeholder="Pegá acá el mensaje de WhatsApp del cliente"
           aria-label="Mensaje del cliente"
-          className="rounded-lg border-2 border-neutral-300 bg-white px-3 py-2 text-lg"
+          className="rounded-lg border-2 border-stone-300 bg-white px-3 py-2 text-lg"
         />
         <button
           type="submit"
           disabled={interpretando || !mensaje.trim()}
-          className="rounded-xl bg-neutral-900 py-3 text-lg font-bold text-white disabled:opacity-50"
+          className="rounded-xl bg-stone-900 py-3 text-lg font-bold text-white disabled:opacity-50"
         >
           {interpretando ? 'Leyendo el mensaje…' : 'Interpretar mensaje'}
         </button>

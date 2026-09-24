@@ -77,7 +77,7 @@ export function PedidosWhatsApp({
       </button>
 
       {tarjetas.length === 0 && (
-        <p className="text-lg text-neutral-600">
+        <p className="text-lg text-stone-600">
           No hay pedidos de WhatsApp en curso. Tocá el botón de arriba cuando escriba un cliente.
         </p>
       )}

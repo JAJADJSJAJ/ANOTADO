@@ -38,7 +38,7 @@ export function Inicio() {
   if (membresias.length === 0) {
     return (
       <PantallaMensaje titulo="Todavía no tenés un local asignado">
-        <p className="text-neutral-600">Pedile al dueño del local que te agregue.</p>
+        <p className="text-stone-600">Pedile al dueño del local que te agregue.</p>
         <BotonSalir />
       </PantallaMensaje>
     );
@@ -50,7 +50,7 @@ export function Inicio() {
           <li key={m.negocios.slug}>
             <Link
               to={`/${m.negocios.slug}`}
-              className="block rounded-xl border-2 border-neutral-300 bg-white p-4 text-lg font-bold"
+              className="block rounded-xl border-2 border-stone-300 bg-white p-4 text-lg font-bold"
             >
               {m.negocios.nombre}
             </Link>

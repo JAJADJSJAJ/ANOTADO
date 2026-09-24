@@ -282,6 +282,8 @@ export type Database = {
           created_at: string
           hora_corte_jornada: string
           horarios: Json
+          ia_activa: boolean
+          ia_permitida: boolean
           id: string
           nombre: string
           slug: string
@@ -294,6 +296,8 @@ export type Database = {
           created_at?: string
           hora_corte_jornada?: string
           horarios?: Json
+          ia_activa?: boolean
+          ia_permitida?: boolean
           id?: string
           nombre: string
           slug: string
@@ -306,6 +310,8 @@ export type Database = {
           created_at?: string
           hora_corte_jornada?: string
           horarios?: Json
+          ia_activa?: boolean
+          ia_permitida?: boolean
           id?: string
           nombre?: string
           slug?: string
@@ -371,6 +377,8 @@ export type Database = {
       }
       pedidos: {
         Row: {
+          cancelado_motivo: string | null
+          cancelado_por: string | null
           cliente_id: string | null
           conversacion_id: string | null
           creado_por: string | null
@@ -388,6 +396,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cancelado_motivo?: string | null
+          cancelado_por?: string | null
           cliente_id?: string | null
           conversacion_id?: string | null
           creado_por?: string | null
@@ -405,6 +415,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cancelado_motivo?: string | null
+          cancelado_por?: string | null
           cliente_id?: string | null
           conversacion_id?: string | null
           creado_por?: string | null
@@ -544,6 +556,17 @@ export type Database = {
     }
     Functions: {
       alias_validos: { Args: { alias: string[] }; Returns: boolean }
+      avanzar_estado: {
+        Args: {
+          p_desde: Database["public"]["Enums"]["estado_pedido"]
+          p_pedido_id: string
+        }
+        Returns: Json
+      }
+      cancelar_pedido: {
+        Args: { p_motivo?: string; p_pedido_id: string }
+        Returns: Json
+      }
       cerrar_conversacion: {
         Args: { p_conversacion_id: string }
         Returns: undefined
@@ -586,6 +609,31 @@ export type Database = {
           conversacion_id: string
           version: number
         }[]
+      }
+      mover_estado: {
+        Args: {
+          p_desde: Database["public"]["Enums"]["estado_pedido"]
+          p_hacia: Database["public"]["Enums"]["estado_pedido"]
+          p_pedido_id: string
+        }
+        Returns: Json
+      }
+      negocio_de_topic: { Args: { p_topic: string }; Returns: string }
+      pedidos_cocina: { Args: { p_negocio_id: string }; Returns: Json }
+      puede_mover_estado: {
+        Args: {
+          p_desde: Database["public"]["Enums"]["estado_pedido"]
+          p_hacia: Database["public"]["Enums"]["estado_pedido"]
+          p_negocio_id: string
+        }
+        Returns: boolean
+      }
+      retroceder_estado: {
+        Args: {
+          p_desde: Database["public"]["Enums"]["estado_pedido"]
+          p_pedido_id: string
+        }
+        Returns: Json
       }
       tiene_rol: {
         Args: { n: string; roles: Database["public"]["Enums"]["rol_miembro"][] }

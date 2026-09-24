@@ -109,7 +109,7 @@ delete from productos where negocio_id = :B;
 reset role;
 select pg_temp.como(:cocina_a);
 
-select is((select count(*) from pedidos), 1::bigint, 'cocina A ve los pedidos de A');
+select is((select count(*) from pedidos), 0::bigint, 'cocina no lee pedidos directo (usa pedidos_cocina)');
 select is((select count(*) from clientes), 0::bigint, 'cocina no ve clientes (teléfonos)');
 select is((select count(*) from conversaciones), 0::bigint, 'cocina no ve conversaciones');
 select throws_ok(

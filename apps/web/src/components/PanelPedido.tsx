@@ -53,7 +53,7 @@ export function PanelPedido(p: Props) {
       <h2 className="text-xl font-bold">{p.titulo ?? 'Pedido'}</h2>
 
       {vacio ? (
-        <p className="text-neutral-500">{p.vacio ?? 'Tocá los productos para agregarlos.'}</p>
+        <p className="text-stone-500">{p.vacio ?? 'Tocá los productos para agregarlos.'}</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {p.borrador.items.map((it, i) => (
@@ -97,7 +97,7 @@ export function PanelPedido(p: Props) {
       )}
       <CampoTexto etiqueta="Notas del pedido (opcional)" valor={p.notas} onCambio={p.onNotas} />
 
-      <div className="flex items-baseline justify-between border-t-2 border-neutral-200 pt-3">
+      <div className="flex items-baseline justify-between border-t-2 border-stone-200 pt-3">
         <span className="text-lg font-medium">Total</span>
         <span className="text-3xl font-black">{formatearPrecio(total)}</span>
       </div>
@@ -108,7 +108,7 @@ export function PanelPedido(p: Props) {
         type="button"
         onClick={p.onConfirmar}
         disabled={vacio || p.enviando}
-        className="rounded-xl bg-emerald-600 py-5 text-2xl font-black text-white active:bg-emerald-700 disabled:bg-neutral-300"
+        className="rounded-xl bg-emerald-600 py-5 text-2xl font-black text-white active:bg-emerald-700 disabled:bg-stone-300"
       >
         {p.enviando ? 'Confirmando…' : 'Confirmar'}
       </button>
@@ -129,10 +129,10 @@ function LineaItem(p: {
   // guardara en cada tecla, no se podrían escribir espacios.
   const [editandoNota, setEditandoNota] = useState(false);
   const [texto, setTexto] = useState(p.notas);
-  const boton = 'size-11 rounded-lg border-2 border-neutral-300 text-2xl font-bold disabled:opacity-40';
+  const boton = 'size-11 rounded-lg border-2 border-stone-300 text-2xl font-bold disabled:opacity-40';
 
   return (
-    <li className="flex flex-col gap-2 rounded-lg border-2 border-neutral-200 p-2">
+    <li className="flex flex-col gap-2 rounded-lg border-2 border-stone-200 p-2">
       <div className="flex items-center gap-2">
         <button type="button" className={boton} aria-label="Uno menos" onClick={() => p.onCantidad(p.cantidad - 1)}>
           −
@@ -166,7 +166,7 @@ function LineaItem(p: {
       ) : null}
       <div className="flex gap-3 text-sm font-medium">
         {!p.notas && !editandoNota && (
-          <button type="button" className="text-neutral-600 underline" onClick={() => setEditandoNota(true)}>
+          <button type="button" className="text-stone-600 underline" onClick={() => setEditandoNota(true)}>
             + Nota
           </button>
         )}
@@ -195,7 +195,7 @@ function Segmentado<T extends string>(p: {
             aria-pressed={o.valor === p.valor}
             onClick={() => p.onCambio(o.valor)}
             className={`rounded-lg border-2 py-3 font-bold ${
-              o.valor === p.valor ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300'
+              o.valor === p.valor ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-300'
             }`}
           >
             {o.texto}
@@ -219,7 +219,7 @@ function CampoTexto(p: {
         value={p.valor}
         inputMode={p.inputMode}
         onChange={(e) => p.onCambio(e.target.value)}
-        className="rounded-lg border-2 border-neutral-300 px-3 py-3 text-lg"
+        className="rounded-lg border-2 border-stone-300 px-3 py-3 text-lg"
       />
     </label>
   );

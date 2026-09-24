@@ -2,6 +2,7 @@
 // Sin APIs de Node ni del navegador, e imports con extensión .ts.
 export * from './acciones.ts';
 export * from './borrador.ts';
+export * from './cocina.ts';
 export * from './dinero.ts';
 export * from './ia/cliente.ts';
 export * from './ia/prompt.ts';
