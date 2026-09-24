@@ -114,17 +114,15 @@ const intento = await rest(dueno, `negocios?id=eq.${negocio.id}`, {
 });
 ok(intento.status === 401 || intento.status === 403, 'el dueño no puede cambiar ia_permitida', `HTTP ${intento.status}`);
 
-// Registro público: en la nube tiene que estar apagado. En local está abierto a propósito.
+// Registro público: en la nube tiene que estar apagado (en local está abierto a propósito).
+// Se lee de /auth/v1/settings, que lo informa sin crear ninguna cuenta: un intento de
+// registro fallido podría confundirse con otro error y, si el registro estuviera abierto,
+// dejaría un usuario creado.
 const local = /127\.0\.0\.1|localhost/.test(URL_BASE);
 if (!local) {
-  const email = `verificacion+${Date.now()}@example.com`;
-  const reg = await fetch(`${URL_BASE}/auth/v1/signup`, {
-    method: 'POST',
-    headers: { apikey: KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: `x${Math.random().toString(36).slice(2)}A1!` }),
-  });
-  ok(!reg.ok, 'registro público desactivado', `HTTP ${reg.status}`);
-  if (reg.ok) console.log(`  ⚠ Se creó ${email}: borralo en Authentication → Users y apagá el registro.`);
+  const r = await fetch(`${URL_BASE}/auth/v1/settings`, { headers: { apikey: KEY } });
+  const ajustes = r.ok ? await r.json() : null;
+  ok(ajustes?.disable_signup === true, 'registro público desactivado', `disable_signup = ${ajustes?.disable_signup}`);
 }
 
 if (CON_IA) {

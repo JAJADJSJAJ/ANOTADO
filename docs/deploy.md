@@ -81,7 +81,7 @@ carga el operador; ninguna clave va al repo ni al chat.
 
 - [ ] *Project Settings → JWT Keys*: la **Current key** es ECC (P-256) o RSA.
 - [ ] *Authentication → Sign In / Providers → Email*: **Allow new users to sign up** apagado.
-      El script de verificación lo comprueba intentando registrarse.
+      El script de verificación lo comprueba (lee `disable_signup` sin crear cuentas).
 - [ ] *Authentication → URL Configuration*: Site URL y Redirect URLs con el dominio de Vercel.
 - [ ] *Realtime → Settings*: **Allow public access** apagado.
 - [ ] `pnpm supabase secrets list` muestra los `IA_*`.
