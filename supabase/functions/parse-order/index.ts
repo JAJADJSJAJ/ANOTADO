@@ -12,8 +12,9 @@
 //   7. Una sola transacción (guardar_interpretacion): mensaje, borrador, pendientes, uso de IA.
 //      Si otro mensaje se guardó en el medio (versión distinta), se rechaza con 409.
 //
-// Si algo falla antes del paso 7, no queda nada escrito: el cajero conserva el texto en
-// pantalla y puede reintentar sin duplicar mensajes.
+// Si algo falla antes del paso 7, no se guarda ni el mensaje, ni el borrador, ni los
+// pendientes: el cajero conserva el texto en pantalla y puede reintentar sin duplicar
+// mensajes. Lo único que ya quedó registrado es el intento en el límite de uso (paso 3).
 // Privacidad (Ley 18.331): nunca se loguea el contenido de los mensajes.
 
 import '@supabase/functions-js/edge-runtime.d.ts';
