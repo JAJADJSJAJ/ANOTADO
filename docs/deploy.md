@@ -35,10 +35,8 @@ carga el operador; ninguna clave va al repo ni al chat.
    ```
 
    En la salida tienen que aparecer archivos de `packages/shared/src/` entre los subidos.
-   Prueba rápida: `curl -i -X POST https://<ref>.supabase.co/functions/v1/parse-order` tiene
-   que responder **401** (la función arrancó y pide sesión). Si da **503 / BOOT_ERROR**, el
-   paquete no incluyó `packages/shared`: avisá y se pasa al plan B (copiar `shared` a
-   `supabase/functions/_shared` antes del deploy).
+   La verificación de la función va después de crear los usuarios (paso 9): un `curl` sin
+   sesión no sirve, porque el 401 lo da el gateway sin arrancar la función.
 
 6. **Auth** (*Authentication*). Se configura en el dashboard. **No corras
    `supabase config push`**: subiría `supabase/config.toml`, que es la config local (registro
@@ -54,6 +52,21 @@ carga el operador; ninguna clave va al repo ni al chat.
       veces: dueño, cajero y cocina. Contraseñas fuertes, nada de `anotado123`.
    2. Abrí `supabase/demo/negocio-demo.sql`, poné los tres mails arriba y corrélo en el
       *SQL Editor*. Crea *Rotisería El Ceibo* (`/el-ceibo`) con el menú y la IA habilitada.
+9. **Verificar la función** con sesiones reales. No gasta IA: prueba que arranca con
+   `packages/shared`, que cocina recibe 403 y que con la IA apagada responde 403 sin
+   registrar uso. Copiá `scripts/verificacion.env.example` a `scripts/.env.verificacion`
+   (ignorado por git), completá URL, publishable key y los mails y contraseñas de dueño y
+   cocina, y corré:
+
+   ```bash
+   node --env-file=scripts/.env.verificacion scripts/verificar-parse-order.mjs
+   ```
+
+   Tiene que terminar en **Todo OK**. Si la función no arranca (503 o *BOOT_ERROR*), el
+   paquete no incluyó `packages/shared`: se pasa al plan B (copiar `shared` a
+   `supabase/functions/_shared` antes del deploy). Para confirmar que tampoco se consumió
+   el límite, corré `select * from limites_ia;` en el *SQL Editor* antes y después.
+   Con `--con-ia` hace además una interpretación real (**llamada paga**: revisá el saldo).
 
 ## 2. Vercel
 

@@ -132,7 +132,7 @@ Meta da un número de prueba gratis con hasta 5 destinatarios autorizados, con l
 Resuelve lo pendiente de la Fase 0: RLS filtra filas, no columnas, y cocina veía la dirección de delivery y el mensaje original. Ahora `pedidos` y `pedido_items` solo los leen dueño y cajero; cocina usa `pedidos_cocina(negocio_id)`, que devuelve número, estado, modo de entrega, mesa, notas e items. No incluye dirección, teléfono, mensaje original ni precios. También devuelve la hora del servidor, para que el temporizador no dependa del reloj de la tablet.
 
 ### Realtime por Broadcast, con aviso mínimo
-El plan decía suscribirse a los cambios de `pedidos`, pero `postgres_changes` manda la fila completa (con la dirección) y escala peor. Un trigger manda por Broadcast al canal privado `negocio:<id>:pedidos` solo `{pedido_id, estado}`, y la pantalla recarga por la RPC. Una policy en `realtime.messages` deja suscribirse solo a los miembros del negocio. No hay policy de insert: nadie manda avisos desde el navegador. `realtime.send` loguea y sigue si falla, así que un problema de Realtime no impide crear ni mover pedidos.
+El plan decía suscribirse a los cambios de `pedidos`, pero `postgres_changes` manda la fila completa (con la dirección) y escala peor. Un trigger manda por Broadcast al canal privado `negocio:<id>:pedidos` solo `{pedido_id, estado}`, y la pantalla recarga por la RPC. Solo avisa al crear el pedido y cuando el estado cambia de verdad: un update al mismo estado no manda nada. Una policy en `realtime.messages` deja suscribirse solo a los miembros del negocio. No hay policy de insert: nadie manda avisos desde el navegador. `realtime.send` loguea y sigue si falla, así que un problema de Realtime no impide crear ni mover pedidos.
 
 ### Nunca perder un pedido: la lista siempre sale de la base
 El aviso solo dice "algo cambió". La lista completa se recarga al suscribirse (también en cada reconexión), al volver internet, al volver a la pestaña y cada 30 s. Lo último es por las tablets que se duermen y dejan el websocket muerto sin avisar. Probado: un pedido creado con la red cortada aparece al volver.
@@ -165,5 +165,5 @@ Los navegadores bloquean el audio y la pantalla completa hasta un gesto del usua
 
 ## Pendiente de decidir
 
-- **Deploy de Edge Functions que importan `packages/shared`.** En local funciona (import map en `supabase/functions/parse-order/deno.json`). Se confirma en el primer deploy: `docs/deploy.md` explica cómo verificarlo y el plan B.
+- **Deploy de Edge Functions que importan `packages/shared`.** En local funciona (import map en `supabase/functions/parse-order/deno.json`). Se confirma en el primer deploy con `scripts/verificar-parse-order.mjs`, con sesiones reales: un 401 sin sesión lo da el gateway sin arrancar la función, así que no prueba nada. El plan B está en `docs/deploy.md`.
 - **Clave de idempotencia para tarjetas nuevas de WhatsApp** (Fase 2). No bloquea.
