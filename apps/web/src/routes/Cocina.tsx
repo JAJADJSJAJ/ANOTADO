@@ -13,6 +13,7 @@ import { Link } from 'react-router';
 import { ListaAvisos } from '../components/Avisos.tsx';
 import { BotonSalir } from '../components/BotonSalir.tsx';
 import { Cargando } from '../components/Estado.tsx';
+import { Logo } from '../components/Marca.tsx';
 import { TarjetaCocina } from '../components/TarjetaCocina.tsx';
 import { useAhora } from '../hooks/useAhora.ts';
 import { useAvisos } from '../hooks/useAvisos.ts';
@@ -105,6 +106,7 @@ export function Cocina() {
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-stone-950 text-white select-none">
       <header className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+        <Logo className="size-9 shrink-0" />
         <div className="min-w-0">
           <p className="text-xs font-bold tracking-widest text-indigo-300 uppercase">Cocina</p>
           <p className="truncate text-xl font-black">{negocio.nombre}</p>
@@ -269,6 +271,7 @@ function PantallaInicio({ nombre, onEmpezar }: { nombre: string; onEmpezar: () =
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-stone-950/95 p-6">
       <div className="max-w-md text-center">
+        <Logo className="mx-auto mb-4 size-16" />
         <p className="text-sm font-bold tracking-widest text-indigo-300 uppercase">Anotado · Cocina</p>
         <h1 className="mt-2 text-4xl font-black">{nombre}</h1>
         <p className="mt-4 text-lg text-stone-300">

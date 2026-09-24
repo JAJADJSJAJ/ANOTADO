@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 export function Cargando() {
-  return <p className="p-8 text-center text-lg text-neutral-500">Cargando…</p>;
+  return <p className="p-8 text-center text-lg text-stone-500">Cargando…</p>;
 }
 
 export function MensajeError({ children }: { children: ReactNode }) {

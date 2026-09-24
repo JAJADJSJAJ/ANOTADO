@@ -9,7 +9,7 @@ import type { Rol } from '../lib/contextos.ts';
 export function SoloRoles({ roles, children }: { roles: Rol[]; children: ReactNode }) {
   const { rol } = useNegocio();
   if (!roles.includes(rol)) {
-    return <p className="p-8 text-center text-lg text-neutral-600">Esta pantalla no está disponible para tu rol.</p>;
+    return <p className="p-8 text-center text-lg text-stone-600">Esta pantalla no está disponible para tu rol.</p>;
   }
   return children;
 }

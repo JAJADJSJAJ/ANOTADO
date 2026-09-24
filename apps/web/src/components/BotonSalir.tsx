@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase.ts';
 
-export function BotonSalir({ className = 'text-neutral-600' }: { className?: string }) {
+export function BotonSalir({ className = 'text-stone-600' }: { className?: string }) {
   return (
     <button
       type="button"

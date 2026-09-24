@@ -5,8 +5,8 @@ import { type Categoria, type Producto, useMenu } from '../hooks/useMenu.ts';
 import { useNegocio } from '../hooks/useNegocio.ts';
 import { supabase } from '../lib/supabase.ts';
 
-const input = 'rounded-lg border-2 border-neutral-300 px-3 py-2 text-lg';
-const botonPrimario = 'rounded-lg bg-neutral-900 px-4 py-2 font-bold text-white disabled:opacity-50';
+const input = 'rounded-lg border-2 border-stone-300 px-3 py-2 text-lg';
+const botonPrimario = 'rounded-lg bg-stone-900 px-4 py-2 font-bold text-white disabled:opacity-50';
 const botonLink = 'font-medium underline';
 
 /** Categorías, productos, precios, alias y agotados. Solo dueño (lo exige también RLS). */
@@ -67,7 +67,7 @@ export function AdminMenu() {
                 void guardar(supabase.from('categorias').delete().eq('id', categoria!.id));
               }}
             />
-            <ul className="divide-y divide-neutral-200">
+            <ul className="divide-y divide-stone-200">
               {productos.map((p) => (
                 <FilaProducto
                   key={p.id}
@@ -126,7 +126,7 @@ function EncabezadoCategoria(p: {
   const [editando, setEditando] = useState(false);
   const [nombre, setNombre] = useState(p.categoria?.nombre ?? '');
 
-  if (!p.categoria) return <h2 className="text-xl font-bold text-neutral-500">Sin categoría</h2>;
+  if (!p.categoria) return <h2 className="text-xl font-bold text-stone-500">Sin categoría</h2>;
 
   if (editando) {
     return (
@@ -181,8 +181,8 @@ function FilaProducto(p: {
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3">
       <div className="min-w-40 flex-1">
-        <p className={`text-lg font-bold ${prod.activo ? '' : 'text-neutral-400 line-through'}`}>{prod.nombre}</p>
-        {prod.alias.length > 0 && <p className="text-sm text-neutral-500">También: {prod.alias.join(', ')}</p>}
+        <p className={`text-lg font-bold ${prod.activo ? '' : 'text-stone-400 line-through'}`}>{prod.nombre}</p>
+        {prod.alias.length > 0 && <p className="text-sm text-stone-500">También: {prod.alias.join(', ')}</p>}
       </div>
       <span className="text-lg font-medium">{formatearPrecio(prod.precio_centavos)}</span>
       <button
@@ -262,7 +262,7 @@ function FormProducto(p: {
   }
 
   return (
-    <form onSubmit={enviar} className="grid gap-2 rounded-lg bg-neutral-50 p-3 sm:grid-cols-2">
+    <form onSubmit={enviar} className="grid gap-2 rounded-lg bg-stone-50 p-3 sm:grid-cols-2">
       <label className="flex flex-col gap-1 font-medium">
         Nombre
         <input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={120} className={input} autoFocus />
