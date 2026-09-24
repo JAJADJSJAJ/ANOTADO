@@ -1,0 +1,17 @@
+{
+  "id": "cambio-03",
+  "menu": "demo",
+  "categoria": "cambio_de_opinion",
+  "mensajes": [
+    "una hamburguesa simple",
+    "mejor cambiámela por una completa"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Hamburguesa completa",
+        "cantidad": 1
+      }
+    ]
+  }
+}

@@ -30,3 +30,6 @@ Thumbs.db
 
 # Seed local con datos personales
 supabase/seed.local.sql
+
+# Resultados de evals (se regeneran)
+evals/resultados/

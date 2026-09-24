@@ -127,27 +127,36 @@ export type Database = {
           cliente_id: string | null
           created_at: string
           estado: string
+          etiqueta: string | null
           id: string
           negocio_id: string
+          pendientes: Json
           ultimo_mensaje_at: string
+          version: number
         }
         Insert: {
           borrador?: Json
           cliente_id?: string | null
           created_at?: string
           estado?: string
+          etiqueta?: string | null
           id?: string
           negocio_id: string
+          pendientes?: Json
           ultimo_mensaje_at?: string
+          version?: number
         }
         Update: {
           borrador?: Json
           cliente_id?: string | null
           created_at?: string
           estado?: string
+          etiqueta?: string | null
           id?: string
           negocio_id?: string
+          pendientes?: Json
           ultimo_mensaje_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -159,6 +168,35 @@ export type Database = {
           },
           {
             foreignKeyName: "conversaciones_negocio_id_fkey"
+            columns: ["negocio_id"]
+            isOneToOne: false
+            referencedRelation: "negocios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      limites_ia: {
+        Row: {
+          clave: string
+          cuenta: number
+          negocio_id: string
+          ventana: string
+        }
+        Insert: {
+          clave: string
+          cuenta: number
+          negocio_id: string
+          ventana: string
+        }
+        Update: {
+          clave?: string
+          cuenta?: number
+          negocio_id?: string
+          ventana?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "limites_ia_negocio_id_fkey"
             columns: ["negocio_id"]
             isOneToOne: false
             referencedRelation: "negocios"
@@ -505,8 +543,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      alias_validos: { Args: { alias: string[] }; Returns: boolean }
+      cerrar_conversacion: {
+        Args: { p_conversacion_id: string }
+        Returns: undefined
+      }
       confirmar_pedido: {
         Args: {
+          p_conversacion_id?: string
           p_entrega?: Json
           p_items: Json
           p_negocio_id: string
@@ -515,7 +559,34 @@ export type Database = {
         }
         Returns: Json
       }
+      consumir_limite_ia: {
+        Args: {
+          p_max_negocio: number
+          p_max_usuario: number
+          p_negocio_id: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       es_miembro: { Args: { n: string }; Returns: boolean }
+      guardar_interpretacion: {
+        Args: {
+          p_borrador: Json
+          p_conversacion_id: string
+          p_etiqueta: string
+          p_mensaje: string
+          p_modelo: string
+          p_negocio_id: string
+          p_pendientes: Json
+          p_tokens_entrada: number
+          p_tokens_salida: number
+          p_version: number
+        }
+        Returns: {
+          conversacion_id: string
+          version: number
+        }[]
+      }
       tiene_rol: {
         Args: { n: string; roles: Database["public"]["Enums"]["rol_miembro"][] }
         Returns: boolean

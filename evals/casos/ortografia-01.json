@@ -1,0 +1,20 @@
+{
+  "id": "ortografia-01",
+  "menu": "demo",
+  "categoria": "ortografia",
+  "mensajes": [
+    "mandame 2 compl y una coca grnde"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Hamburguesa completa",
+        "cantidad": 2
+      },
+      {
+        "producto": "Coca-Cola 1,5 L",
+        "cantidad": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "notas-01",
+  "menu": "demo",
+  "categoria": "notas",
+  "mensajes": [
+    "hola buenas",
+    "mandame 2 completas sin tomate y una coca grande a blandengues 450"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Hamburguesa completa",
+        "cantidad": 2,
+        "notas": "sin tomate"
+      },
+      {
+        "producto": "Coca-Cola 1,5 L",
+        "cantidad": 1
+      }
+    ],
+    "entrega": {
+      "modo": "delivery",
+      "direccion": "blandengues 450"
+    }
+  }
+}

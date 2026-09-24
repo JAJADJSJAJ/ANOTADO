@@ -1,0 +1,24 @@
+{
+  "id": "audio-01",
+  "menu": "demo",
+  "categoria": "audio_transcrito",
+  "mensajes": [
+    "eh hola sí mirá quería eh dos amburguesas completas y una coca de litro y medio eh para blandengue cuatro cincuenta"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Hamburguesa completa",
+        "cantidad": 2
+      },
+      {
+        "producto": "Coca-Cola 1,5 L",
+        "cantidad": 1
+      }
+    ],
+    "entrega": {
+      "modo": "delivery",
+      "direccion": "blandengue"
+    }
+  }
+}

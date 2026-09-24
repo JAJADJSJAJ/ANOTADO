@@ -1,0 +1,12 @@
+{
+  "id": "vago-03",
+  "menu": "demo",
+  "categoria": "referencias_vagas",
+  "mensajes": [
+    "una coca"
+  ],
+  "esperado": {
+    "items": [],
+    "debe_dudar": true
+  }
+}

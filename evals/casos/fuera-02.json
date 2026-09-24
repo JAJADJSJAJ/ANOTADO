@@ -1,0 +1,12 @@
+{
+  "id": "fuera-02",
+  "menu": "demo",
+  "categoria": "fuera_del_menu",
+  "mensajes": [
+    "tenés pascualina? mandame una"
+  ],
+  "esperado": {
+    "items": [],
+    "debe_dudar": true
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id": "ortografia-02",
+  "menu": "demo",
+  "categoria": "ortografia",
+  "mensajes": [
+    "una pisa especial y 2 empanadas de jyq pa retirar"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Pizza especial",
+        "cantidad": 1
+      },
+      {
+        "producto": "Empanada de jamón y queso",
+        "cantidad": 2
+      }
+    ],
+    "entrega": {
+      "modo": "retiro"
+    }
+  }
+}

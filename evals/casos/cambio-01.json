@@ -1,0 +1,17 @@
+{
+  "id": "cambio-01",
+  "menu": "demo",
+  "categoria": "cambio_de_opinion",
+  "mensajes": [
+    "2 completas y una coca grande",
+    "no, mejor sacame la coca"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Hamburguesa completa",
+        "cantidad": 2
+      }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "id": "vago-02",
+  "menu": "demo",
+  "categoria": "referencias_vagas",
+  "mensajes": [
+    "2 completas y una de las otras que pedí la vez pasada"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Hamburguesa completa",
+        "cantidad": 2
+      }
+    ],
+    "debe_dudar": true
+  }
+}

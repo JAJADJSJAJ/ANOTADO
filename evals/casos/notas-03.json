@@ -1,0 +1,21 @@
+{
+  "id": "notas-03",
+  "menu": "demo",
+  "categoria": "notas",
+  "mensajes": [
+    "2 milanesas al pan completas, una de las dos sin mayonesa"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Milanesa al pan completa",
+        "cantidad": 1,
+        "notas": "sin mayonesa"
+      },
+      {
+        "producto": "Milanesa al pan completa",
+        "cantidad": 1
+      }
+    ]
+  }
+}

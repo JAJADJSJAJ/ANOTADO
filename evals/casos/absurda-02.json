@@ -1,0 +1,16 @@
+{
+  "id": "absurda-02",
+  "menu": "demo",
+  "categoria": "cantidades_absurdas",
+  "mensajes": [
+    "2 completas y 0 cocas grandes"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Hamburguesa completa",
+        "cantidad": 2
+      }
+    ]
+  }
+}
