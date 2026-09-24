@@ -27,6 +27,7 @@ import {
   construirMensajes,
   construirMenu,
   ErrorIA,
+  leerTextoAcotado,
   llamarIA,
   type MensajeHistorial,
   type Pendientes,
@@ -105,29 +106,10 @@ async function leerCuerpo(req: Request): Promise<{ cuerpo: unknown } | { status:
   if (tipo !== 'application/json') return { status: 415 };
   const declarado = Number(req.headers.get('content-length'));
   if (Number.isFinite(declarado) && declarado > MAX_CUERPO_BYTES) return { status: 413 };
-  if (!req.body) return { status: 400 };
-
-  const lector = req.body.getReader();
-  const partes: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await lector.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > MAX_CUERPO_BYTES) {
-      await lector.cancel();
-      return { status: 413 };
-    }
-    partes.push(value);
-  }
-  const bytes = new Uint8Array(total);
-  let desde = 0;
-  for (const parte of partes) {
-    bytes.set(parte, desde);
-    desde += parte.byteLength;
-  }
+  const texto = await leerTextoAcotado(req.body, MAX_CUERPO_BYTES).catch(() => '');
+  if (texto === null) return { status: 413 };
   try {
-    return { cuerpo: JSON.parse(new TextDecoder().decode(bytes)) };
+    return { cuerpo: JSON.parse(texto) };
   } catch {
     return { status: 400 };
   }
@@ -271,6 +253,7 @@ export default {
       .single();
     if (errGuardar || !guardado) {
       if (errGuardar?.code === '40001') return error(409, 'Llegó otro mensaje a esta tarjeta al mismo tiempo. Probá de nuevo.');
+      if (errGuardar?.code === '23514') return error(409, 'Un producto se agotó mientras se procesaba el mensaje. Probá de nuevo.');
       if (errGuardar?.code === '22023') return error(409, 'La conversación no existe o ya está cerrada');
       console.error('parse-order: no se pudo guardar', errGuardar?.code);
       return error(500, 'No se pudo guardar el resultado. Probá de nuevo.');

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { type RespuestaIA, RespuestaIASchema } from '../acciones.ts';
+import { leerTextoAcotado } from '../stream.ts';
 
 // Cliente para cualquier API compatible con OpenAI (OpenRouter, NVIDIA, Groq, DeepSeek…).
 // Cambiar de proveedor o modelo es cambiar la configuración, no el código.
@@ -46,7 +47,8 @@ export class ErrorIA extends Error {
 
 type Mensaje = { role: 'system' | 'user'; content: string };
 
-const MAX_RESPUESTA_CARACTERES = 200_000;
+// Con max_tokens 1500 una respuesta legítima ocupa unos pocos KB.
+const MAX_RESPUESTA_BYTES = 200_000;
 
 /** JSON Schema de la respuesta, limpio para el modo estricto de los proveedores. */
 export const ESQUEMA_RESPUESTA = limpiarEsquema(z.toJSONSchema(RespuestaIASchema));
@@ -96,13 +98,20 @@ async function intentar(config: ConfigIA, mensajes: Mensaje[]): Promise<Resultad
   if (!res.ok) {
     // Solo el código: el cuerpo del error del proveedor podría repetir parte del prompt
     // (datos del cliente), y este mensaje se loguea.
-    await res.body?.cancel();
+    await res.body?.cancel().catch(() => {});
     throw new ErrorIA(`La IA respondió ${res.status}`, res.status === 429 || res.status >= 500);
   }
 
-  // Tope al tamaño: con max_tokens 1500 una respuesta legítima ocupa unos pocos KB.
-  const texto = await res.text();
-  if (texto.length > MAX_RESPUESTA_CARACTERES) throw new ErrorIA('La respuesta de la IA es demasiado grande', false);
+  // El timeout también corre mientras llega el cuerpo: si corta acá, es reintentable igual
+  // que si hubiera cortado antes de las cabeceras. El tope se aplica durante la lectura
+  // (un proveedor que ignore max_tokens no llena la memoria).
+  let texto: string | null;
+  try {
+    texto = await leerTextoAcotado(res.body, MAX_RESPUESTA_BYTES);
+  } catch (e) {
+    throw new ErrorIA(`Se cortó la respuesta de la IA: ${(e as Error).name}`, true);
+  }
+  if (texto === null) throw new ErrorIA('La respuesta de la IA es demasiado grande', false);
   let datos: {
     model?: string;
     choices?: { message?: { content?: string | null } }[];

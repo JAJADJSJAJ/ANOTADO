@@ -77,7 +77,9 @@ begin
     raise exception 'mensaje inválido' using errcode = '22023';
   end if;
   -- Defensa en profundidad: la Edge Function ya filtra, pero la base tampoco acepta un
-  -- borrador con productos de otro negocio (ifs separados: primero el tipo, después recorrer).
+  -- borrador con productos de otro negocio o agotados (ifs separados: primero el tipo,
+  -- después recorrer). Código propio (23514) para distinguir "se agotó mientras se procesaba"
+  -- de "la conversación no existe".
   if jsonb_typeof(coalesce(p_borrador -> 'items', '[]')) is distinct from 'array' then
     raise exception 'borrador.items tiene que ser una lista' using errcode = '22023';
   end if;
@@ -85,10 +87,10 @@ begin
     select 1 from jsonb_array_elements(coalesce(p_borrador -> 'items', '[]')) i
     where not exists (
       select 1 from public.productos p
-      where p.negocio_id = p_negocio_id and p.id::text = i ->> 'producto_id'
+      where p.negocio_id = p_negocio_id and p.activo and p.id::text = i ->> 'producto_id'
     )
   ) then
-    raise exception 'El borrador tiene productos que no son de este negocio' using errcode = '22023';
+    raise exception 'El borrador tiene productos que no son activos de este negocio' using errcode = '23514';
   end if;
 
   if v_id is null then

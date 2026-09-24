@@ -183,3 +183,41 @@ describe('llamarIA: privacidad de los errores', () => {
     });
   }
 });
+
+describe('llamarIA: cortes durante el cuerpo', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const config = { baseUrl: 'https://ia.test', apiKey: 'k', modelo: 'm' };
+
+  it('si el cuerpo se corta a mitad (timeout), es reintentable', async () => {
+    const ok = { acciones: [], listo_para_confirmar: false };
+    const fetchFalso = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          new ReadableStream({
+            start(ctrl) {
+              ctrl.enqueue(new TextEncoder().encode('{"choices":'));
+              ctrl.error(new DOMException('tiempo agotado', 'TimeoutError'));
+            },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(ok) } }] })));
+    vi.stubGlobal('fetch', fetchFalso);
+    expect((await llamarIA(config, [])).respuesta).toEqual(ok);
+    expect(fetchFalso).toHaveBeenCalledTimes(2);
+  });
+
+  it('una respuesta gigante sin Content-Length se corta durante la lectura', async () => {
+    let trozos = 0;
+    const gigante = new ReadableStream<Uint8Array>({
+      pull(ctrl) {
+        trozos++;
+        ctrl.enqueue(new Uint8Array(64 * 1024));
+      },
+    });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(gigante)));
+    await expect(llamarIA(config, [])).rejects.toThrow('demasiado grande');
+    expect(trozos).toBeLessThan(10);
+  });
+});

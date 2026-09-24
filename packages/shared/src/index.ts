@@ -8,4 +8,5 @@ export * from './ia/prompt.ts';
 export * from './reducer.ts';
 export * from './reglas.ts';
 export * from './schemas.ts';
+export * from './stream.ts';
 export type { Database, Json, Tables } from './database.types.ts';
