@@ -7,6 +7,7 @@ import { PantallaMensaje } from './components/Estado.tsx';
 import { RequiereSesion } from './components/RequiereSesion.tsx';
 import { SesionProvider } from './components/SesionProvider.tsx';
 import { SoloRoles } from './components/SoloRoles.tsx';
+import { AdminAjustes } from './routes/AdminAjustes.tsx';
 import { AdminMenu } from './routes/AdminMenu.tsx';
 import { Cocina } from './routes/Cocina.tsx';
 import { Inicio } from './routes/Inicio.tsx';
@@ -46,6 +47,14 @@ const router = createBrowserRouter([
             element: (
               <SoloRoles roles={['dueno']}>
                 <AdminMenu />
+              </SoloRoles>
+            ),
+          },
+          {
+            path: 'admin/ajustes',
+            element: (
+              <SoloRoles roles={['dueno']}>
+                <AdminAjustes />
               </SoloRoles>
             ),
           },
