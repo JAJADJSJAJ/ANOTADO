@@ -107,6 +107,7 @@ function NuevaCategoria({ onCrear }: { onCrear: (nombre: string) => Promise<bool
         value={nombre}
         onChange={(e) => setNombre(e.target.value)}
         placeholder="Nueva categoría"
+        maxLength={60}
         aria-label="Nombre de la nueva categoría"
         className={`${input} flex-1`}
       />
@@ -136,7 +137,7 @@ function EncabezadoCategoria(p: {
           if (nombre.trim() && (await p.onRenombrar(nombre.trim()))) setEditando(false);
         }}
       >
-        <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={`${input} flex-1`} autoFocus />
+        <input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={60} className={`${input} flex-1`} autoFocus />
         <button type="submit" className={botonPrimario}>Guardar</button>
         <button type="button" className={botonLink} onClick={() => setEditando(false)}>Cancelar</button>
       </form>
@@ -243,14 +244,19 @@ function FormProducto(p: {
   async function enviar(e: FormEvent) {
     e.preventDefault();
     const centavos = parsearPrecio(precio);
+    // "completa, compl" → ["completa","compl"], sin vacíos ni repetidos.
+    const listaAlias = [...new Set(alias.split(',').map((a) => a.trim().toLowerCase()).filter(Boolean))];
+    // Mismos límites que la base (validaciones_negocio_menu.sql): el menú va al prompt de la IA.
     if (!nombre.trim()) return setError('Falta el nombre.');
+    if (nombre.trim().length > 120) return setError('El nombre puede tener hasta 120 caracteres.');
     if (centavos === null) return setError('Precio inválido. Ej: 280 o 125,50');
+    if (listaAlias.length > 20) return setError('Hasta 20 nombres alternativos.');
+    if (listaAlias.some((a) => a.length > 60)) return setError('Cada nombre alternativo puede tener hasta 60 caracteres.');
     setError(null);
     await p.onGuardar({
       nombre: nombre.trim(),
       precio_centavos: centavos,
-      // "completa, compl" → ["completa","compl"], sin vacíos ni repetidos.
-      alias: [...new Set(alias.split(',').map((a) => a.trim().toLowerCase()).filter(Boolean))],
+      alias: listaAlias,
       categoria_id: categoriaId || null,
     });
   }
@@ -259,7 +265,7 @@ function FormProducto(p: {
     <form onSubmit={enviar} className="grid gap-2 rounded-lg bg-neutral-50 p-3 sm:grid-cols-2">
       <label className="flex flex-col gap-1 font-medium">
         Nombre
-        <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={input} autoFocus />
+        <input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={120} className={input} autoFocus />
       </label>
       <label className="flex flex-col gap-1 font-medium">
         Precio ($)

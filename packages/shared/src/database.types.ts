@@ -543,6 +543,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      alias_validos: { Args: { alias: string[] }; Returns: boolean }
       cerrar_conversacion: {
         Args: { p_conversacion_id: string }
         Returns: undefined

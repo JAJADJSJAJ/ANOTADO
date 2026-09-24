@@ -115,6 +115,10 @@ Revisión de seguridad de la Fase 2. La función hace todas las lecturas y valid
 - **Defensa en la base:** `guardar_interpretacion` rechaza borradores con productos de otro negocio aunque la función ya los filtre.
 - **Textos de la IA acotados:** dudosos y preguntas se recortan a 300 caracteres en el reducer. Los errores del proveedor se loguean solo con el código HTTP (su cuerpo podría repetir parte del prompt).
 - `listo_para_confirmar` es solo una sugerencia para la pantalla: nunca confirma nada.
+- **Productos que se agotan en el medio:** `guardar_interpretacion` exige productos activos pero no bloquea sus filas. No hace falta: el borrador es solo una propuesta, y `confirmar_pedido` vuelve a exigir productos activos dentro de su propia transacción al confirmar.
+- **Costo de los reintentos:** un reintento de la IA puede duplicar el costo de esa llamada sin sumar al límite (máximo 2 llamadas por solicitud). Se acepta: son ~US$ 0,0001 cada una.
+- **Respuesta perdida al crear una tarjeta:** si la conversación nueva se guardó pero la respuesta no llegó al navegador, reintentar crea otra conversación con el mismo mensaje. Es raro y se ve (dos tarjetas, una se descarta). Si molesta, se resuelve con una clave de idempotencia por tarjeta. Pendiente, no bloqueante.
+- **Validaciones de datos del dueño:** hora de corte menor a 24:00 (Postgres acepta 24:00 y correría los pedidos al día anterior), zona horaria existente (con una inválida no se podrían crear pedidos), y largos máximos de nombres y alias del menú, que van al prompt de la IA.
 - **Entrada acotada:** solo `application/json`, cuerpo de hasta 32 KB, configuración de IA validada al inicio (un `IA_EXTRA` mal formado da 500 claro, no una excepción suelta). Respuesta de la IA de hasta 200.000 caracteres.
 - **Cada consulta chequea su error** y todas las lecturas con service_role filtran por `negocio_id`, incluido el historial.
 - `guardar_interpretacion` y `consumir_limite_ia` reciben el negocio y el usuario por parámetro: por eso **solo las puede ejecutar service_role** (test: authenticated recibe 42501).
