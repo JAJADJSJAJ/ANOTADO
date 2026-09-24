@@ -19,6 +19,11 @@ carga el operador; ninguna clave va al repo ni al chat.
    pnpm supabase db push                     # aplica supabase/migrations (el seed NO se sube)
    ```
 
+   - Antes de cada comando contra la nube, `pnpm supabase projects list` tiene que marcar
+     tu proyecto como vinculado (●).
+   - **Nunca `db push --include-seed`**: el seed es de desarrollo (usuarios con
+     `anotado123`).
+
 4. **Secrets de la IA.** Creá en OpenRouter una key **nueva para producción, con límite de
    crédito** (*Keys → Create key → Credit limit*). Revisá el saldo antes. Copiá
    `supabase/functions/.env.example` a `supabase/functions/.env.nube` (ignorado por git),
@@ -26,7 +31,11 @@ carga el operador; ninguna clave va al repo ni al chat.
 
    ```bash
    pnpm supabase secrets set --env-file supabase/functions/.env.nube
+   pnpm supabase secrets list      # tienen que aparecer IA_BASE_URL, IA_API_KEY, IA_MODELO…
    ```
+
+   Los secrets **no viajan con la función**: `functions deploy` no lee ningún `.env`. Si
+   cambiás la key, se vuelve a correr `secrets set`.
 
 5. **Edge Function:**
 
@@ -67,6 +76,15 @@ carga el operador; ninguna clave va al repo ni al chat.
    `supabase/functions/_shared` antes del deploy). Para confirmar que tampoco se consumió
    el límite, corré `select * from limites_ia;` en el *SQL Editor* antes y después.
    Con `--con-ia` hace además una interpretación real (**llamada paga**: revisá el saldo).
+
+### Checklist del dashboard (antes de dar la demo por lista)
+
+- [ ] *Project Settings → JWT Keys*: la **Current key** es ECC (P-256) o RSA.
+- [ ] *Authentication → Sign In / Providers → Email*: **Allow new users to sign up** apagado.
+      El script de verificación lo comprueba intentando registrarse.
+- [ ] *Authentication → URL Configuration*: Site URL y Redirect URLs con el dominio de Vercel.
+- [ ] *Realtime → Settings*: **Allow public access** apagado.
+- [ ] `pnpm supabase secrets list` muestra los `IA_*`.
 
 ## 2. Vercel
 

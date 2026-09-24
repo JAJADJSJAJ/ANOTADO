@@ -5,7 +5,8 @@
 //      gateway (un 401 sin sesión solo prueba el gateway).
 //   2. Cocina no puede usarla (403 por rol).
 //   3. Con la IA apagada o no permitida responde 403 SIN registrar uso de IA.
-//   4. Con --con-ia: una interpretación real (LLAMADA PAGA, revisá el saldo antes).
+//   4. En la nube: que el registro público esté desactivado.
+//   5. Con --con-ia: una interpretación real (LLAMADA PAGA, revisá el saldo antes).
 //
 // Uso: copiá scripts/verificacion.env.example a scripts/.env.verificacion (ignorado por git),
 // completalo y corré:
@@ -112,6 +113,19 @@ const intento = await rest(dueno, `negocios?id=eq.${negocio.id}`, {
   body: JSON.stringify({ ia_permitida: !negocio.ia_permitida }),
 });
 ok(intento.status === 401 || intento.status === 403, 'el dueño no puede cambiar ia_permitida', `HTTP ${intento.status}`);
+
+// Registro público: en la nube tiene que estar apagado. En local está abierto a propósito.
+const local = /127\.0\.0\.1|localhost/.test(URL_BASE);
+if (!local) {
+  const email = `verificacion+${Date.now()}@example.com`;
+  const reg = await fetch(`${URL_BASE}/auth/v1/signup`, {
+    method: 'POST',
+    headers: { apikey: KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: `x${Math.random().toString(36).slice(2)}A1!` }),
+  });
+  ok(!reg.ok, 'registro público desactivado', `HTTP ${reg.status}`);
+  if (reg.ok) console.log(`  ⚠ Se creó ${email}: borralo en Authentication → Users y apagá el registro.`);
+}
 
 if (CON_IA) {
   if (!negocio.ia_permitida || !negocio.ia_activa) {
