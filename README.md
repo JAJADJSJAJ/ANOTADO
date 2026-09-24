@@ -6,7 +6,7 @@
 
 Los locales de comida reciben pedidos por WhatsApp y los anotan en papel: se mezclan, se pierden, llegan tarde. Anotado convierte esos mensajes en pedidos ordenados que aparecen en la pantalla de cocina en tiempo real. **La IA propone el pedido, una persona lo confirma.** El cliente no cambia nada: sigue escribiendo por WhatsApp como siempre.
 
-**Demo en vivo:** _link al publicar la v0.1_. El acceso es con usuario, pedilo por mensaje. No hay usuario público para no dejar abierto el gasto de IA.
+**Demo en vivo:** [anotadoproject.vercel.app](https://anotadoproject.vercel.app). El acceso es con usuario, pedilo por mensaje. No hay usuario público para no dejar abierto el gasto de IA.
 
 ## Qué hace
 

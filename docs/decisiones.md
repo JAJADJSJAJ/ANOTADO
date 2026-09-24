@@ -161,6 +161,7 @@ Los navegadores bloquean el audio y la pantalla completa hasta un gesto del usua
 - **El seed no sube a la nube.** El local de demo se crea con `supabase/demo/negocio-demo.sql`, con usuarios creados a mano y contraseñas propias.
 - **Sin usuario público en la demo**, para no dejar abierto el gasto de IA. Se da acceso a mano.
 - **Edge Functions con `packages/shared`: resuelto.** `functions deploy` empaqueta con Docker siguiendo el import map, y `shared` va adentro (1,7 MB). Verificado en la nube con `scripts/verificar-parse-order.mjs`, con sesiones reales: la función responde con sus propios mensajes, cocina recibe 403 y con la IA apagada no se registra uso.
+- **Verificado en la nube** (2026-09-24): un pedido confirmado en la compu aparece solo en el celular que hace de tablet; con modo avión aparece "Sin conexión" y el pedido creado durante el corte llega al volver; cancelar desde el mostrador llega a cocina; apagar la IA desde Ajustes y por `ia_permitida` funciona; la IA interpreta un pedido real.
 - **Ping diario** (GitHub Actions) para que el plan gratis no pause el proyecto.
 - Registro de usuarios desactivado en la nube y Realtime solo con canales privados (configuración del dashboard).
 
