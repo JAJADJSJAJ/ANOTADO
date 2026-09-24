@@ -1,7 +1,7 @@
 -- cancelar_pedido: solo el mostrador, nunca un entregado, idempotente y con aviso a cocina.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(22);
 
 delete from pedidos;
 delete from contadores_pedidos;
@@ -49,9 +49,17 @@ select throws_ok($$select cancelar_pedido(gen_random_uuid())$$,
 select throws_ok($$select avanzar_estado('a4000000-0000-4000-8000-000000000001', 'cancelado')$$,
   '22023', null, 'un cancelado no se revive con avanzar');
 
+-- Nadie esquiva las RPC editando la tabla: ni el dueño tiene escritura directa en pedidos.
+select throws_ok($$update pedidos set estado = 'entregado' where id = 'a4000000-0000-4000-8000-000000000002'$$,
+  '42501', null, 'cajero no cambia estado directo');
+select throws_ok($$update pedidos set cancelado_motivo = 'x', cancelado_por = auth.uid() where id = 'a4000000-0000-4000-8000-000000000002'$$,
+  '42501', null, 'cajero no escribe la cancelación directo');
+
 -- Dueño de A cancela un listo, sin motivo
 reset role;
 select pg_temp.como('00000000-0000-4000-a000-0000000000a1');
+select throws_ok($$update pedidos set estado = 'cancelado' where id = 'a4000000-0000-4000-8000-000000000002'$$,
+  '42501', null, 'dueño tampoco cambia estado directo');
 select is((select cancelar_pedido('a4000000-0000-4000-8000-000000000002') ->> 'estado'), 'cancelado',
   'dueño cancela un listo');
 
@@ -84,6 +92,14 @@ select throws_ok($$select cancelar_pedido('a4000000-0000-4000-8000-000000000002'
 reset role;
 select is((select estado::text from pedidos where id = 'b4000000-0000-4000-8000-000000000001'), 'pendiente',
   'pedido de B intacto');
+
+-- Permisos efectivos: authenticated y anon sin ninguna escritura en pedidos ni items.
+select ok(not has_table_privilege('authenticated', 'public.pedidos', 'INSERT, UPDATE, DELETE, TRUNCATE'),
+  'authenticated: sin escritura en pedidos');
+select ok(not has_table_privilege('authenticated', 'public.pedido_items', 'INSERT, UPDATE, DELETE, TRUNCATE'),
+  'authenticated: sin escritura en pedido_items');
+select ok(not has_any_column_privilege('authenticated', 'public.pedidos', 'INSERT, UPDATE'),
+  'authenticated: ni por columna (estado, cancelado_motivo, cancelado_por…)');
 
 select * from finish();
 rollback;

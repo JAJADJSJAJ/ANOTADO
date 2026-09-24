@@ -63,12 +63,13 @@ select is((
   select array_agg(k order by k) from realtime.messages m, jsonb_object_keys(m.payload) k
   where m.topic = :topic_a and m.payload ->> 'pedido_id' = 'a4000000-0000-4000-8000-000000000001'
 ), array['estado', 'id', 'pedido_id'], 'el aviso lleva solo el pedido y el estado (sin dirección ni datos del cliente)');
--- La clave id la agrega realtime.send: es el id del mensaje, no del pedido. La web la ignora
--- (AvisoPedidoSchema lee pedido_id y estado).
-select isnt((
-  select payload ->> 'id' from realtime.messages
-  where topic = :topic_a and payload ->> 'pedido_id' = 'a4000000-0000-4000-8000-000000000001'
-), 'a4000000-0000-4000-8000-000000000001', 'id del aviso es del mensaje, no del pedido');
+-- Sobre vs. contenido: realtime.send agrega al payload la clave id, que es el id del propio
+-- mensaje (la fila de realtime.messages), no del pedido. Lo que manda el trigger es solo
+-- pedido_id y estado. La web lee esas dos (AvisoPedidoSchema).
+select ok((
+  select bool_and(payload ->> 'id' = id::text and payload - 'id' = jsonb_build_object('pedido_id', payload -> 'pedido_id', 'estado', payload -> 'estado'))
+  from realtime.messages where topic = :topic_a
+), 'payload = {pedido_id, estado} + el id del mensaje (no del pedido)');
 
 -- Un update al mismo estado no avisa.
 create temp table antes as select count(*) as n from realtime.messages where topic = :topic_a;
