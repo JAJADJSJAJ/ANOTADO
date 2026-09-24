@@ -154,3 +154,32 @@ describe('llamarIA: límites', () => {
     expect(fetchFalso).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('llamarIA: privacidad de los errores', () => {
+  // Los mensajes de ErrorIA se loguean: nunca deben incluir texto del cliente, del prompt
+  // ni de la respuesta del proveedor. Se usa un "canario" y se verifica que no aparezca.
+  const CANARIO = 'Uruguay-1234-Ana-099123456';
+  const config = { baseUrl: 'https://ia.test', apiKey: 'k', modelo: 'm' };
+  const mensajes = [{ role: 'user' as const, content: `mandame una muzza a ${CANARIO}` }];
+  const conContenido = (contenido: string, status = 200) =>
+    new Response(JSON.stringify({ choices: [{ message: { content: contenido } }] }), { status });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  const casos: [string, () => Response][] = [
+    ['error HTTP que repite el prompt', () => new Response(`bad request: ${CANARIO}`, { status: 400 })],
+    ['error 500 que repite el prompt', () => new Response(`upstream: ${CANARIO}`, { status: 500 })],
+    ['contenido que no es JSON', () => conContenido(`no sé qué hacer con ${CANARIO}`)],
+    ['formato inválido con el dato en un campo', () => conContenido(JSON.stringify({ acciones: [{ tipo: 'agregar', producto: CANARIO, cantidad: CANARIO }], listo_para_confirmar: false }))],
+    ['acción desconocida con el dato', () => conContenido(JSON.stringify({ acciones: [{ tipo: CANARIO }], listo_para_confirmar: false }))],
+  ];
+
+  for (const [nombre, respuesta] of casos) {
+    it(nombre, async () => {
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => respuesta()));
+      const error = await llamarIA(config, mensajes).catch((e: Error) => e);
+      expect(error).toBeInstanceOf(ErrorIA);
+      expect((error as Error).message).not.toContain(CANARIO);
+    });
+  }
+});

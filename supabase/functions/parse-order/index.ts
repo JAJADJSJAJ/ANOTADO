@@ -95,18 +95,48 @@ function leerConfigIA(): ConfigIA | string {
   };
 }
 
-/** Cuerpo JSON con tamaño máximo (no se confía en Content-Length). */
+/**
+ * Cuerpo JSON con tamaño máximo. Se corta MIENTRAS se lee el stream (no se carga entero para
+ * medirlo después). Content-Length solo sirve para rechazar antes; no se confía en él.
+ */
 async function leerCuerpo(req: Request): Promise<{ cuerpo: unknown } | { status: 400 | 413 | 415 }> {
   const tipo = req.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
   if (tipo !== 'application/json') return { status: 415 };
-  const texto = await req.text();
-  if (new TextEncoder().encode(texto).length > MAX_CUERPO_BYTES) return { status: 413 };
+  const declarado = Number(req.headers.get('content-length'));
+  if (Number.isFinite(declarado) && declarado > MAX_CUERPO_BYTES) return { status: 413 };
+  if (!req.body) return { status: 400 };
+
+  const lector = req.body.getReader();
+  const partes: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await lector.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_CUERPO_BYTES) {
+      await lector.cancel();
+      return { status: 413 };
+    }
+    partes.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let desde = 0;
+  for (const parte of partes) {
+    bytes.set(parte, desde);
+    desde += parte.byteLength;
+  }
   try {
-    return { cuerpo: JSON.parse(texto) };
+    return { cuerpo: JSON.parse(new TextDecoder().decode(bytes)) };
   } catch {
     return { status: 400 };
   }
 }
+
+const MENSAJES_ENTRADA: Record<400 | 413 | 415, string> = {
+  400: 'Datos inválidos',
+  413: 'Mensaje demasiado largo',
+  415: 'Tipo de contenido no admitido: se espera application/json',
+};
 
 export default {
   fetch: withSupabase({ auth: 'user' }, async (req, ctx) => {
@@ -118,7 +148,7 @@ export default {
       return error(500, 'La IA no está configurada');
     }
     const leido = await leerCuerpo(req);
-    if ('status' in leido) return error(leido.status, leido.status === 413 ? 'Mensaje demasiado largo' : 'Datos inválidos');
+    if ('status' in leido) return error(leido.status, MENSAJES_ENTRADA[leido.status]);
     const entrada = EntradaSchema.safeParse(leido.cuerpo);
     if (!entrada.success) return error(400, 'Datos inválidos');
     // Una tarjeta existente tiene que decir de qué versión parte: si no, no se sabría si la
