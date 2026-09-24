@@ -40,7 +40,9 @@ carga el operador; ninguna clave va al repo ni al chat.
    paquete no incluyó `packages/shared`: avisá y se pasa al plan B (copiar `shared` a
    `supabase/functions/_shared` antes del deploy).
 
-6. **Auth** (*Authentication*):
+6. **Auth** (*Authentication*). Se configura en el dashboard. **No corras
+   `supabase config push`**: subiría `supabase/config.toml`, que es la config local (registro
+   abierto, Site URL en localhost).
    - *Sign In / Providers → Email*: desactivar **Allow new users to sign up**. Los usuarios
      los crea el operador.
    - *URL Configuration*: **Site URL** = el dominio de Vercel (paso 2). Agregalo también en
