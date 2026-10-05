@@ -8,15 +8,21 @@ import { RequiereSesion } from './components/RequiereSesion.tsx';
 import { SesionProvider } from './components/SesionProvider.tsx';
 import { SoloRoles } from './components/SoloRoles.tsx';
 import { AdminAjustes } from './routes/AdminAjustes.tsx';
+import { AdminEquipo } from './routes/AdminEquipo.tsx';
 import { AdminMenu } from './routes/AdminMenu.tsx';
 import { Cocina } from './routes/Cocina.tsx';
 import { Inicio } from './routes/Inicio.tsx';
+import { Invitacion } from './routes/Invitacion.tsx';
 import { Login } from './routes/Login.tsx';
 import { Mostrador } from './routes/Mostrador.tsx';
 import { InicioNegocio, NegocioLayout } from './routes/NegocioLayout.tsx';
+import { Registro } from './routes/Registro.tsx';
 
 const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
+  // Sin sesión obligatoria: quien llega con un código o una invitación todavía no tiene cuenta.
+  { path: '/registro', element: <Registro /> },
+  { path: '/invitacion/:token', element: <Invitacion /> },
   {
     element: <RequiereSesion />,
     children: [
@@ -47,6 +53,14 @@ const router = createBrowserRouter([
             element: (
               <SoloRoles roles={['dueno']}>
                 <AdminMenu />
+              </SoloRoles>
+            ),
+          },
+          {
+            path: 'admin/equipo',
+            element: (
+              <SoloRoles roles={['dueno']}>
+                <AdminEquipo />
               </SoloRoles>
             ),
           },
