@@ -23,7 +23,7 @@ Teléfonos y direcciones son datos personales (Ley 18.331). Cocina no ve `client
 Supabase da `ALL` (incluido `TRUNCATE`, que no pasa por RLS) a `anon` y `authenticated` sobre todo lo que se crea en `public`. La migración `permisos` saca todo y da solo lo que cada policy usa; `anon` no tiene nada. Los default privileges también se revocaron: **cada tabla o RPC nueva tiene que declarar sus GRANT** en su migración.
 
 ### Roles y alta de negocio solo por RPC (Fase 4)
-Desde la web `miembros` es solo lectura (el encabezado de `rls.sql` todavía dice que la web escribe "equipo": quedó desactualizado por `permisos.sql`, que borra esa policy). Con `ALL` para el dueño, podía nombrar dueños, sacar a otros dueños o dejar al negocio sin dueño. Invitar/cambiar roles y crear un negocio con su primer dueño (atómico, validando identidad) van por RPC en Fase 4. Hoy nadie puede crear negocios desde la web: no hay policy ni GRANT de insert.
+Desde la web `miembros` es solo lectura (el encabezado de `rls.sql` todavía dice que la web escribe "equipo": quedó desactualizado por `permisos.sql`, que borra esa policy). Con `ALL` para el dueño, podía nombrar dueños, sacar a otros dueños o dejar al negocio sin dueño. Invitar/cambiar roles y crear un negocio con su primer dueño (atómico, validando identidad) van por RPC en Fase 4. Hoy nadie puede crear negocios desde la web: no hay policy ni GRANT de insert. (Resuelto en Fase 4: ver más abajo.)
 
 ### Convenciones para migraciones nuevas
 - Nombres calificados con esquema (`public.es_miembro`, `public.rol_miembro`) en policies, grants y funciones. Las policies ya creadas quedan ligadas por OID al crearse, así que las viejas no dependen del `search_path`; esto es para que se lea claro y no sorprenda.
@@ -164,6 +164,32 @@ Los navegadores bloquean el audio y la pantalla completa hasta un gesto del usua
 - **Verificado en la nube** (2026-09-24): un pedido confirmado en la compu aparece solo en el celular que hace de tablet; con modo avión aparece "Sin conexión" y el pedido creado durante el corte llega al volver; cancelar desde el mostrador llega a cocina; apagar la IA desde Ajustes y por `ia_permitida` funciona; la IA interpreta un pedido real.
 - **Ping diario** (GitHub Actions) para que el plan gratis no pause el proyecto.
 - Registro de usuarios desactivado en la nube y Realtime solo con canales privados (configuración del dashboard).
+
+## Fase 4
+
+### Alta de locales con código del operador
+Self-service, pero controlado: para crear un local hace falta un código de un solo uso que genera el operador (`crear_codigo_alta`, desde el SQL Editor, 12 caracteres sin 0/O ni 1/I, vence en 14 días por defecto). Se descartó el registro abierto con confirmación por mail (necesita SMTP y deja entrar a cualquiera) y el registro abierto sin confirmar (cualquiera podría registrar el mail de otro y dejarlo afuera). `crear_negocio(codigo, nombre)` crea negocio y primer dueño en una transacción, bloquea el código para que dos pestañas no creen dos locales, genera el slug (sin tildes, con `-2` si existe, y sin tapar rutas de la web como `/login`) y deja el local **sin IA**: el gasto lo sigue habilitando el operador. Los códigos se guardan hasheados (sha256).
+
+### Las cuentas las crea una Edge Function, no el registro público
+El registro de Supabase sigue apagado (en la nube y ahora también en local). `registro` es la única forma de crear una cuenta desde la web, y solo con un código de alta o una invitación vigentes. No pide sesión (`verify_jwt = false`) pero sí la publishable key. Antes de crear la cuenta llama a `registro_permitido`, que suma uno al contador del código o la invitación: **máximo 3 cuentas** por cada uno, para que un link filtrado no sirva para crear cuentas en serie. No hace falta límite por IP: códigos de 60 bits y tokens de 256 no se adivinan.
+- La cuenta nace con el mail confirmado: sin SMTP no hay cómo verificarlo. Se acepta porque solo llega quien tiene un código o una invitación.
+- La función no crea el local ni acepta la invitación: eso lo hace la web con la sesión nueva (`crear_negocio`, `aceptar_invitacion`), que es la que consume el código. Si algo falla en el medio, queda una cuenta sin local, que puede reintentar.
+- Sin SMTP tampoco hay "olvidé mi contraseña": la resetea el operador desde el dashboard.
+
+### Invitaciones por link de WhatsApp
+El dueño elige el rol y recibe un link `/invitacion/<token>` de un solo uso que vence en 48 h; lo comparte por WhatsApp, que es donde ya está su equipo. El token (32 bytes) se muestra una sola vez y se guarda hasheado: si se pierde, se anula y se crea otro. Hasta 20 invitaciones sin usar por local. Quien abre el link crea su cuenta o entra con la que tiene, ve el local y el rol, y acepta. Un miembro no puede cambiar su propio rol aceptando otro link (eso lo hace el dueño).
+
+### El local nunca queda sin dueño
+`cambiar_rol` y `quitar_miembro` bloquean la fila del negocio antes de contar dueños: dos cambios simultáneos no pueden sacar a los dos últimos a la vez. El dueño ve el equipo con mails por `miembros_negocio` (auth.users no se lee desde la web, y los mails son datos personales: solo el dueño). Quitar a alguien le corta el acceso en la siguiente consulta, porque RLS mira `miembros` cada vez.
+
+### Horarios: avisan, no bloquean
+`negocios.horarios` ya existía; ahora lo edita el dueño en *Ajustes* y la base valida la forma (`horarios_validos`, igual que los alias). Un turno cuyo cierre es menor o igual a la apertura termina al día siguiente (19:00–01:30; 20:00–00:00). `estadoHorario` en `shared` calcula abierto/cerrado en la zona horaria del local, incluido el turno del día anterior que cruza medianoche, y el mostrador lo muestra. **No bloquea pedidos**: el cajero puede tomar un encargue antes de abrir. Bloquear o responder "estamos cerrados" queda para el bot (Fase 5/6).
+
+### Agotados: cualquiera del local, solo esa columna
+Quien se entera de que algo se terminó suele ser la cocina o el cajero. `marcar_agotado` deja a los tres roles cambiar **solo** `productos.activo`; nombre, precio y alias siguen siendo del dueño por RLS. Panel rápido en el mostrador (pestaña *Agotados*) y en la cocina. No se separó "agotado" de "dado de baja": los dos son `activo = false`, así que un cajero puede volver a habilitar algo que el dueño sacó del menú. Se acepta por ahora. El mostrador no se entera al instante de un agotado marcado en otra pantalla: si lo agrega, confirmar falla con "agotado" y el menú se recarga.
+
+### Zonas de envío con costo, calculado en la base
+Tabla `zonas_envio` (nombre, costo, activa), con FK compuesta desde `pedidos`. El cajero elige la zona en un delivery y `confirmar_pedido` suma el costo leído de la base: igual que los precios, nunca viene del navegador ni de la IA. El pedido guarda `zona_id`, `envio_centavos` y el nombre de la zona en `entrega.zona` (snapshot); borrar o cambiar la zona no altera pedidos viejos. `total_centavos` = items + envío. Si el local tiene zonas activas, **todo delivery necesita zona** (que no se olvide cobrar el envío); un local sin zonas sigue igual. La IA no elige zonas: sin geocodificación, "por la terminal" lo resuelve una persona. Cocina no ve zonas.
 
 ## Pendiente de decidir
 

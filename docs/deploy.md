@@ -37,15 +37,28 @@ carga el operador; ninguna clave va al repo ni al chat.
    Los secrets **no viajan con la función**: `functions deploy` no lee ningún `.env`. Si
    cambiás la key, se vuelve a correr `secrets set`.
 
-5. **Edge Function:**
+5. **Edge Functions:**
 
    ```bash
    pnpm supabase functions deploy parse-order
+   pnpm supabase functions deploy registro
    ```
 
    En la salida tienen que aparecer archivos de `packages/shared/src/` entre los subidos.
-   La verificación de la función va después de crear los usuarios (paso 9): un `curl` sin
+   La verificación de `parse-order` va después de crear los usuarios (paso 9): un `curl` sin
    sesión no sirve, porque el 401 lo da el gateway sin arrancar la función.
+
+   `registro` crea cuentas con un código de alta o una invitación y **no pide sesión**:
+   `config.toml` le pone `verify_jwt = false`. En *Edge Functions → registro → Details*,
+   **Enforce JWT verification** tiene que figurar apagado. Prueba rápida (no crea nada):
+
+   ```bash
+   curl -s -X POST https://<ref>.supabase.co/functions/v1/registro \
+     -H "apikey: <publishable key>" -H "content-type: application/json" \
+     -d '{"email":"x@x.uy","password":"una-clave-larga","codigo":"AAAA-BBBB-CCCC"}'
+   ```
+
+   Tiene que responder `403` con *El código no es válido…* (sin `apikey`, `401`).
 
 6. **Auth** (*Authentication*). Se configura en el dashboard. **No corras
    `supabase config push`**: subiría `supabase/config.toml`, que es la config local (registro
@@ -85,6 +98,7 @@ carga el operador; ninguna clave va al repo ni al chat.
 - [ ] *Authentication → URL Configuration*: Site URL y Redirect URLs con el dominio de Vercel.
 - [ ] *Realtime → Settings*: **Allow public access** apagado.
 - [ ] `pnpm supabase secrets list` muestra los `IA_*`.
+- [ ] *Edge Functions → registro*: **Enforce JWT verification** apagado.
 
 ## 2. Vercel
 
@@ -119,11 +133,35 @@ update negocios set ia_permitida = true  where slug = 'el-ceibo';  -- habilitarl
 
 Para cortar la IA de **todos** los locales a la vez, revocá la key en OpenRouter.
 
+**Alta de un local nuevo** (*SQL Editor*). Generá un código de un solo uso y pasáselo al dueño
+(vence en 14 días; el segundo parámetro cambia los días, de 1 a 90):
+
+```sql
+select crear_codigo_alta('Pizzería Don José');   -- devuelve algo como K7Q2-M9XP-4T8R
+```
+
+El dueño entra a `https://<dominio>/registro?codigo=K7Q2-M9XP-4T8R`, crea su cuenta y su
+local, carga el menú e invita a su equipo desde *Equipo*. El local arranca **sin IA**: se
+habilita como arriba. Para ver los códigos y si se usaron:
+
+```sql
+select nota, vence_at, registros, usado_at, negocio_id from codigos_alta order by created_at desc;
+```
+
+**Contraseñas olvidadas.** Sin SMTP propio no hay mail de recuperación (el de Supabase solo
+le manda a los mails del equipo del proyecto). El operador pone una contraseña temporal y se
+la pasa a la persona por un canal seguro:
+
+```sql
+update auth.users set encrypted_password = extensions.crypt('<temporal>', extensions.gen_salt('bf'))
+where email = '<mail>';
+```
+
 **Cambios posteriores:**
 
 | Cambió | Comando |
 |---|---|
 | `supabase/migrations/` | `pnpm supabase db push` |
-| `supabase/functions/` o `packages/shared/` (lo usa la función) | `pnpm supabase functions deploy parse-order` |
+| `supabase/functions/` o `packages/shared/` (lo usan las funciones) | `pnpm supabase functions deploy parse-order` y `pnpm supabase functions deploy registro` |
 | Secrets de la IA | `pnpm supabase secrets set --env-file supabase/functions/.env.nube` |
 | `apps/web/` | Automático: Vercel deploya cada push a `main` |
