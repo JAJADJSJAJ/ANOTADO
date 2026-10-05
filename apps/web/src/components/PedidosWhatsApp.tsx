@@ -1,6 +1,7 @@
 import { BorradorSchema, borradorVacio, PendientesSchema } from '@anotado/shared';
 import { useEffect, useState } from 'react';
 import type { Producto } from '../hooks/useMenu.ts';
+import type { Zona } from '../hooks/useZonas.ts';
 import type { PedidoConfirmado } from '../lib/pedidos.ts';
 import { supabase } from '../lib/supabase.ts';
 import { Cargando, MensajeError } from './Estado.tsx';
@@ -27,11 +28,14 @@ export function PedidosWhatsApp({
   negocioId,
   productos,
   activos,
+  zonas,
   onConfirmado,
 }: {
   negocioId: string;
   productos: ReadonlyMap<string, Producto>;
   activos: Producto[];
+  /** Zonas de envío activas. */
+  zonas: Zona[];
   onConfirmado: (pedido: PedidoConfirmado, etiqueta: string) => void;
 }) {
   const [tarjetas, setTarjetas] = useState<Tarjeta[] | null>(null);
@@ -90,6 +94,7 @@ export function PedidosWhatsApp({
             inicial={t.datos}
             productos={productos}
             activos={activos}
+            zonas={zonas}
             onCerrada={(pedido, etiqueta) => {
               quitar(t.clave);
               if (pedido) onConfirmado(pedido, etiqueta);

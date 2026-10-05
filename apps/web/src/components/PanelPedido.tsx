@@ -10,6 +10,7 @@ import {
 } from '@anotado/shared';
 import { useState } from 'react';
 import type { Producto } from '../hooks/useMenu.ts';
+import type { Zona } from '../hooks/useZonas.ts';
 import type { DatosEntrega, ModoEntrega } from '../lib/pedidos.ts';
 import { MensajeError } from './Estado.tsx';
 
@@ -19,6 +20,8 @@ type Props = {
   borrador: Borrador;
   onBorrador: (b: Borrador) => void;
   productos: ReadonlyMap<string, Producto>;
+  /** Zonas de envío activas. Si hay, un delivery tiene que elegir una. */
+  zonas: Zona[];
   /** Sin origen (p. ej. tarjetas de WhatsApp) no se muestra el selector. */
   origen?: Origen;
   onOrigen?: (o: Origen) => void;
@@ -45,7 +48,8 @@ const MODOS: { valor: ModoEntrega; texto: string }[] = [
 
 export function PanelPedido(p: Props) {
   const precios = new Map([...p.productos].map(([id, prod]) => [id, prod.precio_centavos]));
-  const total = totalEstimado(p.borrador, precios);
+  const zona = p.entrega.modo === 'delivery' ? p.zonas.find((z) => z.id === p.entrega.zonaId) : undefined;
+  const total = totalEstimado(p.borrador, precios) + (zona?.costo_centavos ?? 0);
   const vacio = p.borrador.items.length === 0;
 
   return (
@@ -87,6 +91,27 @@ export function PanelPedido(p: Props) {
           onCambio={(direccion) => p.onEntrega({ ...p.entrega, direccion })}
         />
       )}
+      {p.entrega.modo === 'delivery' && p.zonas.length > 0 && (
+        <fieldset className="flex flex-col gap-1">
+          <legend className="mb-1 font-medium">Zona de envío</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {p.zonas.map((z) => (
+              <button
+                key={z.id}
+                type="button"
+                aria-pressed={z.id === p.entrega.zonaId}
+                onClick={() => p.onEntrega({ ...p.entrega, zonaId: z.id })}
+                className={`flex flex-col rounded-lg border-2 px-2 py-2 text-left ${
+                  z.id === p.entrega.zonaId ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-300'
+                }`}
+              >
+                <span className="font-bold leading-tight">{z.nombre}</span>
+                <span className="text-sm">{formatearPrecio(z.costo_centavos)}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
       {p.entrega.modo === 'mesa' && (
         <CampoTexto
           etiqueta="Número de mesa"
@@ -97,6 +122,12 @@ export function PanelPedido(p: Props) {
       )}
       <CampoTexto etiqueta="Notas del pedido (opcional)" valor={p.notas} onCambio={p.onNotas} />
 
+      {zona && (
+        <div className="flex items-baseline justify-between border-t-2 border-stone-200 pt-3 text-stone-600">
+          <span>Envío · {zona.nombre}</span>
+          <span className="font-medium">{formatearPrecio(zona.costo_centavos)}</span>
+        </div>
+      )}
       <div className="flex items-baseline justify-between border-t-2 border-stone-200 pt-3">
         <span className="text-lg font-medium">Total</span>
         <span className="text-3xl font-black">{formatearPrecio(total)}</span>

@@ -1,16 +1,19 @@
-import { ConfigCocinaSchema, leerConfigCocina, MAX_MINUTOS_COCINA } from '@anotado/shared';
+import { ConfigCocinaSchema, type Horarios, HorariosSchema, leerConfigCocina, MAX_MINUTOS_COCINA } from '@anotado/shared';
 import { useState } from 'react';
+import { EditorHorarios } from '../components/EditorHorarios.tsx';
 import { MensajeError } from '../components/Estado.tsx';
+import { ZonasEnvio } from '../components/ZonasEnvio.tsx';
 import { useNegocio } from '../hooks/useNegocio.ts';
 import { supabase } from '../lib/supabase.ts';
 
-/** Ajustes del local (dueño): IA y tiempos del temporizador de cocina. */
+/** Ajustes del local (dueño): IA, horarios, temporizador de cocina y zonas de envío. */
 export function AdminAjustes() {
   const negocio = useNegocio();
   const inicial = leerConfigCocina(negocio.config);
   const [iaActiva, setIaActiva] = useState(negocio.iaActiva);
   const [amarillo, setAmarillo] = useState(String(inicial.amarilloMin));
   const [rojo, setRojo] = useState(String(inicial.rojoMin));
+  const [horarios, setHorarios] = useState<Horarios>(negocio.horarios);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [guardado, setGuardado] = useState(false);
@@ -24,11 +27,13 @@ export function AdminAjustes() {
         `Los tiempos van en minutos enteros, de 1 a ${MAX_MINUTOS_COCINA}, y el rojo tiene que ser mayor que el amarillo.`,
       );
     }
+    const turnos = HorariosSchema.safeParse(horarios);
+    if (!turnos.success) return setError('Revisá los horarios: cada turno necesita hora de apertura y de cierre, distintas.');
     const base = typeof negocio.config === 'object' && negocio.config !== null ? negocio.config : {};
     setGuardando(true);
     const { error } = await supabase
       .from('negocios')
-      .update({ ia_activa: iaActiva, config: { ...base, cocina: cocina.data } })
+      .update({ ia_activa: iaActiva, horarios: turnos.data, config: { ...base, cocina: cocina.data } })
       .eq('id', negocio.id);
     setGuardando(false);
     if (error) return setError(error.message);
@@ -65,6 +70,14 @@ export function AdminAjustes() {
       </section>
 
       <section className="rounded-2xl bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-bold">Horarios</h2>
+        <p className="mt-1 text-stone-600">
+          El mostrador muestra si el local está abierto. Un turno que cierra después de medianoche va igual: 19:00 a 01:30.
+        </p>
+        <EditorHorarios valor={horarios} onCambio={setHorarios} />
+      </section>
+
+      <section className="rounded-2xl bg-white p-5 shadow-sm">
         <h2 className="text-lg font-bold">Temporizador de cocina</h2>
         <p className="mt-1 text-stone-600">
           Cada pedido muestra los minutos desde que entró y cambia de color para avisar que se está demorando.
@@ -89,6 +102,14 @@ export function AdminAjustes() {
       >
         {guardando ? 'Guardando…' : 'Guardar'}
       </button>
+
+      <section className="rounded-2xl bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-bold">Zonas de envío</h2>
+        <p className="mt-1 mb-3 text-stone-600">
+          En un delivery, el cajero elige la zona y el costo se suma al total. Se guardan al agregarlas o cambiarlas.
+        </p>
+        <ZonasEnvio negocioId={negocio.id} />
+      </section>
     </main>
   );
 }
