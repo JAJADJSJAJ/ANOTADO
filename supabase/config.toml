@@ -172,13 +172,14 @@ enable_refresh_token_rotation = true
 # Requires enable_refresh_token_rotation = true.
 refresh_token_reuse_interval = 10
 # Allow/disallow new user signups to your project.
-enable_signup = true
+# Apagado, como en la nube: las cuentas se crean solo con la Edge Function registro.
+enable_signup = false
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+minimum_password_length = 8
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
 password_requirements = ""
@@ -424,3 +425,11 @@ entrypoint = "./functions/parse-order/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/parse-order/*.html" ]
+
+# Alta de cuentas con código de alta o invitación. No pide sesión (quien se registra todavía
+# no tiene): la función valida la publishable key y el código o la invitación.
+[functions.registro]
+enabled = true
+verify_jwt = false
+import_map = "./functions/registro/deno.json"
+entrypoint = "./functions/registro/index.ts"
