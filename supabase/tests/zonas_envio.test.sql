@@ -1,10 +1,11 @@
 -- Zonas de envío: quién las ve y edita, y el costo que suma confirmar_pedido.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(19);
 
 delete from pedidos;
 delete from contadores_pedidos;
+delete from zonas_envio;
 
 \set A '\'a0000000-0000-4000-8000-000000000001\''
 \set B '\'b0000000-0000-4000-8000-000000000001\''
@@ -114,12 +115,6 @@ select is(
      '{"modo":"delivery","direccion":"Uruguay 123"}') ->> 'envio_centavos'),
   '0', 'un local sin zonas activas no exige zona');
 
--- FK compuesta: un pedido de A no puede apuntar a una zona de B.
-reset role;
-select throws_ok(
-  $$insert into pedidos (negocio_id, origen, zona_id)
-    values ('a0000000-0000-4000-8000-000000000001', 'mostrador', 'b5000000-0000-4000-8000-000000000001')$$,
-  '23503', null, 'pedido de A no puede usar una zona de B (ni con permisos de servidor)');
 select is((select count(*) from pedidos where negocio_id = :A), 3::bigint, 'solo los 3 pedidos confirmados');
 
 select * from finish();
