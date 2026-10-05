@@ -1,3 +1,4 @@
+import { leerHorarios } from '@anotado/shared';
 import { useEffect, useState } from 'react';
 import { Navigate, NavLink, Outlet, useParams } from 'react-router';
 import { BotonSalir } from '../components/BotonSalir.tsx';
@@ -24,7 +25,7 @@ export function NegocioLayout() {
     if (!slug || !userId) return;
     void supabase
       .from('negocios')
-      .select('id, nombre, slug, ia_permitida, ia_activa, config, miembros!inner(rol)')
+      .select('id, nombre, slug, ia_permitida, ia_activa, config, horarios, zona_horaria, miembros!inner(rol)')
       .eq('slug', slug)
       .eq('miembros.user_id', userId)
       .maybeSingle()
@@ -41,6 +42,8 @@ export function NegocioLayout() {
                 iaPermitida: data.ia_permitida,
                 iaActiva: data.ia_activa,
                 config: data.config,
+                horarios: leerHorarios(data.horarios),
+                zonaHoraria: data.zona_horaria,
                 recargar: () => setVersion((v) => v + 1),
               }
             : null,
@@ -91,6 +94,9 @@ export function NegocioLayout() {
               <>
                 <NavLink to="admin/menu" className={tab}>
                   Menú
+                </NavLink>
+                <NavLink to="admin/equipo" className={tab}>
+                  Equipo
                 </NavLink>
                 <NavLink to="admin/ajustes" className={tab}>
                   Ajustes

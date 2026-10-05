@@ -1,4 +1,4 @@
-import type { Database } from '@anotado/shared';
+import type { Database, Horarios } from '@anotado/shared';
 import type { Session } from '@supabase/supabase-js';
 import { createContext } from 'react';
 
@@ -18,8 +18,14 @@ export type NegocioActual = {
   iaActiva: boolean;
   /** negocios.config (jsonb libre): se lee siempre con un schema y valores por defecto. */
   config: unknown;
+  /** negocios.horarios, ya validado (mal formado = sin horarios). */
+  horarios: Horarios;
+  zonaHoraria: string;
   /** Vuelve a leer el negocio (después de guardar ajustes). */
   recargar: () => void;
 };
 
 export const NegocioContext = createContext<NegocioActual | null>(null);
+
+/** Nombres de los roles para mostrar. */
+export const NOMBRE_ROL: Record<Rol, string> = { dueno: 'Dueño', cajero: 'Cajero', cocina: 'Cocina' };
