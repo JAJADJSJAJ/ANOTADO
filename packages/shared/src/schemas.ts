@@ -3,7 +3,12 @@ import { MAX_CANTIDAD, MAX_DIRECCION, MAX_ITEMS, MAX_MESA, MAX_NOTAS, MAX_NOTAS_
 
 export const EntregaSchema = z.discriminatedUnion('modo', [
   z.object({ modo: z.literal('retiro') }),
-  z.object({ modo: z.literal('delivery'), direccion: z.string().trim().min(1).max(MAX_DIRECCION) }),
+  z.object({
+    modo: z.literal('delivery'),
+    direccion: z.string().trim().min(1).max(MAX_DIRECCION),
+    /** Zona de envío que eligió el cajero. El costo lo pone la RPC, nunca la pantalla. */
+    zona_id: z.uuid().optional(),
+  }),
   z.object({ modo: z.literal('mesa'), mesa: z.string().trim().min(1).max(MAX_MESA) }),
 ]);
 
