@@ -14,14 +14,17 @@ jobs:
     runs-on: ubuntu-latest
     if: vars.SUPABASE_URL != ''
     steps:
-      - name: Consulta a la API
+      - name: Consulta a la base
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
         run: |
-          # Sin sesión la base responde 401 (anon no tiene permisos): igual cuenta como actividad.
-          # Falla solo si el proyecto no responde o da error del servidor.
-          codigo=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 \
-            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" "$SUPABASE_URL/rest/v1/negocios?select=id&limit=1")
-          echo "HTTP $codigo"
-          test "$codigo" -ge 200 -a "$codigo" -lt 500
+          # Un 401 no alcanzó: el 2026-09-29 Supabase pausó el proyecto igual. La RPC ping
+          # (lo único que anon puede ejecutar) hace una consulta real y tiene que dar 200 y true.
+          respuesta=$(curl -s -w '\n%{http_code}' --max-time 30 -X POST \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" -H 'Content-Type: application/json' \
+            -d '{}' "$SUPABASE_URL/rest/v1/rpc/ping")
+          codigo=$(echo "$respuesta" | tail -n 1)
+          cuerpo=$(echo "$respuesta" | head -n -1)
+          echo "HTTP $codigo: $cuerpo"
+          test "$codigo" = 200 -a "$cuerpo" = true

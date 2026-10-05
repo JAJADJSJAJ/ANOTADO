@@ -20,7 +20,7 @@ Ninguna policy permite a `authenticated` insertar o editar `pedidos`, `pedido_it
 Teléfonos y direcciones son datos personales (Ley 18.331). Cocina no ve `clientes`, `conversaciones` ni `mensajes`. **Sí ve** `pedidos.entrega` (dirección de delivery) y `pedidos.mensaje_original`, porque RLS filtra filas, no columnas. Se acepta por ahora; en Fase 3 se decide si cocina lee por una RPC/vista que devuelva solo lo que necesita (ojo: Realtime manda la fila completa).
 
 ### GRANTs mínimos además de RLS
-Supabase da `ALL` (incluido `TRUNCATE`, que no pasa por RLS) a `anon` y `authenticated` sobre todo lo que se crea en `public`. La migración `permisos` saca todo y da solo lo que cada policy usa; `anon` no tiene nada. Los default privileges también se revocaron: **cada tabla o RPC nueva tiene que declarar sus GRANT** en su migración.
+Supabase da `ALL` (incluido `TRUNCATE`, que no pasa por RLS) a `anon` y `authenticated` sobre todo lo que se crea en `public`. La migración `permisos` saca todo y da solo lo que cada policy usa; `anon` no tiene nada (después se sumó solo `ping()`, ver más abajo). Los default privileges también se revocaron: **cada tabla o RPC nueva tiene que declarar sus GRANT** en su migración.
 
 ### Roles y alta de negocio solo por RPC (Fase 4)
 Desde la web `miembros` es solo lectura (el encabezado de `rls.sql` todavía dice que la web escribe "equipo": quedó desactualizado por `permisos.sql`, que borra esa policy). Con `ALL` para el dueño, podía nombrar dueños, sacar a otros dueños o dejar al negocio sin dueño. Invitar/cambiar roles y crear un negocio con su primer dueño (atómico, validando identidad) van por RPC en Fase 4. Hoy nadie puede crear negocios desde la web: no hay policy ni GRANT de insert.
@@ -162,7 +162,7 @@ Los navegadores bloquean el audio y la pantalla completa hasta un gesto del usua
 - **Sin usuario público en la demo**, para no dejar abierto el gasto de IA. Se da acceso a mano.
 - **Edge Functions con `packages/shared`: resuelto.** `functions deploy` empaqueta con Docker siguiendo el import map, y `shared` va adentro (1,7 MB). Verificado en la nube con `scripts/verificar-parse-order.mjs`, con sesiones reales: la función responde con sus propios mensajes, cocina recibe 403 y con la IA apagada no se registra uso.
 - **Verificado en la nube** (2026-09-24): un pedido confirmado en la compu aparece solo en el celular que hace de tablet; con modo avión aparece "Sin conexión" y el pedido creado durante el corte llega al volver; cancelar desde el mostrador llega a cocina; apagar la IA desde Ajustes y por `ia_permitida` funciona; la IA interpreta un pedido real.
-- **Ping diario** (GitHub Actions) para que el plan gratis no pause el proyecto.
+- **Ping diario** (GitHub Actions) para que el plan gratis no pause el proyecto. Al principio consultaba una tabla sin sesión y recibía 401: Supabase no lo contó como actividad y pausó el proyecto el 2026-09-29. Ahora llama a la RPC `ping()`, que devuelve `true` sin leer tablas, y el workflow falla si no recibe 200 con `true`. Es lo único que `anon` puede ejecutar (lo comprueba `ping.test.sql`).
 - Registro de usuarios desactivado en la nube y Realtime solo con canales privados (configuración del dashboard).
 
 ## Pendiente de decidir
