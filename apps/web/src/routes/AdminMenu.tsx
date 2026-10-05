@@ -42,6 +42,12 @@ export function AdminMenu() {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
       <h1 className="text-2xl font-bold">Menú</h1>
+      {menu.categorias.length === 0 && (
+        <p className="rounded-xl border-2 border-indigo-200 bg-indigo-50 p-4 text-lg text-indigo-950">
+          Empezá creando una categoría (por ejemplo, <strong>Pizzas</strong>) y después agregale sus productos con el
+          precio. Cuando tengas el menú, ya podés tomar pedidos en <strong>Mostrador</strong>.
+        </p>
+      )}
       {error && <MensajeError>{error}</MensajeError>}
 
       <NuevaCategoria

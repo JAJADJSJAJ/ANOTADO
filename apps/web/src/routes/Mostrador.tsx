@@ -1,7 +1,9 @@
 import { agregarItem, type Borrador, borradorVacio, formatearPrecio, type Origen } from '@anotado/shared';
 import { useMemo, useState } from 'react';
+import { Agotados } from '../components/Agotados.tsx';
 import { Catalogo } from '../components/Catalogo.tsx';
 import { Entregas } from '../components/Entregas.tsx';
+import { EstadoLocal } from '../components/EstadoLocal.tsx';
 import { Cargando, MensajeError } from '../components/Estado.tsx';
 import { PanelPedido } from '../components/PanelPedido.tsx';
 import { PedidosWhatsApp } from '../components/PedidosWhatsApp.tsx';
@@ -9,9 +11,10 @@ import { UltimosPedidos } from '../components/UltimosPedidos.tsx';
 import { useMenu } from '../hooks/useMenu.ts';
 import { useNegocio } from '../hooks/useNegocio.ts';
 import { usePedidosCocina } from '../hooks/usePedidosCocina.ts';
+import { useZonas } from '../hooks/useZonas.ts';
 import { confirmarPedido, type DatosEntrega, ENTREGA_RETIRO, type PedidoConfirmado } from '../lib/pedidos.ts';
 
-type Pestana = 'manual' | 'whatsapp' | 'entregas';
+type Pestana = 'manual' | 'whatsapp' | 'entregas' | 'agotados';
 type Confirmado = PedidoConfirmado & { etiqueta?: string };
 
 export function Mostrador() {
@@ -19,6 +22,8 @@ export function Mostrador() {
   const menu = useMenu(negocio.id);
   const productos = useMemo(() => new Map(menu.productos.map((p) => [p.id, p])), [menu.productos]);
   const activos = useMemo(() => menu.productos.filter((p) => p.activo), [menu.productos]);
+  const { zonas } = useZonas(negocio.id);
+  const zonasActivas = useMemo(() => zonas.filter((z) => z.activa), [zonas]);
 
   const [pestana, setPestana] = useState<Pestana>('manual');
   const [confirmado, setConfirmado] = useState<Confirmado | null>(null);
@@ -86,12 +91,18 @@ export function Mostrador() {
             <span className="ml-2 rounded-full bg-emerald-500 px-2 py-0.5 text-sm text-white">{listos}</span>
           )}
         </button>
+        <button type="button" role="tab" aria-selected={pestana === 'agotados'} className={pestanaClase('agotados')} onClick={() => setPestana('agotados')}>
+          Agotados
+        </button>
       </div>
+
+      <EstadoLocal horarios={negocio.horarios} zonaHoraria={negocio.zonaHoraria} />
 
       {confirmado && (
         <p role="status" className="rounded-xl border-2 border-emerald-400 bg-emerald-50 p-4 text-xl font-bold text-emerald-900">
           Pedido #{confirmado.numero}
           {confirmado.etiqueta ? ` de ${confirmado.etiqueta}` : ''} confirmado · {formatearPrecio(confirmado.total_centavos)}
+          {confirmado.envio_centavos > 0 && ` (envío incluido)`}
         </p>
       )}
 
@@ -113,6 +124,7 @@ export function Mostrador() {
             borrador={borrador}
             onBorrador={setBorrador}
             productos={productos}
+            zonas={zonasActivas}
             origen={origen}
             onOrigen={cambiarOrigen}
             entrega={entrega}
@@ -130,6 +142,13 @@ export function Mostrador() {
         <Entregas cocina={cocina} />
       </div>
 
+      {pestana === 'agotados' && (
+        <section className="rounded-xl bg-white p-4">
+          <p className="mb-4 text-stone-600">Tocá un producto para marcarlo agotado o volver a ofrecerlo.</p>
+          <Agotados categorias={menu.categorias} productos={menu.productos} onCambio={() => void menu.recargar()} />
+        </section>
+      )}
+
       <div hidden={pestana !== 'whatsapp'} className="flex flex-col gap-4">
         {!(negocio.iaPermitida && negocio.iaActiva) && (
           <p className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-lg font-medium text-amber-950">
@@ -142,6 +161,7 @@ export function Mostrador() {
           negocioId={negocio.id}
           productos={productos}
           activos={activos}
+          zonas={zonasActivas}
           onConfirmado={(pedido, etiqueta) => avisarConfirmado(pedido, etiqueta || undefined)}
         />
       </div>
