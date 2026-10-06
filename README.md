@@ -20,6 +20,7 @@ Los locales de comida reciben pedidos por WhatsApp y los anotan en papel: se mez
 - **Cocina:** una tablet con las tarjetas en orden de llegada (lo más viejo a la izquierda), número gigante, notas resaltadas y temporizador verde/amarillo/rojo. Suena cuando entra un pedido, mantiene la pantalla encendida y avisa si se corta internet. Al volver la conexión recarga todo: un corte no pierde pedidos.
 - **Entregas:** los listos para entregar con dirección y total, y cancelar con motivo.
 - **Multi-local desde el día uno:** cada negocio ve solo lo suyo, con roles de dueño, cajero y cocina. Un local nuevo se da de alta solo con un código de Anotado, carga su menú y suma a su equipo con un link por WhatsApp.
+- **Panel del operador:** códigos de alta, IA por local y suspensión, con segundo factor (código del celular) exigido por la base.
 - **Operación del día:** horarios con aviso de abierto/cerrado, agotados que marca cualquiera del local (también la cocina) y zonas de envío cuyo costo se suma al total en el servidor.
 
 ## Arquitectura
@@ -53,7 +54,7 @@ Detalle de cada flujo en [`docs/arquitectura.md`](docs/arquitectura.md).
 
 - **El estado vive en la base, no en la IA.** La IA traduce texto a acciones; el borrador del pedido está en Postgres.
 - **La IA propone, el humano confirma.** Lo dudoso se marca, nunca se inventa.
-- **Aislamiento por negocio con RLS** en todas las tablas, verificado con 336 tests pgTAP que corren en cada PR.
+- **Aislamiento por negocio con RLS** en todas las tablas, verificado con 372 tests pgTAP que corren en cada PR.
 - **Los precios nunca salen de la IA.** El total se recalcula en el servidor.
 - **La cocina ve solo lo que cocina.** Lee por una RPC sin dirección ni teléfono, y Realtime avisa solo "cambió el pedido X": la lista siempre se recarga desde la base, así un aviso perdido no deja la pantalla mal.
 - **La IA se prende por local, con dos llaves:** la habilita el operador y la prende o apaga el dueño.

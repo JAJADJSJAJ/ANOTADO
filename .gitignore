@@ -33,3 +33,6 @@ supabase/seed.local.sql
 
 # Resultados de evals (se regeneran)
 evals/resultados/
+
+# Consultas guardadas del Studio local
+supabase/snippets/
