@@ -42,7 +42,7 @@ flowchart LR
 | Mensajes de WhatsApp (Meta) | `whatsapp-webhook` → `recibir_mensaje_wa` | Firma de Meta verificada; se guarda antes de contestar, con dedupe por `wa_message_id` |
 | Borrador de WhatsApp (Meta) | intérprete → `guardar_interpretacion_wa` | Turno por conversación; marca solo los mensajes que leyó la IA |
 | Correcciones del cajero | `guardar_borrador` (cajero, dueño) | Con versión: la IA siempre parte de lo corregido |
-| Pedido de WhatsApp | `confirmar_conversacion` → `confirmar_pedido` | Exige la última versión y todos los mensajes a la vista |
+| Pedido de WhatsApp | `confirmar_conversacion` → `confirmar_pedido` | Exige la última versión y que no haya mensajes después del último que se ve |
 
 ## Un pedido de WhatsApp, de punta a punta
 
@@ -95,7 +95,7 @@ sequenceDiagram
   DB->>RT: {conversacion_id}
   RT-->>C: el pedido aparece
   C->>DB: guardar_borrador (correcciones, con versión)
-  C->>DB: confirmar_conversacion (versión + mensajes vistos)
+  C->>DB: confirmar_conversacion (versión + último mensaje visto)
 ```
 
 ## Cocina: nunca perder un pedido
