@@ -100,10 +100,8 @@ export type Database = {
           codigo_hash: string
           created_at: string
           id: string
-          intentos: number
           negocio_id: string | null
           nota: string | null
-          registros: number
           usado_at: string | null
           usado_por: string | null
           vence_at: string
@@ -112,10 +110,8 @@ export type Database = {
           codigo_hash: string
           created_at?: string
           id?: string
-          intentos?: number
           negocio_id?: string | null
           nota?: string | null
-          registros?: number
           usado_at?: string | null
           usado_por?: string | null
           vence_at: string
@@ -124,10 +120,8 @@ export type Database = {
           codigo_hash?: string
           created_at?: string
           id?: string
-          intentos?: number
           negocio_id?: string | null
           nota?: string | null
-          registros?: number
           usado_at?: string | null
           usado_por?: string | null
           vence_at?: string
@@ -227,9 +221,7 @@ export type Database = {
           creada_por: string | null
           created_at: string
           id: string
-          intentos: number
           negocio_id: string
-          registros: number
           revocada_at: string | null
           rol: Database["public"]["Enums"]["rol_miembro"]
           token_hash: string
@@ -241,9 +233,7 @@ export type Database = {
           creada_por?: string | null
           created_at?: string
           id?: string
-          intentos?: number
           negocio_id: string
-          registros?: number
           revocada_at?: string | null
           rol: Database["public"]["Enums"]["rol_miembro"]
           token_hash: string
@@ -255,9 +245,7 @@ export type Database = {
           creada_por?: string | null
           created_at?: string
           id?: string
-          intentos?: number
           negocio_id?: string
-          registros?: number
           revocada_at?: string | null
           rol?: Database["public"]["Enums"]["rol_miembro"]
           token_hash?: string
@@ -303,6 +291,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      limites_registro: {
+        Row: {
+          clave: string
+          cuenta: number
+          ventana: string
+        }
+        Insert: {
+          clave: string
+          cuenta: number
+          ventana: string
+        }
+        Update: {
+          clave?: string
+          cuenta?: number
+          ventana?: string
+        }
+        Relationships: []
       }
       mensajes: {
         Row: {
@@ -618,6 +624,54 @@ export type Database = {
           },
         ]
       }
+      reservas_registro: {
+        Row: {
+          codigo_id: string | null
+          created_at: string
+          email_hash: string
+          estado: string
+          habia_cuenta: boolean
+          id: string
+          invitacion_id: string | null
+          resuelta_at: string | null
+        }
+        Insert: {
+          codigo_id?: string | null
+          created_at?: string
+          email_hash: string
+          estado?: string
+          habia_cuenta: boolean
+          id?: string
+          invitacion_id?: string | null
+          resuelta_at?: string | null
+        }
+        Update: {
+          codigo_id?: string | null
+          created_at?: string
+          email_hash?: string
+          estado?: string
+          habia_cuenta?: boolean
+          id?: string
+          invitacion_id?: string | null
+          resuelta_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservas_registro_codigo_id_fkey"
+            columns: ["codigo_id"]
+            isOneToOne: false
+            referencedRelation: "codigos_alta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservas_registro_invitacion_id_fkey"
+            columns: ["invitacion_id"]
+            isOneToOne: false
+            referencedRelation: "invitaciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       uso_ia: {
         Row: {
           conversacion_id: string | null
@@ -751,6 +805,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      consumir_limite_registro: {
+        Args: { p_ip_hash: string; p_max_ip: number; p_max_total: number }
+        Returns: boolean
+      }
       crear_codigo_alta: {
         Args: { p_dias?: number; p_nota?: string }
         Returns: string
@@ -771,6 +829,7 @@ export type Database = {
         Args: { p_negocio_id: string; p_user_id: string }
         Returns: boolean
       }
+      existe_cuenta: { Args: { p_email_hash: string }; Returns: boolean }
       guardar_interpretacion: {
         Args: {
           p_borrador: Json
@@ -790,6 +849,7 @@ export type Database = {
         }[]
       }
       hash_codigo: { Args: { p_codigo: string }; Returns: string }
+      hash_email: { Args: { p_email: string }; Returns: string }
       horarios_validos: { Args: { h: Json }; Returns: boolean }
       invitacion_vigente: {
         Args: { p_token: string }
@@ -797,9 +857,7 @@ export type Database = {
           creada_por: string | null
           created_at: string
           id: string
-          intentos: number
           negocio_id: string
-          registros: number
           revocada_at: string | null
           rol: Database["public"]["Enums"]["rol_miembro"]
           token_hash: string
@@ -813,10 +871,6 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
-      }
-      liberar_registro: {
-        Args: { p_codigo?: string; p_token?: string }
-        Returns: undefined
       }
       marcar_agotado: {
         Args: { p_agotado: boolean; p_producto_id: string }
@@ -856,10 +910,11 @@ export type Database = {
         Args: { p_negocio_id: string; p_user_id: string }
         Returns: undefined
       }
-      registro_permitido: {
-        Args: { p_codigo?: string; p_token?: string }
-        Returns: boolean
+      reservar_registro: {
+        Args: { p_codigo?: string; p_email: string; p_token?: string }
+        Returns: string
       }
+      resolver_reserva: { Args: { p_reserva: string }; Returns: string }
       retroceder_estado: {
         Args: {
           p_desde: Database["public"]["Enums"]["estado_pedido"]

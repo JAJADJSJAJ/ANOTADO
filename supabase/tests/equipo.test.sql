@@ -73,14 +73,14 @@ select pg_temp.como(:dueno_a);
 select lives_ok(format('select revocar_invitacion(%L)', (select id from tokens where nombre = 'revocar')),
   'el dueño revoca');
 
--- registro_permitido con invitación -----------------------------------------------------------
+-- Reservas de registro con invitación ---------------------------------------------------------
 reset role;
 set local role service_role;
-select ok(registro_permitido(p_token => (select token from tokens where nombre = 'cocina')),
+select ok(reservar_registro('a@test.test', p_token => (select token from tokens where nombre = 'cocina')) is not null,
   'una invitación vigente permite crear la cuenta');
-select ok(not registro_permitido(p_token => (select token from tokens where nombre = 'revocar')),
+select ok(reservar_registro('a@test.test', p_token => (select token from tokens where nombre = 'revocar')) is null,
   'una revocada no');
-select ok(not registro_permitido(p_token => (select token from tokens where nombre = 'vencida')),
+select ok(reservar_registro('a@test.test', p_token => (select token from tokens where nombre = 'vencida')) is null,
   'una vencida no');
 
 -- Ver y aceptar -------------------------------------------------------------------------------
