@@ -426,6 +426,21 @@ export type Database = {
         }
         Relationships: []
       }
+      operadores: {
+        Row: {
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pedido_items: {
         Row: {
           cantidad: number
@@ -624,6 +639,41 @@ export type Database = {
           },
         ]
       }
+      registro_operador: {
+        Row: {
+          accion: string
+          created_at: string
+          detalle: Json
+          id: number
+          negocio_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          accion: string
+          created_at?: string
+          detalle?: Json
+          id?: never
+          negocio_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          accion?: string
+          created_at?: string
+          detalle?: Json
+          id?: never
+          negocio_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registro_operador_negocio_id_fkey"
+            columns: ["negocio_id"]
+            isOneToOne: false
+            referencedRelation: "negocios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reservas_registro: {
         Row: {
           codigo_id: string | null
@@ -762,6 +812,10 @@ export type Database = {
     Functions: {
       aceptar_invitacion: { Args: { p_token: string }; Returns: Json }
       alias_validos: { Args: { alias: string[] }; Returns: boolean }
+      anotar_operador: {
+        Args: { p_accion: string; p_detalle?: Json; p_negocio_id: string }
+        Returns: undefined
+      }
       avanzar_estado: {
         Args: {
           p_desde: Database["public"]["Enums"]["estado_pedido"]
@@ -825,10 +879,12 @@ export type Database = {
         Returns: Json
       }
       es_miembro: { Args: { n: string }; Returns: boolean }
+      es_operador: { Args: never; Returns: boolean }
       es_ultimo_dueno: {
         Args: { p_negocio_id: string; p_user_id: string }
         Returns: boolean
       }
+      exigir_operador: { Args: never; Returns: undefined }
       existe_cuenta: { Args: { p_email_hash: string }; Returns: boolean }
       guardar_interpretacion: {
         Args: {
@@ -876,12 +932,19 @@ export type Database = {
         Args: { p_agotado: boolean; p_producto_id: string }
         Returns: Json
       }
+      mi_estado_operador: { Args: never; Returns: Json }
       miembros_negocio: {
         Args: { p_negocio_id: string }
         Returns: {
           email: string
           rol: Database["public"]["Enums"]["rol_miembro"]
           user_id: string
+        }[]
+      }
+      mis_locales_suspendidos: {
+        Args: never
+        Returns: {
+          nombre: string
         }[]
       }
       mover_estado: {
@@ -893,7 +956,52 @@ export type Database = {
         Returns: Json
       }
       negocio_de_topic: { Args: { p_topic: string }; Returns: string }
+      operador_anular_codigo: {
+        Args: { p_codigo_id: string }
+        Returns: undefined
+      }
+      operador_cambiar_activo: {
+        Args: { p_activo: boolean; p_motivo?: string; p_negocio_id: string }
+        Returns: undefined
+      }
+      operador_cambiar_ia: {
+        Args: { p_negocio_id: string; p_permitida: boolean }
+        Returns: undefined
+      }
+      operador_codigos: {
+        Args: never
+        Returns: {
+          created_at: string
+          estado: string
+          id: string
+          negocio: string
+          nota: string
+          usado_at: string
+          vence_at: string
+        }[]
+      }
+      operador_crear_codigo: {
+        Args: { p_dias?: number; p_nota?: string }
+        Returns: string
+      }
+      operador_locales: {
+        Args: never
+        Returns: {
+          activo: boolean
+          created_at: string
+          duenos: string[]
+          ia_activa: boolean
+          ia_permitida: boolean
+          id: string
+          miembros: number
+          nombre: string
+          pedidos_30d: number
+          slug: string
+          usos_ia_30d: number
+        }[]
+      }
       pedidos_cocina: { Args: { p_negocio_id: string }; Returns: Json }
+      ping: { Args: never; Returns: boolean }
       preparar_cambio_equipo: {
         Args: { p_negocio_id: string; p_user_id: string }
         Returns: Database["public"]["Enums"]["rol_miembro"]
