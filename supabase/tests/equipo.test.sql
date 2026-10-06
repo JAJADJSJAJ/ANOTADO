@@ -20,6 +20,7 @@ $$;
 
 -- Estado conocido: solo el equipo del seed (seed.local.sql puede sumar dueños en local).
 delete from miembros where negocio_id = :A and user_id not in (:dueno_a, :cajero_a, :cocina_a);
+delete from invitaciones;
 insert into auth.users (id, email) values (:nuevo, 'nuevo@test.test');
 create temp table tokens (nombre text primary key, token text, id uuid);
 grant all on tokens to authenticated, service_role;

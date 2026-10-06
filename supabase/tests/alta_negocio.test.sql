@@ -1,7 +1,7 @@
 -- Alta de negocios: códigos del operador, registro_permitido y crear_negocio.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(32);
 
 \set nuevo '\'00000000-0000-4000-a000-0000000000c1\''
 \set otro '\'00000000-0000-4000-a000-0000000000c2\''
@@ -56,6 +56,28 @@ select ok(registro_permitido((select codigo from codigos where nombre = 'registr
 select ok(registro_permitido((select codigo from codigos where nombre = 'registro')), '2ª cuenta');
 select ok(registro_permitido((select codigo from codigos where nombre = 'registro')), '3ª cuenta');
 select ok(not registro_permitido((select codigo from codigos where nombre = 'registro')), 'la 4ª no');
+-- Una cuenta que no se pudo crear devuelve el cupo, pero no el intento.
+select lives_ok($$select liberar_registro((select codigo from codigos where nombre = 'registro'))$$,
+  'la función devuelve el cupo');
+select ok(registro_permitido((select codigo from codigos where nombre = 'registro')),
+  'con el cupo devuelto, se puede de nuevo');
+reset role;
+select is((select array[registros, intentos] from codigos_alta
+           where codigo_hash = hash_codigo((select codigo from codigos where nombre = 'registro'))),
+  array[3, 4], 'cuenta cuentas e intentos por separado');
+update codigos_alta set registros = 0, intentos = 9
+where codigo_hash = hash_codigo((select codigo from codigos where nombre = 'registro'));
+set local role service_role;
+select ok(registro_permitido((select codigo from codigos where nombre = 'registro')), 'el intento 10 pasa');
+select liberar_registro((select codigo from codigos where nombre = 'registro'));
+select ok(not registro_permitido((select codigo from codigos where nombre = 'registro')),
+  'el 11 no, aunque sobren cupos de cuenta');
+reset role;
+select pg_temp.como('00000000-0000-4000-a000-0000000000a1');
+select throws_ok($$select liberar_registro((select codigo from codigos where nombre = 'registro'))$$,
+  '42501', null, 'authenticated no devuelve cupos');
+reset role;
+set local role service_role;
 select ok(not registro_permitido('AAAA-BBBB-CCCC'), 'código inexistente');
 select ok(not registro_permitido((select codigo from codigos where nombre = 'vencido')), 'código vencido');
 select throws_ok($$select registro_permitido()$$, '22023', null, 'hace falta código o invitación');
@@ -87,6 +109,9 @@ select throws_ok($$select crear_negocio((select codigo from codigos where nombre
   '22023', null, 'nombre vacío');
 select is((select crear_negocio((select codigo from codigos where nombre = 'segundo'), 'Login') ->> 'slug'),
   'login-local', 'un slug no tapa rutas de la web');
+reset role;
+select is(slug_desde_nombre(repeat('pizzería ', 20)), rtrim(left(repeat('pizzeria-', 20), 40), '-'),
+  'el slug base tiene hasta 40 caracteres');
 
 reset role;
 set local role service_role;
