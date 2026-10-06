@@ -8,7 +8,7 @@ export const MIN_PASSWORD = 8;
 export const MAX_PASSWORD = 72;
 export const MAX_NOMBRE_LOCAL = 120;
 
-/** El operador entrega "K7Q2-M9XP-4T8R"; la persona puede escribirlo como quiera. */
+/** El operador entrega "K7Q2-M9XP-4T8R-WN3H" (16 caracteres, 80 bits); la persona puede escribirlo como quiera. */
 export function normalizarCodigo(codigo: string): string {
   return codigo.toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
@@ -16,7 +16,7 @@ export function normalizarCodigo(codigo: string): string {
 export const CodigoAltaSchema = z
   .string()
   .transform(normalizarCodigo)
-  .pipe(z.string().regex(/^[2-9A-HJ-NP-Z]{12}$/, 'El código tiene 12 letras y números'));
+  .pipe(z.string().regex(/^[2-9A-HJ-NP-Z]{16}$/, 'El código tiene 16 letras y números'));
 
 /** Token de invitación: 32 bytes en base64url. */
 export const TokenInvitacionSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);

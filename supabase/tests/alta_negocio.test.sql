@@ -31,7 +31,7 @@ update codigos_alta set vence_at = now() - interval '1 minute'
 where codigo_hash = hash_codigo((select codigo from codigos where nombre = 'vencido'));
 
 select matches((select codigo from codigos where nombre = 'bueno'),
-  '^[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$', 'código legible, sin 0/O ni 1/I');
+  '^[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$', 'código de 16 caracteres legibles, sin 0/O ni 1/I');
 select is((select count(*) from codigos_alta where nota = 'Local de prueba'), 1::bigint, 'guarda la nota');
 select is((select count(*) from codigos_alta a
            join codigos c on a.codigo_hash = extensions.digest(replace(c.codigo, '-', ''), 'sha256')),
@@ -96,7 +96,7 @@ select is((select email_hash from reservas_registro where id = (select id from r
   extensions.digest('nueva1@test.test', 'sha256'),
   'del mail se guarda solo el hash (en minúsculas)');
 
-select ok(reservar_registro('a@test.test', 'AAAA-BBBB-CCCC') is null, 'código inexistente');
+select ok(reservar_registro('a@test.test', 'AAAA-BBBB-CCCC-DDDD') is null, 'código inexistente');
 select ok(reservar_registro('a@test.test', (select codigo from codigos where nombre = 'vencido')) is null, 'código vencido');
 select throws_ok($$select reservar_registro('a@test.test')$$, '22023', null, 'hace falta código o invitación');
 select throws_ok($$select reservar_registro(' ', (select codigo from codigos where nombre = 'registro'))$$,

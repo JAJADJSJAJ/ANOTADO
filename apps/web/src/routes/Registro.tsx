@@ -49,7 +49,7 @@ export function Registro() {
     e.preventDefault();
     setError(null);
     const cod = CodigoAltaSchema.safeParse(codigo);
-    if (!cod.success) return setError('Revisá el código: son 12 letras y números, como K7Q2-M9XP-4T8R.');
+    if (!cod.success) return setError('Revisá el código: son 16 letras y números, como K7Q2-M9XP-4T8R-WN3H.');
     const nom = NombreLocalSchema.safeParse(nombre);
     if (!nom.success) return setError(nom.error.issues[0]?.message ?? 'Revisá el nombre del local.');
 
@@ -89,7 +89,7 @@ export function Registro() {
           required
           autoComplete="off"
           autoCapitalize="characters"
-          placeholder="K7Q2-M9XP-4T8R"
+          placeholder="K7Q2-M9XP-4T8R-WN3H"
           value={codigo}
           onChange={(e) => setCodigo(e.target.value)}
         />
