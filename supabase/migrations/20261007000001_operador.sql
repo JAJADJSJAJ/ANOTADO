@@ -8,7 +8,7 @@
 -- Quién es operador: la tabla `operadores`, que la web no puede escribir. El primero se carga
 -- una vez a mano con SQL (docs/deploy.md).
 --
--- Segundo factor obligatorio: es_operador() exige además que la sesión tenga `aal = aal2`, o
+-- Segundo factor obligatorio: es_operador() exige además `aal = aal2` y `amr` con `totp`, o
 -- sea que en esta sesión se verificó el código de la app de autenticación (TOTP). Lo decide la
 -- base mirando el JWT, no la pantalla: con solo la contraseña, ninguna función del panel
 -- responde.
@@ -25,6 +25,8 @@ create table public.operadores (
   created_at timestamptz not null default now()
 );
 alter table public.operadores enable row level security;  -- sin policies ni GRANT
+-- Explícito, aunque los default privileges ya no dan nada a tablas nuevas (permisos.sql).
+revoke all on public.operadores from public, anon, authenticated;
 
 create table public.registro_operador (
   id bigint generated always as identity primary key,
@@ -35,11 +37,21 @@ create table public.registro_operador (
   created_at timestamptz not null default now()
 );
 alter table public.registro_operador enable row level security;  -- sin policies ni GRANT
+revoke all on public.registro_operador from public, anon, authenticated;
 
--- Operador con el segundo factor verificado en esta sesión.
+-- ¿La sesión verificó el código de la app del celular (TOTP)? aal2 solo dice "algún segundo
+-- factor"; amr dice cuál. Se exigen los dos: si algún día se habilita otro factor (SMS,
+-- llaves), no sirve para el panel sin cambiar esto a propósito.
+create function public.sesion_con_totp() returns boolean
+language sql stable set search_path = '' as $$
+  select coalesce(auth.jwt() ->> 'aal', '') = 'aal2'
+     and coalesce(auth.jwt() -> 'amr', '[]'::jsonb) @> '[{"method": "totp"}]';
+$$;
+
+-- Operador con el código del celular verificado en esta sesión.
 create function public.es_operador() returns boolean
 language sql stable security definer set search_path = '' as $$
-  select coalesce(auth.jwt() ->> 'aal', '') = 'aal2'
+  select public.sesion_con_totp()
      and exists (select 1 from public.operadores where user_id = auth.uid());
 $$;
 
@@ -49,7 +61,7 @@ create function public.mi_estado_operador() returns jsonb
 language sql stable security definer set search_path = '' as $$
   select jsonb_build_object(
     'operador', exists (select 1 from public.operadores where user_id = auth.uid()),
-    'segundo_factor', coalesce(auth.jwt() ->> 'aal', '') = 'aal2');
+    'segundo_factor', public.sesion_con_totp());
 $$;
 
 create function public.exigir_operador() returns void
@@ -265,8 +277,102 @@ begin
   return jsonb_build_object('id', v_negocio_id, 'slug', v_slug);
 end;
 $$;
+
+-- Invitaciones de un local suspendido: no se ven, no se aceptan y no sirven para crear cuentas
+-- (revisión). Leían la membresía directo, sin pasar por es_miembro/tiene_rol. Igual quien
+-- entrara no podría usar el local, pero no tiene que poder sumarse.
+create or replace function public.invitacion_vigente(p_token text) returns public.invitaciones
+language sql stable set search_path = '' as $$
+  select * from public.invitaciones
+  where token_hash = extensions.digest(coalesce(p_token, ''), 'sha256')
+    and usada_at is null and revocada_at is null and vence_at > now()
+    and exists (select 1 from public.negocios ng where ng.id = negocio_id and ng.activo);
+$$;
+
+create or replace function public.aceptar_invitacion(p_token text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_user uuid := auth.uid();
+  v_id uuid;
+  v_negocio_id uuid;
+  v_rol public.rol_miembro;
+  v_slug text;
+begin
+  if v_user is null then
+    raise exception 'Hace falta iniciar sesión' using errcode = '42501';
+  end if;
+  -- Se bloquea la invitación: dos personas con el mismo link no entran las dos.
+  select id, negocio_id, rol into v_id, v_negocio_id, v_rol
+  from public.invitaciones
+  where token_hash = extensions.digest(coalesce(p_token, ''), 'sha256')
+    and usada_at is null and revocada_at is null and vence_at > now()
+    and exists (select 1 from public.negocios ng where ng.id = negocio_id and ng.activo)
+  for update;
+  if v_id is null then
+    raise exception 'La invitación no existe, venció o ya se usó' using errcode = 'P0002';
+  end if;
+  -- Un miembro no cambia su propio rol con un link: eso lo hace el dueño desde Equipo.
+  if exists (select 1 from public.miembros where negocio_id = v_negocio_id and user_id = v_user) then
+    raise exception 'Ya sos parte de este local' using errcode = '23505';
+  end if;
+
+  insert into public.miembros (negocio_id, user_id, rol) values (v_negocio_id, v_user, v_rol);
+  update public.invitaciones set usada_por = v_user, usada_at = now() where id = v_id;
+  select slug into v_slug from public.negocios where id = v_negocio_id;
+  return jsonb_build_object('slug', v_slug, 'rol', v_rol);
+end;
+$$;
+
+create or replace function public.reservar_registro(p_email text, p_codigo text default null, p_token text default null)
+returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare
+  c_max_cuentas constant int := 3;
+  c_max_intentos constant int := 10;
+  v_codigo_id uuid;
+  v_invitacion_id uuid;
+  v_cuentas int;
+  v_intentos int;
+  v_email_hash bytea := public.hash_email(p_email);
+  v_reserva uuid;
+begin
+  if (p_codigo is null) = (p_token is null) then
+    raise exception 'Se espera un código o una invitación' using errcode = '22023';
+  end if;
+  if nullif(btrim(p_email), '') is null then
+    raise exception 'Falta el mail' using errcode = '22023';
+  end if;
+
+  -- La fila del código o la invitación queda bloqueada hasta el final: dos reservas
+  -- simultáneas se cuentan una después de la otra.
+  if p_codigo is not null then
+    select id into v_codigo_id from public.codigos_alta
+    where codigo_hash = public.hash_codigo(p_codigo) and usado_at is null and vence_at > now()
+    for update;
+    if v_codigo_id is null then return null; end if;
+  else
+    select id into v_invitacion_id from public.invitaciones
+    where token_hash = extensions.digest(p_token, 'sha256')
+      and usada_at is null and revocada_at is null and vence_at > now()
+      and exists (select 1 from public.negocios ng where ng.id = negocio_id and ng.activo)
+    for update;
+    if v_invitacion_id is null then return null; end if;
+  end if;
+
+  select count(*) filter (where estado <> 'liberada'), count(*) into v_cuentas, v_intentos
+  from public.reservas_registro
+  where codigo_id is not distinct from v_codigo_id and invitacion_id is not distinct from v_invitacion_id;
+  if v_cuentas >= c_max_cuentas or v_intentos >= c_max_intentos then return null; end if;
+
+  insert into public.reservas_registro (codigo_id, invitacion_id, email_hash, habia_cuenta)
+  values (v_codigo_id, v_invitacion_id, v_email_hash, public.existe_cuenta(v_email_hash))
+  returning id into v_reserva;
+  return v_reserva;
+end;
+$$;
 -- Permisos ----------------------------------------------------------------------------------
 
+revoke all on function public.sesion_con_totp() from public, anon, authenticated;
 revoke all on function public.es_operador() from public, anon, authenticated;
 revoke all on function public.mi_estado_operador() from public, anon, authenticated;
 revoke all on function public.exigir_operador() from public, anon, authenticated;
@@ -288,3 +394,4 @@ grant execute on function public.operador_crear_codigo(text, int) to authenticat
 grant execute on function public.operador_codigos() to authenticated;
 grant execute on function public.operador_anular_codigo(uuid) to authenticated;
 -- es_miembro y tiene_rol: create or replace conserva su GRANT a authenticated.
+-- (invitacion_vigente, aceptar_invitacion y reservar_registro: create or replace conserva sus permisos.)

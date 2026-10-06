@@ -164,7 +164,9 @@ insert into operadores (user_id) select id from auth.users where email = '<tu ma
 ```
 
 Además, *Authentication → Multi-Factor* (o *Sign In / Providers → Multi-Factor*): **TOTP**
-habilitado. La primera vez que entres a `/operador` te muestra un QR para la app de
+habilitado (y solo TOTP: el panel exige ese método). En *Authentication → Hooks*, ningún
+*Custom Access Token Hook* (podría escribir las claims que mira el panel). La primera vez que
+entres a `/operador` te muestra un QR para la app de
 contraseñas del iPhone (o Google Authenticator); desde ahí, cada vez te pide el código de 6
 números. Sin ese código, las funciones del panel no responden.
 

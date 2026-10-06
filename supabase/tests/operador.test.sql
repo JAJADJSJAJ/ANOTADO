@@ -2,17 +2,22 @@
 -- y la suspensión corta el acceso de todo el local.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(39);
 
 \set A '\'a0000000-0000-4000-8000-000000000001\''
 \set B '\'b0000000-0000-4000-8000-000000000001\''
 \set op '\'00000000-0000-4000-a000-0000000000f1\''
 
--- Sesión con o sin segundo factor (claim aal del JWT, como lo pone Supabase Auth).
-create function pg_temp.como(p_user uuid, p_aal text default 'aal1') returns void language plpgsql as $$
+-- Sesión como la arma Supabase Auth: aal1 = solo contraseña; aal2 = contraseña + TOTP (amr).
+-- p_amr permite simular un aal2 con otro método (no TOTP).
+create function pg_temp.como(p_user uuid, p_aal text default 'aal1', p_amr text[] default null) returns void
+language plpgsql as $$
 begin
-  perform set_config('request.jwt.claims',
-    json_build_object('sub', p_user, 'role', 'authenticated', 'aal', p_aal)::text, true);
+  perform set_config('request.jwt.claims', json_build_object(
+    'sub', p_user, 'role', 'authenticated', 'aal', p_aal,
+    'amr', (select json_agg(json_build_object('method', m))
+            from unnest(coalesce(p_amr, case when p_aal = 'aal2' then '{totp,password}'::text[] else '{password}' end)) m)
+  )::text, true);
   set local role authenticated;
 end;
 $$;
@@ -24,6 +29,28 @@ delete from miembros where user_id::text not like '00000000-0000-4000-a000-%';
 insert into auth.users (id, email) values (:op, 'operador@anotado.test');
 insert into operadores (user_id) values (:op);
 
+
+-- Permisos efectivos -----------------------------------------------------------------------
+select ok(not exists (
+  select 1 from unnest('{operadores,registro_operador}'::text[]) t, unnest('{public,anon,authenticated}'::text[]) r
+  where has_table_privilege(r, 'public.' || t, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+), 'operadores y registro_operador: ningún permiso para public, anon ni authenticated');
+select ok(not has_function_privilege('anon', 'public.crear_negocio(text,text)', 'EXECUTE')
+          and has_function_privilege('authenticated', 'public.crear_negocio(text,text)', 'EXECUTE'),
+  'crear_negocio: solo authenticated (el reemplazo conserva los permisos)');
+select ok(not exists (
+  select 1 from unnest(array['es_operador()', 'sesion_con_totp()', 'exigir_operador()', 'anotar_operador(text,uuid,jsonb)']) f,
+               unnest('{public,anon,authenticated}'::text[]) r
+  where has_function_privilege(r, 'public.' || f, 'EXECUTE')
+), 'las funciones internas del operador no se llaman desde la API');
+
+-- Invitación del local A, creada antes de suspenderlo.
+create temp table inv (token text);
+grant all on inv to authenticated, service_role;
+select pg_temp.como('00000000-0000-4000-a000-0000000000a1');
+insert into inv select crear_invitacion(:A, 'cajero') ->> 'token';
+reset role;
+reset role;
 -- Nadie escribe ni lee las tablas del operador desde la web --------------------------------
 select pg_temp.como(:op, 'aal2');
 select throws_ok($$insert into operadores values ('00000000-0000-4000-a000-0000000000a1')$$,
@@ -37,6 +64,10 @@ select is(mi_estado_operador(), '{"operador": true, "segundo_factor": false}'::j
   'sabe que es operador y que le falta el código');
 select throws_ok($$select * from operador_locales()$$, '42501', null, 'sin el código del celular no ve nada');
 select throws_ok($$select operador_crear_codigo('x')$$, '42501', null, 'ni genera códigos');
+reset role;
+select pg_temp.como(:op, 'aal2', '{sms,password}');
+select is(mi_estado_operador() ->> 'segundo_factor', 'false', 'aal2 con otro método (no TOTP): no cuenta');
+select throws_ok($$select * from operador_locales()$$, '42501', null, 'y no entra al panel');
 
 reset role;
 select pg_temp.como('00000000-0000-4000-a000-0000000000a1', 'aal2');
@@ -82,6 +113,15 @@ select throws_ok(
 select throws_ok(format('select operador_cambiar_activo(%L, false, %L)', :A, repeat('x', 201)),
   '22023', null, 'motivo acotado');
 select lives_ok(format('select operador_cambiar_activo(%L, false, %L)', :A, 'no pagó'), 'suspende A');
+reset role;
+select pg_temp.como(:op);
+select throws_ok($$select ver_invitacion((select token from inv))$$, 'P0002', null,
+  'la invitación de un local suspendido no se ve');
+select throws_ok($$select aceptar_invitacion((select token from inv))$$, 'P0002', null, 'ni se acepta');
+reset role;
+set local role service_role;
+select ok(reservar_registro('nuevo@test.test', p_token => (select token from inv)) is null,
+  'ni sirve para crear una cuenta');
 
 reset role;
 select pg_temp.como('00000000-0000-4000-a000-0000000000a1');
