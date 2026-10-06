@@ -74,7 +74,7 @@ Cambiar un estado manda el estado que se ve en pantalla (`desde`): si otro dispo
 
 ## Seguridad por capas
 
-- **RLS** en todas las tablas y **GRANTs mínimos**: `anon` no tiene nada, y cada tabla o función declara sus permisos.
+- **RLS** en todas las tablas y **GRANTs mínimos**: `anon` no tiene nada salvo la RPC `ping()` (sin datos, para que el plan gratis no pause el proyecto), y cada tabla o función declara sus permisos.
 - **FKs compuestas `(id, negocio_id)`**: la base impide cruzar datos entre negocios aunque falle lo de arriba.
 - **Cocina** no lee `pedidos` ni `pedido_items` directo: solo por `pedidos_cocina()`.
 - **Realtime** con canales privados: una policy sobre `realtime.messages` deja escuchar solo a los miembros del negocio, y nadie manda avisos desde el navegador.
