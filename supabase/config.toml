@@ -442,3 +442,11 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/registro/deno.json"
 entrypoint = "./functions/registro/index.ts"
+
+# Webhook de WhatsApp Cloud API. Lo llama Meta, sin sesión ni apikey: la función verifica la
+# firma X-Hub-Signature-256 con WA_APP_SECRET.
+[functions.whatsapp-webhook]
+enabled = true
+verify_jwt = false
+import_map = "./functions/whatsapp-webhook/deno.json"
+entrypoint = "./functions/whatsapp-webhook/index.ts"
