@@ -315,6 +315,7 @@ type Local = {
   miembros: number;
   pedidos_30d: number;
   usos_ia_30d: number;
+  wa_phone_number_id: string | null;
 };
 
 function Locales() {
@@ -345,6 +346,16 @@ function Locales() {
     const motivo = prompt(`¿Suspender "${l.nombre}"? Su gente no va a poder entrar. Motivo (opcional):`);
     if (motivo === null) return;
     void accion(supabase.rpc('operador_cambiar_activo', { p_negocio_id: l.id, p_activo: false, p_motivo: motivo || undefined }));
+  }
+
+  /** El phone_number_id lo da Meta (WhatsApp → API Setup). Vacío = desconectar. */
+  function conectarWhatsApp(l: Local) {
+    const id = prompt(
+      `Identificador del número de WhatsApp de "${l.nombre}" (Phone number ID, lo da Meta). Dejalo vacío para desconectarlo:`,
+      l.wa_phone_number_id ?? '',
+    );
+    if (id === null) return;
+    void accion(supabase.rpc('operador_conectar_whatsapp', { p_negocio_id: l.id, p_phone_number_id: id.trim() }));
   }
 
   return (
@@ -381,6 +392,15 @@ function Locales() {
                 >
                   IA {l.ia_permitida ? 'habilitada' : 'sin habilitar'}
                   {l.ia_permitida && !l.ia_activa ? ' (el dueño la apagó)' : ''}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => conectarWhatsApp(l)}
+                  className={`rounded-lg border-2 px-3 py-2 font-bold ${
+                    l.wa_phone_number_id ? 'border-emerald-600 text-emerald-700' : 'border-stone-400 text-stone-600'
+                  }`}
+                >
+                  {l.wa_phone_number_id ? `WhatsApp conectado (${l.wa_phone_number_id})` : 'Conectar WhatsApp'}
                 </button>
                 {l.activo ? (
                   <button type="button" onClick={() => suspender(l)} className="rounded-lg px-3 py-2 font-medium text-red-700 underline">
