@@ -174,7 +174,10 @@ begin
     return null;
   end if;
 
-  -- Reintento de Meta: ya está guardado.
+  -- Reintento de Meta: ya está guardado. El bloqueo por wa_message_id (hasta el fin de la
+  -- transacción) hace que dos entregas simultáneas del MISMO mensaje pasen de a una: la segunda
+  -- espera, lo encuentra guardado y sale acá, sin sumar al límite del local (revisión).
+  perform pg_advisory_xact_lock(hashtextextended('wa:' || p_wa_message_id, 0));
   if exists (select 1 from public.mensajes m where m.wa_message_id = p_wa_message_id) then
     return null;
   end if;
