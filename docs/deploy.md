@@ -55,7 +55,7 @@ carga el operador; ninguna clave va al repo ni al chat.
    ```bash
    curl -s -X POST https://<ref>.supabase.co/functions/v1/registro \
      -H "apikey: <publishable key>" -H "content-type: application/json" \
-     -d '{"email":"x@x.uy","codigo":"AAAA-BBBB-CCCC"}'
+     -d '{"email":"x@x.uy","codigo":"AAAA-BBBB-CCCC-DDDD"}'
    ```
 
    Tiene que responder `403` con *El código no es válido…* (sin `apikey`, `401`).
@@ -85,7 +85,9 @@ carga el operador; ninguna clave va al repo ni al chat.
      4. *Rate Limits*: **Rate limit for sending emails** en 30 por hora (sobra).
    - *Email Templates*: pegá los de `supabase/templates/` en **Invite user**
      (`invitacion.html`, asunto *Confirmá tu mail para entrar a Anotado*) y **Reset password**
-     (`recuperar.html`, asunto *Elegí una contraseña nueva para Anotado*).
+     (`recuperar.html`, asunto *Elegí una contraseña nueva para Anotado*) y **Magic Link**
+     (`entrar.html`, asunto *Tu link para entrar a Anotado*: le llega a quien se registra con un
+     mail que ya tiene cuenta).
 7. **Realtime** (*Realtime → Settings*): desactivar **Allow public access**. Así solo
    funcionan los canales privados, que la base autoriza por negocio.
 8. **Local de demo:**
@@ -158,10 +160,10 @@ Para cortar la IA de **todos** los locales a la vez, revocá la key en OpenRoute
 (vence en 14 días; el segundo parámetro cambia los días, de 1 a 90):
 
 ```sql
-select crear_codigo_alta('Pizzería Don José');   -- devuelve algo como K7Q2-M9XP-4T8R
+select crear_codigo_alta('Pizzería Don José');   -- devuelve algo como K7Q2-M9XP-4T8R-WN3H
 ```
 
-El dueño entra a `https://<dominio>/registro?codigo=K7Q2-M9XP-4T8R`, crea su cuenta y su
+El dueño entra a `https://<dominio>/registro?codigo=K7Q2-M9XP-4T8R-WN3H`, crea su cuenta y su
 local, carga el menú e invita a su equipo desde *Equipo*. El local arranca **sin IA**: se
 habilita como arriba. Para ver los códigos y si se usaron:
 
