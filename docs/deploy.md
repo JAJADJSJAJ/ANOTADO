@@ -151,15 +151,18 @@ la API una vez por día para que el plan gratis no pause el proyecto.
 Con el número de prueba de Meta (gratis, hasta 5 destinatarios). Ninguna clave va al repo ni
 al chat: el App Secret va directo a `.env.nube`.
 
-1. **App en Meta.** [developers.facebook.com](https://developers.facebook.com) → *My Apps →
-   Create app* → tipo **Business** → agregá el producto **WhatsApp**. Meta crea un número de
-   prueba.
-2. **Datos del número.** *WhatsApp → API Setup*: anotá el **Phone number ID** (no es secreto).
-   En *To*, agregá tu celular como destinatario y verificalo con el código que te llega.
-3. **Secrets.** *App settings → Basic → App secret → Show*. En `supabase/functions/.env.nube`:
-   - `WA_APP_SECRET=` el App Secret.
+1. **App en Meta.** [developers.facebook.com](https://developers.facebook.com) → *Crear app* →
+   caso de uso **Conectarte con los clientes a través de WhatsApp**. WhatsApp exige un
+   **portfolio comercial** (se crea gratis desde el mismo asistente; para el número de prueba no
+   hace falta verificarlo).
+2. **Número de prueba.** *Casos de uso → Personalizar → Paso 1. Pruébalo* → **Continuar**
+   (acepta las condiciones de WhatsApp Business). Anotá el **Phone number ID** (no es secreto).
+   En *Destinatario*, agregá tu celular y verificalo con el código que te llega.
+3. **Secrets.** *Configuración de la app → Básica → Clave secreta de la app → Mostrar*. En
+   `supabase/functions/.env.nube`:
+   - `WA_APP_SECRET=` la clave secreta de la app.
    - `WA_VERIFY_TOKEN=` uno que inventás vos, largo y al azar (generalo con tu gestor de
-     contraseñas). Lo vas a pegar también en Meta, en el paso 5.
+     contraseñas). Lo vas a pegar también en Meta, en el paso 6.
 
    ```bash
    pnpm supabase secrets set --env-file supabase/functions/.env.nube
@@ -183,20 +186,35 @@ al chat: el App Secret va directo a `.env.nube`.
    ```
 
    Tiene que dar **401** (sin firma). Si da 503, falta `WA_APP_SECRET`.
-5. **Webhook en Meta.** *WhatsApp → Configuration → Webhook → Edit*:
-   - *Callback URL*: `https://<ref>.supabase.co/functions/v1/whatsapp-webhook`
-   - *Verify token*: el `WA_VERIFY_TOKEN` del paso 3 → **Verify and save**.
-   - *Webhook fields → Manage*: suscribí **messages**.
-6. **Conectar el local.** En `/operador`, en el local (por ejemplo El Ceibo), **Conectar
-   WhatsApp** y pegá el Phone number ID.
-7. **Probar.** Desde tu celular, mandale "hola, 2 completas" al número de prueba. En el
-   mostrador (pestaña *WhatsApp*) tiene que aparecer la tarjeta con el pedido en unos
-   segundos. Si no llega nada, mirá *Edge Functions → whatsapp-webhook → Logs*: 401 = el App
-   Secret no coincide; ningún request = el campo *messages* no está suscripto.
+5. **Publicar la app.** Mientras la app no está publicada, Meta solo manda los webhooks de
+   prueba del panel: **los mensajes reales no llegan**, ni con el número de prueba. En
+   *Configuración de la app → Básica*:
+   - *URL de la política de privacidad*: `https://<dominio>/privacidad`
+   - *URL de instrucciones para eliminar datos*: `https://<dominio>/privacidad#borrar`
+   - Ícono y categoría.
 
-**Número propio (después).** Requiere la verificación del negocio en Meta. Cuando esté, se
-agrega el número a la misma app y se conecta su Phone number ID al local desde el panel; el
-webhook es el mismo.
+   Después, *Publicar*. Para los números de tu propio portfolio alcanza el acceso estándar,
+   sin App Review (la App Review es para conectar números de otros negocios).
+6. **Webhook en Meta.** *Paso 2: Configuración de producción → Configurar webhooks*:
+   - *URL de devolución de llamada*: `https://<ref>.supabase.co/functions/v1/whatsapp-webhook`
+   - *Token de verificación*: el `WA_VERIFY_TOKEN` del paso 3 → **Verificar y guardar**.
+   - En los campos del webhook, suscribí **messages**.
+7. **Conectar el local.** En `/operador`, en el local (por ejemplo El Ceibo), **Conectar
+   WhatsApp** y pegá el Phone number ID.
+8. **Probar.** Desde tu celular, mandale "hola, 2 completas" al número de prueba. En el
+   mostrador (pestaña *WhatsApp*) tiene que aparecer la tarjeta con el pedido en unos
+   segundos. Si no llega nada, mirá *Edge Functions → whatsapp-webhook → Logs*: 401 = la clave
+   secreta no coincide; ningún request = la app no está publicada o el campo *messages* no está
+   suscripto.
+
+**Número propio.** Sin verificar el negocio, Meta deja hasta 2 números por portfolio
+(*Paso 2 → Registra tu número → Agregar número nuevo*: nombre visible, categoría y un código por
+SMS o llamada). Ojo: un número que ya está en la app de WhatsApp (normal o Business) **deja de
+andar en el celular** al pasarlo a la API. Para que el local siga usando la app de WhatsApp
+Business en el celular y Anotado reciba los mensajes ("coexistencia"), hace falta el *Embedded
+Signup* de Meta con App Review (acceso avanzado); no sale desde este asistente y las cuentas de
+WhatsApp Business muy nuevas no califican. Se conecta igual: el Phone number ID al local desde el
+panel; el webhook es el mismo.
 
 ## Operación
 
