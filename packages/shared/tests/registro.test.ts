@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CodigoAltaSchema, EntregaSchema, normalizarCodigo, RegistroSchema } from '../src/index.ts';
+import { CodigoAltaSchema, EntregaSchema, normalizarCodigo, PasswordSchema, RegistroSchema, rutaInterna } from '../src/index.ts';
 
 const token = 'a'.repeat(43);
 
@@ -15,23 +15,43 @@ describe('código de alta', () => {
 });
 
 describe('RegistroSchema', () => {
-  const base = { email: 'ana@local.uy', password: 'una clave larga' };
+  const email = 'ana@local.uy';
 
   it('con código o con invitación', () => {
-    expect(RegistroSchema.safeParse({ ...base, codigo: 'K7Q2-M9XP-4T8R' }).success).toBe(true);
-    expect(RegistroSchema.safeParse({ ...base, invitacion: token }).success).toBe(true);
+    expect(RegistroSchema.safeParse({ email, codigo: 'K7Q2-M9XP-4T8R' }).success).toBe(true);
+    expect(RegistroSchema.safeParse({ email, invitacion: token }).success).toBe(true);
   });
   it('no las dos cosas, ni ninguna', () => {
-    expect(RegistroSchema.safeParse({ ...base, codigo: 'K7Q2-M9XP-4T8R', invitacion: token }).success).toBe(false);
-    expect(RegistroSchema.safeParse(base).success).toBe(false);
+    expect(RegistroSchema.safeParse({ email, codigo: 'K7Q2-M9XP-4T8R', invitacion: token }).success).toBe(false);
+    expect(RegistroSchema.safeParse({ email }).success).toBe(false);
   });
-  it('contraseña de 8 a 72 bytes', () => {
-    expect(RegistroSchema.safeParse({ ...base, password: 'corta', invitacion: token }).success).toBe(false);
-    expect(RegistroSchema.safeParse({ ...base, password: 'ñ'.repeat(37), invitacion: token }).success).toBe(false);
+  it('sin contraseña: se elige después de confirmar el mail', () => {
+    expect(RegistroSchema.safeParse({ email, password: 'una clave larga', invitacion: token }).success).toBe(false);
   });
   it('mail válido', () => {
-    expect(RegistroSchema.safeParse({ ...base, email: 'ana', invitacion: token }).success).toBe(false);
+    expect(RegistroSchema.safeParse({ email: 'ana', invitacion: token }).success).toBe(false);
   });
+});
+
+describe('PasswordSchema', () => {
+  it('de 8 a 72 bytes', () => {
+    expect(PasswordSchema.safeParse('corta').success).toBe(false);
+    expect(PasswordSchema.safeParse('una clave larga').success).toBe(true);
+    expect(PasswordSchema.safeParse('ñ'.repeat(37)).success).toBe(false);
+  });
+});
+
+describe('rutaInterna', () => {
+  it('acepta rutas de la app', () => {
+    expect(rutaInterna('/invitacion/abc')).toBe('/invitacion/abc');
+    expect(rutaInterna('/registro?codigo=K7Q2-M9XP-4T8R')).toBe('/registro?codigo=K7Q2-M9XP-4T8R');
+  });
+  it.each(['//otro.sitio', '/\\otro.sitio', 'https://otro.sitio', 'javascript:alert(1)', '', null])(
+    'rechaza %s',
+    (ruta) => {
+      expect(rutaInterna(ruta)).toBe('/');
+    },
+  );
 });
 
 describe('entrega con zona', () => {
