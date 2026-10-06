@@ -8,8 +8,8 @@
 //         2. Cada mensaje se GUARDA antes de contestar (recibir_mensaje_wa): dedupe por
 //            wa_message_id (Meta reintenta), local por phone_number_id, cliente por teléfono.
 //            Si la base falla, 500 y Meta vuelve a mandar todo (lo ya guardado no se duplica).
-//            Pasado el límite de recepción (20 por minuto por cliente, 300 por número), el
-//            mensaje no se guarda: cada uno es una fila y cualquiera puede escribirle al local.
+//            Límite de recepción: 20 por minuto por cliente (lo que pasa no se guarda) y 300
+//            por número del local (503: Meta reintenta más tarde, no se pierde nada).
 //         3. 200 enseguida. La IA corre DESPUÉS (EdgeRuntime.waitUntil), así Meta no espera
 //            ni reintenta por una IA lenta. Si la IA no corre, los mensajes igual se ven.
 // El pedido NUNCA se crea acá: la IA propone y el cajero confirma.
@@ -91,6 +91,12 @@ export default {
         // Datos que la base rechaza (no deberían llegar: ya se validaron): se saltea ese
         // mensaje, porque reintentarlo daría lo mismo. Cualquier otro error: Meta reintenta.
         if (error.code === '22023') continue;
+        // El número del local pasó su límite de recepción: 503 y Meta reintenta más tarde (lo ya
+        // guardado de este lote no se duplica). No se descarta nada legítimo.
+        if (error.code === 'AN429') {
+          console.warn('whatsapp-webhook: límite de recepción del local, Meta va a reintentar');
+          return vacia(503);
+        }
         console.error('whatsapp-webhook: no se pudo guardar el mensaje', error.code);
         return vacia(500);
       }

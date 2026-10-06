@@ -2,7 +2,7 @@
 -- con la última versión, avisos en tiempo real y conexión del número por el operador.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(80);
+select plan(81);
 
 \set A '\'a0000000-0000-4000-8000-000000000001\''
 \set B '\'b0000000-0000-4000-8000-000000000001\''
@@ -134,8 +134,10 @@ reset role;
 update limites_ia set cuenta = 300
 where negocio_id = :A and clave = 'recibir:negocio' and ventana = date_trunc('minute', now());
 set local role service_role;
-select is(recibir_mensaje_wa('1111111111', 'wamid.lim3', '59899000088', null, 'texto', 'hola') ->> 'limitado', 'true',
-  'pasado el límite del número del local, tampoco');
+select throws_ok($$select recibir_mensaje_wa('1111111111', 'wamid.lim3', '59899000088', null, 'texto', 'hola')$$,
+  'AN429', null, 'pasado el límite del número del local: error para que Meta reintente (no se descarta)');
+select is((select count(*) from clientes where telefono = '59899000088'), 0::bigint,
+  'y no llega a crear el cliente (miles de teléfonos no inflan la tabla)');
 reset role;
 delete from limites_ia where clave like 'recibir:%';
 set local role service_role;

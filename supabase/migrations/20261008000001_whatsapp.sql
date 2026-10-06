@@ -129,8 +129,8 @@ revoke all on function public.exigir_pendientes_validos(jsonb) from public, anon
 -- 3. Webhook (solo service_role) ---------------------------------------------------------------
 
 -- Guarda un mensaje de WhatsApp. Devuelve null si no hay que hacer nada (número sin local o
--- local suspendido, o un reintento de Meta ya guardado), y {limitado: true} si se pasó el
--- límite de recepción. Si no, el negocio, la conversación y si hay que interpretarla (solo
+-- local suspendido, o un reintento de Meta ya guardado), y {limitado: true} si el cliente pasó
+-- su límite de recepción. Si el número del local pasó el suyo, error AN429 (reintentar). Si no, el negocio, la conversación y si hay que interpretarla (solo
 -- texto, y solo con la IA permitida y prendida).
 create function public.recibir_mensaje_wa(
   p_phone_number_id text,
@@ -179,6 +179,22 @@ begin
     return null;
   end if;
 
+  -- Límite de recepción del local (revisión): cada mensaje es una fila y cualquiera puede
+  -- escribirle al local. Va ANTES de crear el cliente, para que miles de teléfonos distintos no
+  -- inflen `clientes`. Pasado el tope NO se descarta: error AN429, el webhook responde 503 y Meta
+  -- reintenta más tarde (lo ya guardado no se duplica). Como el error deshace la transacción, los
+  -- rechazados no suman al contador.
+  v_ventana := date_trunc('minute', now());
+  delete from public.limites_ia l
+  where l.negocio_id = v_negocio_id and l.ventana < v_ventana - interval '10 minutes';
+  insert into public.limites_ia as l (negocio_id, clave, ventana, cuenta)
+  values (v_negocio_id, 'recibir:negocio', v_ventana, 1)
+  on conflict (negocio_id, clave, ventana) do update set cuenta = l.cuenta + 1
+  returning cuenta into v_cuenta_negocio;
+  if v_cuenta_negocio > c_max_por_negocio then
+    raise exception 'Demasiados mensajes para este número; reintentar más tarde' using errcode = 'AN429';
+  end if;
+
   -- El upsert bloquea la fila del cliente: los mensajes de un mismo cliente se guardan de a
   -- uno, así que dos simultáneos no abren dos conversaciones. El nombre del perfil de WhatsApp
   -- no pisa uno que ya haya cargado el local.
@@ -192,21 +208,13 @@ begin
     return null;
   end if;
 
-  -- Límite de recepción (revisión): cada mensaje es una fila, y cualquiera puede escribirle al
-  -- local. Por minuto, por cliente y por número del local (los reintentos de Meta no cuentan:
-  -- ya salieron arriba). Pasado el límite, el mensaje no se guarda y Meta recibe 200 igual.
-  v_ventana := date_trunc('minute', now());
-  delete from public.limites_ia l
-  where l.negocio_id = v_negocio_id and l.ventana < v_ventana - interval '10 minutes';
-  insert into public.limites_ia as l (negocio_id, clave, ventana, cuenta)
-  values (v_negocio_id, 'recibir:negocio', v_ventana, 1)
-  on conflict (negocio_id, clave, ventana) do update set cuenta = l.cuenta + 1
-  returning cuenta into v_cuenta_negocio;
+  -- Límite por cliente (los reintentos de Meta no cuentan: salen arriba por el dedupe). Pasado
+  -- el límite, el mensaje no se guarda y Meta recibe 200: afecta solo a quien manda de más.
   insert into public.limites_ia as l (negocio_id, clave, ventana, cuenta)
   values (v_negocio_id, 'recibir:' || v_cliente_id, v_ventana, 1)
   on conflict (negocio_id, clave, ventana) do update set cuenta = l.cuenta + 1
   returning cuenta into v_cuenta_cliente;
-  if v_cuenta_negocio > c_max_por_negocio or v_cuenta_cliente > c_max_por_cliente then
+  if v_cuenta_cliente > c_max_por_cliente then
     return jsonb_build_object('limitado', true);
   end if;
 
