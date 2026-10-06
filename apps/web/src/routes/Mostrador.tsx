@@ -8,6 +8,7 @@ import { Cargando, MensajeError } from '../components/Estado.tsx';
 import { PanelPedido } from '../components/PanelPedido.tsx';
 import { PedidosWhatsApp } from '../components/PedidosWhatsApp.tsx';
 import { UltimosPedidos } from '../components/UltimosPedidos.tsx';
+import { useConversaciones } from '../hooks/useConversaciones.ts';
 import { useMenu } from '../hooks/useMenu.ts';
 import { useNegocio } from '../hooks/useNegocio.ts';
 import { usePedidosCocina } from '../hooks/usePedidosCocina.ts';
@@ -31,6 +32,9 @@ export function Mostrador() {
   // Pedidos en curso en tiempo real: alimentan la pestaña Entregas y su contador.
   const cocina = usePedidosCocina(negocio.id);
   const listos = cocina.pedidos?.filter((p) => p.estado === 'listo').length ?? 0;
+  // Conversaciones de WhatsApp en tiempo real: alimentan la pestaña WhatsApp y su contador.
+  const whatsapp = useConversaciones(negocio.id);
+  const enCurso = whatsapp.conversaciones?.length ?? 0;
 
   // Carga manual.
   const [borrador, setBorrador] = useState<Borrador>(borradorVacio);
@@ -84,6 +88,7 @@ export function Mostrador() {
         </button>
         <button type="button" role="tab" aria-selected={pestana === 'whatsapp'} className={pestanaClase('whatsapp')} onClick={() => setPestana('whatsapp')}>
           WhatsApp
+          {enCurso > 0 && <span className="ml-2 rounded-full bg-emerald-500 px-2 py-0.5 text-sm text-white">{enCurso}</span>}
         </button>
         <button type="button" role="tab" aria-selected={pestana === 'entregas'} className={pestanaClase('entregas')} onClick={() => setPestana('entregas')}>
           Entregas
@@ -153,12 +158,15 @@ export function Mostrador() {
         {!(negocio.iaPermitida && negocio.iaActiva) && (
           <p className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-lg font-medium text-amber-950">
             {negocio.iaPermitida
-              ? 'La IA está apagada: los mensajes no se van a interpretar. El dueño la puede prender en Ajustes.'
+              ? 'La IA está apagada: los mensajes llegan, pero no se interpretan. El dueño la puede prender en Ajustes.'
               : 'La IA no está habilitada para este local. Podés cargar los pedidos en "Carga manual".'}
           </p>
         )}
         <PedidosWhatsApp
           negocioId={negocio.id}
+          conversaciones={whatsapp.conversaciones}
+          error={whatsapp.error}
+          onRecargar={() => void whatsapp.recargar()}
           productos={productos}
           activos={activos}
           zonas={zonasActivas}
