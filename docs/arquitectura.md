@@ -36,6 +36,7 @@ flowchart LR
 | Cuentas | Edge Function `registro` | Solo con código de alta o invitación vigentes; la cuenta nace sin contraseña y se confirma por mail |
 | Locales | `crear_negocio` | Negocio + primer dueño en una transacción, consume el código del operador |
 | Equipo | `crear_invitacion` / `aceptar_invitacion` / `cambiar_rol` / `quitar_miembro` | Solo el dueño; el local nunca queda sin dueño |
+| Operador: IA, suspensión, códigos | `operador_*` | Solo quien está en `operadores` y verificó el código del celular (`aal2`); no ve el contenido de los locales |
 | Estado del pedido | `avanzar_estado` / `retroceder_estado` / `cancelar_pedido` | Solo cambian el estado, y cada rol solo mueve lo de su área |
 | Borrador de WhatsApp | `parse-order` → `guardar_interpretacion` | La IA no escribe: todo se guarda en una transacción al final |
 

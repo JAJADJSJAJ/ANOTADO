@@ -156,6 +156,20 @@ update negocios set ia_permitida = true  where slug = 'el-ceibo';  -- habilitarl
 
 Para cortar la IA de **todos** los locales a la vez, revocá la key en OpenRouter.
 
+**Panel del operador** (`/operador`). Reemplaza el SQL de esta sección (IA, códigos) y suma suspender locales.
+Una sola vez, para nombrarte operador (*SQL Editor*, con tu mail):
+
+```sql
+insert into operadores (user_id) select id from auth.users where email = '<tu mail>';
+```
+
+Además, *Authentication → Multi-Factor* (o *Sign In / Providers → Multi-Factor*): **TOTP**
+habilitado (y solo TOTP: el panel exige ese método). En *Authentication → Hooks*, ningún
+*Custom Access Token Hook* (podría escribir las claims que mira el panel). La primera vez que
+entres a `/operador` te muestra un QR para la app de
+contraseñas del iPhone (o Google Authenticator); desde ahí, cada vez te pide el código de 6
+números. Sin ese código, las funciones del panel no responden.
+
 **Alta de un local nuevo** (*SQL Editor*). Generá un código de un solo uso y pasáselo al dueño
 (vence en 14 días; el segundo parámetro cambia los días, de 1 a 90):
 

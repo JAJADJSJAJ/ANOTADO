@@ -199,6 +199,17 @@ Quien se entera de que algo se terminó suele ser la cocina o el cajero. `marcar
 ### Zonas de envío con costo, calculado en la base
 Tabla `zonas_envio` (nombre, costo, activa), con FK compuesta desde `pedidos`. El cajero elige la zona en un delivery y `confirmar_pedido` suma el costo leído de la base: igual que los precios, nunca viene del navegador ni de la IA. El pedido guarda `zona_id`, `envio_centavos` y el nombre de la zona en `entrega.zona` (snapshot); borrar o cambiar la zona no altera pedidos viejos. `total_centavos` = items + envío. Si el local tiene zonas activas, **todo delivery necesita zona** (que no se olvide cobrar el envío); un local sin zonas sigue igual. La IA no elige zonas: sin geocodificación, "por la terminal" lo resuelve una persona. Cocina no ve zonas.
 
+## Panel del operador
+
+### Administra locales, no lo que pasa adentro
+`/operador` reemplaza el SQL a mano del operador: códigos de alta (generar, mandar por WhatsApp, anular), IA por local (`ia_permitida`) y suspender o reactivar locales. De cada local muestra solo números (personas, pedidos e IA de los últimos 30 días); nunca pedidos, productos, clientes ni conversaciones. Si roban la cuenta del operador, no se filtran datos de clientes. Va dentro de la misma app y no como página aparte: un solo login, una sola base de reglas y el mismo CI.
+
+### Operador = tabla + segundo factor, verificados por la base
+Quién es operador lo dice la tabla `operadores`, que la web no puede escribir (el primero se carga una vez con SQL). Cada función del panel exige además, en el JWT, `aal2` **y** `amr` con `totp`: que en esta sesión se haya verificado el código de 6 dígitos de la app del celular. `aal2` solo dice "algún segundo factor"; si algún día se habilita otro (SMS, llaves), no sirve para el panel sin cambiarlo a propósito (revisión). Ningún *Custom Access Token Hook* debe estar configurado: podría escribir esas claims (checklist de deploy). Con solo la contraseña, el panel no responde. Se descartó "una clave del panel": sería la llave de todo, sin forma de saber quién la usa ni de cortarla rápido. Cada acción queda en `registro_operador`.
+
+### Suspender: un solo lugar
+`negocios.activo` ya existía y la web nunca lo pudo editar. `es_miembro` y `tiene_rol` ahora exigen local activo, y como todas las policies y RPC del local pasan por ellas, la suspensión corta todo de una vez (pantallas, RPC, Realtime, `parse-order`). `mis_locales_suspendidos()` le dice a su gente por qué no entra. Lo que leía la membresía directo eran las invitaciones: ahora las de un local suspendido no se ven, no se aceptan y no sirven para crear cuentas. Al aceptar, se bloquea la fila del local con `for share` (choca con el update de la suspensión) y se vuelve a mirar `activo`: una aceptación y una suspensión simultáneas no pueden sumar a alguien a un local ya suspendido (revisión; reproducido con dos sesiones). Una tablet de cocina ya suscripta a Realtime puede seguir conectada hasta renovar el token, pero no recibe nada: en un local suspendido no se puede crear ni mover pedidos, y la lista se lee por una RPC que ya lo rechaza.
+
 ## Pendiente de decidir
 
 - **Clave de idempotencia para tarjetas nuevas de WhatsApp** (Fase 2). No bloquea.

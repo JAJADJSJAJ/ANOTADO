@@ -16,6 +16,7 @@ import { Inicio } from './routes/Inicio.tsx';
 import { Invitacion } from './routes/Invitacion.tsx';
 import { Login } from './routes/Login.tsx';
 import { Mostrador } from './routes/Mostrador.tsx';
+import { Operador } from './routes/Operador.tsx';
 import { InicioNegocio, NegocioLayout } from './routes/NegocioLayout.tsx';
 import { Registro } from './routes/Registro.tsx';
 
@@ -30,6 +31,8 @@ const router = createBrowserRouter([
     element: <RequiereSesion />,
     children: [
       { path: '/', element: <Inicio /> },
+      // Panel del operador de Anotado. La base exige operador + código del celular.
+      { path: '/operador', element: <Operador /> },
       {
         path: '/:negocio',
         element: <NegocioLayout />,
