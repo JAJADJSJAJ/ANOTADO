@@ -250,7 +250,9 @@ Cualquiera puede escribirle al número del local, y cada mensaje es una fila: si
 - **Por número del local, 300.** Se cuenta **antes** de crear el cliente, así miles de teléfonos distintos no inflan `clientes`. Pasado el tope **no se descarta**: error `AN429`, el webhook responde 503 y Meta reintenta más tarde. Lo ya guardado no se duplica, y como el error deshace la transacción, los rechazados no suman. Así, alguien que satura el tope no hace perder mensajes legítimos (tercera vuelta).
 - **Por cliente, 20.** Pasado el tope, el mensaje no se guarda y Meta recibe 200: afecta solo a quien manda de más. Un cliente real no manda 20 mensajes por minuto.
 
-Los reintentos de Meta no cuentan: salen antes, por el dedupe. **Pendiente de decidir:** retención (borrar mensajes de conversaciones cerradas después de N días; el pedido conserva su copia en `mensaje_original`).
+Los reintentos de Meta no cuentan: salen antes, por el dedupe. Dos entregas simultáneas del mismo mensaje tampoco suman: un bloqueo por `wa_message_id` las hace pasar de a una (cuarta vuelta).
+
+**Riesgo aceptado (quinta vuelta):** unos 15 números de WhatsApp reales y coordinados, mandando 20 por minuto cada uno, agotan el tope del local y **demoran** (no pierden: Meta reintenta) los mensajes de los demás hasta el minuto siguiente. Las alternativas son peores: sin tope global vuelve el problema de llenar `clientes`, y no hay forma de reservar cupo "para legítimos" sin distinguir a un cliente nuevo de uno falso. Si pasa, queda en los logs del webhook. **Pendiente de decidir:** retención (borrar mensajes de conversaciones cerradas después de N días; el pedido conserva su copia en `mensaje_original`).
 
 ### El operador conecta el número
 `negocios.wa_phone_number_id` ya existía y no está en el GRANT de update: lo carga el operador desde el panel (`operador_conectar_whatsapp`, con TOTP y registro). El phone number ID no es secreto; la firma del webhook es la que autentica.
