@@ -239,6 +239,12 @@ Además del límite por negocio (60 por minuto, compartido con `parse-order`), 1
 ### Realtime de conversaciones solo para dueño y cajero
 Canal privado `negocio:<id>:conversaciones`, con policy que exige `tiene_rol(dueno, cajero)`: cocina no se entera de conversaciones. El aviso lleva solo `conversacion_id`; la pantalla relee por RLS, con las mismas recargas de seguridad que la cocina (reconexión, volver a la pestaña, cada 30 s). Tomar o soltar el turno de la IA no avisa.
 
+### Orden de llegada, no hora (revisión)
+Confirmar comparaba contra la **hora** del último mensaje visto. El revisor marcó los empates, pero había algo peor. `created_at` es la hora en que **empieza** la transacción, así que un mensaje que esperó el bloqueo del cliente quedaba con una hora *anterior* a otro guardado antes que él. Si la pantalla leía en el medio, confirmar no lo veía. Reproducido con dos sesiones: "y una coca" se guardó después de "2 completas" con una hora anterior, y la confirmación pasó. Ahora `mensajes.orden` (identity) se toma al insertar. Como los mensajes de una conversación se insertan de a uno (bloqueo del cliente en el webhook, de la conversación en `guardar_interpretacion`), el orden sigue al real y no hay empates. Confirmar, el intérprete y la pantalla ordenan por `orden`. Repetida la carrera: confirmar la frena.
+
+### Solo se marcan mensajes pendientes de esa conversación (revisión)
+`guardar_interpretacion_wa` exige que **todos** los ids recibidos sean mensajes de texto del cliente, de esa conversación y todavía sin interpretar. Si alguno no cumple, 22023 y no marca nada. Antes ignoraba en silencio los que no correspondían. Hay tests de permisos declarados: las funciones del webhook, solo `service_role`; las del mostrador, `authenticated` (y después validan el rol); `anon`, ninguna.
+
 ### El operador conecta el número
 `negocios.wa_phone_number_id` ya existía y no está en el GRANT de update: lo carga el operador desde el panel (`operador_conectar_whatsapp`, con TOTP y registro). El phone number ID no es secreto; la firma del webhook es la que autentica.
 
