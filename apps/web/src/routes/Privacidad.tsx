@@ -16,7 +16,7 @@ export function Privacidad() {
     <main className="min-h-screen bg-stone-100 p-4">
       <article className="mx-auto flex max-w-2xl flex-col gap-6 rounded-3xl bg-white p-6 text-lg leading-relaxed shadow-sm sm:p-8">
         <header className="flex flex-col gap-2">
-          <Link to="/" className="self-start text-2xl">
+          <Link to="/login" className="self-start text-2xl">
             <Marca />
           </Link>
           <h1 className="text-3xl font-black tracking-tight">Política de privacidad</h1>
@@ -37,10 +37,14 @@ export function Privacidad() {
           <ul className="list-disc pl-6">
             <li>El número de teléfono y el nombre del perfil de WhatsApp.</li>
             <li>
-              Los mensajes de texto que le mandan al local. De los audios, fotos y otros archivos solo guardamos que se
-              mandaron, no el archivo. Si mandan una ubicación, guardamos el punto del mapa.
+              El texto completo de los mensajes que le mandan al local. De los audios, fotos y otros archivos solo
+              guardamos que se mandaron, no el archivo. Si mandan una ubicación, guardamos el punto del mapa.
             </li>
-            <li>Los pedidos: productos, cantidades, notas, forma de entrega y dirección de envío.</li>
+            <li>
+              El pedido que se va armando con esos mensajes (lo que propone la inteligencia artificial y lo que corrige el
+              local) y el pedido confirmado: productos, cantidades, notas, forma de entrega, dirección de envío y una copia
+              de los mensajes que lo originaron.
+            </li>
           </ul>
           <p className="font-bold">De las personas que trabajan en un local y usan Anotado:</p>
           <ul className="list-disc pl-6">
@@ -63,29 +67,33 @@ export function Privacidad() {
           <p>Para funcionar, Anotado usa estos servicios, que procesan los datos solo para darnos ese servicio:</p>
           <ul className="list-disc pl-6">
             <li>
-              <b>Meta (WhatsApp)</b>: por donde llegan los mensajes.
+              <b>Meta (WhatsApp)</b>, Estados Unidos: por donde llegan los mensajes.
             </li>
             <li>
-              <b>Supabase</b>: la base de datos, en servidores de San Pablo, Brasil.
+              <b>Supabase</b>, servidores en San Pablo, Brasil: la base de datos, donde se guarda todo lo de arriba.
             </li>
             <li>
-              <b>Vercel</b>: el sitio web.
+              <b>Vercel</b>, Estados Unidos: el sitio web.
             </li>
             <li>
-              <b>OpenRouter</b> y los proveedores de inteligencia artificial que usa, configurados para no guardar los
-              mensajes ni usarlos para entrenar.
+              <b>OpenRouter</b> y los proveedores de inteligencia artificial que usa, Estados Unidos: leen el texto de los
+              mensajes para proponer el pedido. Están configurados para no guardarlos ni usarlos para entrenar.
             </li>
             <li>
-              <b>Brevo</b>: el envío de mails de la cuenta (por ejemplo, para elegir la contraseña).
+              <b>Brevo</b>, Francia (Unión Europea): el envío de mails de la cuenta, por ejemplo para elegir la contraseña.
+              Recibe solo el mail de quien usa Anotado.
             </li>
           </ul>
-          <p>Algunos de estos servicios están fuera de Uruguay, por lo que los datos pueden procesarse en otros países.</p>
+          <p>
+            Como estos servicios están fuera de Uruguay, los datos se procesan en esos países, solo para lo que se explica
+            en esta política.
+          </p>
         </Seccion>
 
         <Seccion titulo="Cuánto tiempo los guardamos">
           <p>
-            Mientras el local use Anotado, como historial de sus pedidos. Si el local deja de usar Anotado, o si una
-            persona lo pide (ver abajo), los datos se borran.
+            Mientras el local use Anotado, como historial de sus pedidos. Hoy no se borran solos con el tiempo: se borran
+            cuando el local deja de usar Anotado y lo pide, o cuando una persona pide que se borren sus datos (ver abajo).
           </p>
         </Seccion>
 
@@ -96,7 +104,13 @@ export function Privacidad() {
             <a href={`mailto:${CONTACTO}`} className="font-bold text-indigo-700 underline">
               {CONTACTO}
             </a>{' '}
-            con tu número de teléfono y qué querés hacer. Te respondemos dentro de los plazos que fija la ley.
+            con tu número de teléfono y qué querés hacer. Podemos pedirte que confirmes que el número es tuyo.
+            Respondemos en un máximo de 5 días hábiles.
+          </p>
+          <p>
+            <b>Si pedís que se borren tus datos</b>, borramos tu número, tu nombre, tus conversaciones y tus mensajes. De
+            los pedidos que ya hiciste, el local conserva solo lo necesario para sus cuentas (productos, cantidades,
+            totales y fechas), sin tu dirección, tus notas ni tus mensajes.
           </p>
           <p>
             Si no quedás conforme con la respuesta, podés reclamar ante la Unidad Reguladora y de Control de Datos
