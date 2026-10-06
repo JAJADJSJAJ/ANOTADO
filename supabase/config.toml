@@ -252,6 +252,10 @@ content_path = "./supabase/templates/invitacion.html"
 subject = "Elegí una contraseña nueva para Anotado"
 content_path = "./supabase/templates/recuperar.html"
 
+[auth.email.template.magic_link]
+subject = "Tu link para entrar a Anotado"
+content_path = "./supabase/templates/entrar.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

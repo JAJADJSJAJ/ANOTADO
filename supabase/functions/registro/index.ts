@@ -17,7 +17,8 @@
 //      el mail queda verificado y nadie puede ocupar una dirección ajena: aunque alguien la
 //      escriba primero, la contraseña la pone el dueño del buzón.
 //      Si la cuenta existe pero no se confirmó, Supabase reenvía el mail. Si ya está
-//      confirmada, 409: la persona entra con su contraseña.
+//      confirmada, la respuesta es la misma (201) y al mail le llega un link para entrar: no
+//      se revela qué mails tienen cuenta.
 //   5. resolver_reserva, SIEMPRE (haya error o no): la base decide si la reserva gastó un cupo
 //      según si antes no había cuenta con ese mail y ahora sí. No se decide por el
 //      error de Auth, que puede llegar con la cuenta ya creada (hook posterior al commit). Si
@@ -132,7 +133,15 @@ export default {
 
     if (errAlta) {
       if (errAlta.code === 'email_exists') {
-        return error(409, 'Ya tenés una cuenta con ese mail. Entrá con tu contraseña.');
+        // Respuesta uniforme: decir "ya tenés cuenta" le confirmaría a quien tiene un código o
+        // una invitación que ese mail está registrado. Al dueño real del mail le llega un link
+        // para entrar sin contraseña, que lo deja directo donde iba (crear el local o aceptar).
+        const { error: errLink } = await ctx.supabase.auth.signInWithOtp({
+          email: datos.email,
+          options: { shouldCreateUser: false, emailRedirectTo: `${origen}${siguiente}` },
+        });
+        if (errLink) console.error(`registro: no se pudo mandar el link para entrar (${errLink.code ?? errLink.status})`);
+        return Response.json({ ok: true }, { status: 201 });
       }
       if (errAlta.code === 'over_email_send_rate_limit') {
         return error(429, 'Se mandaron demasiados mails. Probá de nuevo en un rato.');

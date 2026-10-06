@@ -57,7 +57,10 @@ export function MailEnviado({ email, onOtroMail }: { email: string; onOtroMail: 
         Te mandamos un link a <strong className="break-all">{email}</strong>. Abrilo para confirmar el mail y elegir tu
         contraseña. Después seguís desde donde quedaste.
       </p>
-      <p className="text-stone-600">Si en unos minutos no llegó, mirá en Spam o pedilo de nuevo.</p>
+      <p className="text-stone-600">
+        Si ya tenías cuenta con ese mail, el link te hace entrar directo. Si en unos minutos no llegó, mirá en Spam
+        o pedilo de nuevo.
+      </p>
       <button type="button" onClick={onOtroMail} className="self-start font-medium text-indigo-700 underline">
         Pedirlo de nuevo o usar otro mail
       </button>
