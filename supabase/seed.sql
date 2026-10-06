@@ -39,6 +39,10 @@ insert into negocios (id, nombre, slug, ia_permitida, horarios) values
   ('b0000000-0000-4000-8000-000000000001', 'Pizzería La Esquina', 'la-esquina', false,
    '{"vie":[["20:00","00:00"]],"sab":[["20:00","00:00"]]}');
 
+-- Números de WhatsApp de mentira (phone_number_id de Meta), para scripts/simular-whatsapp.mjs.
+update negocios set wa_phone_number_id = '100000000000001' where slug = 'el-ceibo';
+update negocios set wa_phone_number_id = '100000000000002' where slug = 'la-esquina';
+
 insert into miembros (negocio_id, user_id, rol) values
   ('a0000000-0000-4000-8000-000000000001', '00000000-0000-4000-a000-0000000000a1', 'dueno'),
   ('a0000000-0000-4000-8000-000000000001', '00000000-0000-4000-a000-0000000000a2', 'cajero'),
