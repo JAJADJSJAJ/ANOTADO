@@ -388,13 +388,14 @@ end;
 $$;
 
 -- Confirmar una tarjeta de WhatsApp. Además de lo que valida confirmar_pedido, exige que la
--- pantalla tenga la última versión del borrador y todos los mensajes del cliente: si llegó
--- algo mientras el cajero confirmaba, 40001 y lo revisa antes.
+-- pantalla tenga la última versión del borrador y el último mensaje del cliente
+-- (p_ultimo_mensaje, null si no vio ninguno): si llegó algo mientras el cajero confirmaba,
+-- 40001 y lo revisa antes.
 create function public.confirmar_conversacion(
   p_negocio_id uuid,
   p_conversacion_id uuid,
   p_version int,
-  p_mensajes int,
+  p_ultimo_mensaje uuid,
   p_items jsonb,
   p_entrega jsonb default null,
   p_notas text default null
@@ -402,6 +403,7 @@ create function public.confirmar_conversacion(
 language plpgsql security definer set search_path = '' as $$
 declare
   v_version int;
+  v_visto_at timestamptz;
 begin
   if not public.tiene_rol(p_negocio_id, '{dueno,cajero}') then
     raise exception 'Sin permiso para crear pedidos en este negocio' using errcode = '42501';
@@ -413,8 +415,21 @@ begin
   if not found then
     raise exception 'La conversación no existe o ya está cerrada' using errcode = '22023';
   end if;
+  -- El último mensaje que vio la pantalla tiene que ser de esta conversación.
+  if p_ultimo_mensaje is not null then
+    select m.created_at into v_visto_at
+    from public.mensajes m
+    where m.id = p_ultimo_mensaje and m.conversacion_id = p_conversacion_id;
+    if not found then
+      raise exception 'Llegó un mensaje nuevo o la tarjeta cambió. Revisala y confirmá de nuevo.' using errcode = '40001';
+    end if;
+  end if;
   if v_version is distinct from p_version
-     or (select count(*) from public.mensajes m where m.conversacion_id = p_conversacion_id) is distinct from p_mensajes::bigint then
+     or exists (
+       select 1 from public.mensajes m
+       where m.conversacion_id = p_conversacion_id
+         and (v_visto_at is null or m.created_at > v_visto_at)
+     ) then
     raise exception 'Llegó un mensaje nuevo o la tarjeta cambió. Revisala y confirmá de nuevo.' using errcode = '40001';
   end if;
   -- Misma transacción y mismo usuario: confirmar_pedido valida rol, productos, entrega y zona,
@@ -424,10 +439,10 @@ end;
 $$;
 
 revoke all on function public.guardar_borrador(uuid, int, jsonb, jsonb) from public, anon, authenticated;
-revoke all on function public.confirmar_conversacion(uuid, uuid, int, int, jsonb, jsonb, text)
+revoke all on function public.confirmar_conversacion(uuid, uuid, int, uuid, jsonb, jsonb, text)
   from public, anon, authenticated;
 grant execute on function public.guardar_borrador(uuid, int, jsonb, jsonb) to authenticated;
-grant execute on function public.confirmar_conversacion(uuid, uuid, int, int, jsonb, jsonb, text) to authenticated;
+grant execute on function public.confirmar_conversacion(uuid, uuid, int, uuid, jsonb, jsonb, text) to authenticated;
 
 -- 5. Tiempo real ------------------------------------------------------------------------------
 

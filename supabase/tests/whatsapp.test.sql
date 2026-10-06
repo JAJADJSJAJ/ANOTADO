@@ -2,7 +2,7 @@
 -- con la última versión, avisos en tiempo real y conexión del número por el operador.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(65);
+select plan(67);
 
 \set A '\'a0000000-0000-4000-8000-000000000001\''
 \set B '\'b0000000-0000-4000-8000-000000000001\''
@@ -170,23 +170,39 @@ select is((select count(*) from mensajes where conversacion_id = :conv), 0::bigi
 reset role;
 
 -- Confirmar con la última versión -------------------------------------------------------------
-select pg_temp.como(:cajero_a);
+-- En una transacción todos los now() son iguales: se escalonan las horas como en la realidad.
+update mensajes m set created_at = now() - make_interval(mins => (10 - o.n)::int)
+from (select id, row_number() over (order by wa_message_id) as n from mensajes where conversacion_id = :conv) o
+where m.id = o.id;
 create temp table actual as
-  select version, (select count(*)::int from mensajes where conversacion_id = :conv) as n from conversaciones where id = :conv;
+  select version,
+    (select id from mensajes where conversacion_id = :conv order by created_at desc limit 1) as ultimo,
+    (select id from mensajes where conversacion_id = :conv order by created_at desc offset 1 limit 1) as anterior
+  from conversaciones where id = :conv;
+grant select on actual to authenticated;
+select pg_temp.como(:cajero_a);
 select throws_ok(
-  format($$select confirmar_conversacion(%L, %L, %s, %s, (select b -> 'items' from nuevo_item), '{"modo":"retiro"}')$$,
-    :A, :conv, (select version from actual), (select n from actual) - 1),
+  format($$select confirmar_conversacion(%L, %L, %s, %L, (select b -> 'items' from nuevo_item), '{"modo":"retiro"}')$$,
+    :A, :conv, (select version from actual), (select anterior from actual)),
   '40001', null, 'si llegó un mensaje que la pantalla no vio, no confirma');
 select throws_ok(
-  format($$select confirmar_conversacion(%L, %L, %s, %s, (select b -> 'items' from nuevo_item), '{"modo":"retiro"}')$$,
-    :A, :conv, (select version from actual) - 1, (select n from actual)),
+  format($$select confirmar_conversacion(%L, %L, %s, null, (select b -> 'items' from nuevo_item), '{"modo":"retiro"}')$$,
+    :A, :conv, (select version from actual)),
+  '40001', null, 'sin haber visto ningún mensaje, tampoco');
+select throws_ok(
+  format($$select confirmar_conversacion(%L, %L, %s, %L, (select b -> 'items' from nuevo_item), '{"modo":"retiro"}')$$,
+    :A, :conv, (select version from actual), (select id from mensajes where wa_message_id = 'wamid.b1')),
+  '40001', null, 'un mensaje de otra conversación no cuenta como visto');
+select throws_ok(
+  format($$select confirmar_conversacion(%L, %L, %s, %L, (select b -> 'items' from nuevo_item), '{"modo":"retiro"}')$$,
+    :A, :conv, (select version from actual) - 1, (select ultimo from actual)),
   '40001', null, 'con una versión vieja no confirma');
 select pg_temp.como(:cocina_a);
 select throws_ok(
-  format($$select confirmar_conversacion(%L, %L, %s, %s, '[]', null)$$, :A, :conv, (select version from actual), (select n from actual)),
+  format($$select confirmar_conversacion(%L, %L, %s, %L, '[]', null)$$, :A, :conv, (select version from actual), (select ultimo from actual)),
   '42501', null, 'cocina no confirma');
 select pg_temp.como(:cajero_a);
-create temp table confirmado as select confirmar_conversacion(:A, :conv, (select version from actual), (select n from actual),
+create temp table confirmado as select confirmar_conversacion(:A, :conv, (select version from actual), (select ultimo from actual),
   (select b -> 'items' from nuevo_item), '{"modo":"retiro"}') as r;
 reset role;
 select is((select origen::text from pedidos where id = (select (r ->> 'id')::uuid from confirmado)), 'whatsapp', 'pedido creado');

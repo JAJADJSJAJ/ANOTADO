@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase.ts';
 const RECARGA_PERIODICA_MS = 30_000;
 /** Un mensaje avisa dos veces (mensaje y conversación): una sola recarga. */
 const ESPERA_AVISOS_MS = 250;
-const MAX_MENSAJES = 500;
+const MAX_MENSAJES = 1000;
 
 export type TipoMensaje = 'texto' | 'audio' | 'imagen' | 'video' | 'documento' | 'ubicacion' | 'sticker' | 'contacto' | 'otro';
 
@@ -72,7 +72,8 @@ export function useConversaciones(negocioId: string) {
               .select('id, conversacion_id, contenido, tipo, interpretado, created_at')
               .eq('negocio_id', negocioId)
               .in('conversacion_id', ids)
-              .order('created_at')
+              // Los más nuevos primero: si se pasa del tope, se cortan los viejos, nunca los últimos.
+              .order('created_at', { ascending: false })
               .limit(MAX_MENSAJES)
           : { data: [], error: null };
         if (errMensajes) {
@@ -80,7 +81,7 @@ export function useConversaciones(negocioId: string) {
           continue;
         }
         const porConversacion = new Map<string, MensajeConversacion[]>();
-        for (const m of mensajes) {
+        for (const m of [...mensajes].reverse()) {
           const lista = porConversacion.get(m.conversacion_id) ?? [];
           lista.push({ ...m, tipo: m.tipo as TipoMensaje });
           porConversacion.set(m.conversacion_id, lista);

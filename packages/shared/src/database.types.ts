@@ -853,9 +853,9 @@ export type Database = {
           p_conversacion_id: string
           p_entrega?: Json
           p_items: Json
-          p_mensajes: number
           p_negocio_id: string
           p_notas?: string
+          p_ultimo_mensaje: string
           p_version: number
         }
         Returns: Json

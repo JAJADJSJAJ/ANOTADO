@@ -240,7 +240,7 @@ export function TarjetaWhatsApp({
         negocioId,
         conversacionId,
         version: v,
-        mensajes: servidor.mensajes.length,
+        ultimoMensaje: servidor.mensajes.at(-1)?.id ?? null,
         borrador,
         entrega,
         notas,

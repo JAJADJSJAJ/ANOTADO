@@ -89,11 +89,11 @@ export async function confirmarPedido(
 
 /**
  * Confirma una tarjeta de WhatsApp. Además de lo de confirmarPedido, manda la versión de la
- * tarjeta y cuántos mensajes se ven en pantalla: si llegó algo que el cajero no vio, la base
- * no confirma (cambio = true) y la pantalla se actualiza.
+ * tarjeta y el último mensaje que se ve en pantalla: si llegó algo que el cajero no vio, la
+ * base no confirma (cambio = true) y la pantalla se actualiza.
  */
 export async function confirmarConversacion(
-  args: Omit<DatosPedido, 'origen'> & { negocioId: string; conversacionId: string; version: number; mensajes: number },
+  args: Omit<DatosPedido, 'origen'> & { negocioId: string; conversacionId: string; version: number; ultimoMensaje: string | null },
 ): Promise<{ ok: true; pedido: PedidoConfirmado } | { ok: false; error: string; cambio?: boolean }> {
   const v = validar({ ...args, origen: 'whatsapp' });
   if (!v.ok) return v;
@@ -101,7 +101,8 @@ export async function confirmarConversacion(
     p_negocio_id: args.negocioId,
     p_conversacion_id: args.conversacionId,
     p_version: args.version,
-    p_mensajes: args.mensajes,
+    // null = la pantalla no vio ningún mensaje (los tipos generados no marcan parámetros null).
+    p_ultimo_mensaje: args.ultimoMensaje as string,
     p_items: v.pedido.items,
     p_entrega: v.pedido.entrega,
     p_notas: v.pedido.notas,
