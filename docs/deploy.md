@@ -60,9 +60,9 @@ carga el operador; ninguna clave va al repo ni al chat.
 
    Tiene que responder `403` con *El código no es válido…* (sin `apikey`, `401`).
 
-   `registro` arma el link del mail con el secret `SITIO_URL` (el dominio de Vercel, sin
-   barra final). Va en `.env.nube` junto con los de la IA. Sin él usa el *Origin* de la
-   solicitud, y Supabase Auth igual solo acepta destinos que estén en *Redirect URLs*.
+   `registro` arma el link del mail con el secret `SITIO_URL`, **obligatorio**: el dominio de
+   Vercel con `https://` y sin barra final. Va en `.env.nube` junto con los de la IA. Sin él la
+   función responde 503 y no da altas. Solo en local se arregla con el *Origin* (localhost).
 
 6. **Auth** (*Authentication*). Se configura en el dashboard. **No corras
    `supabase config push`**: subiría `supabase/config.toml`, que es la config local (Site URL
