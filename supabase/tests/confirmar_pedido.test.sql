@@ -6,6 +6,8 @@ select plan(36);
 -- Estado conocido: sin pedidos previos (p. ej. de pruebas manuales). El rollback final lo deshace.
 delete from pedidos;
 delete from contadores_pedidos;
+-- Sin zonas de envío (las de prueba manual exigirían zona en los delivery).
+delete from zonas_envio;
 
 \set A '\'a0000000-0000-4000-8000-000000000001\''
 

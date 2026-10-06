@@ -2,7 +2,7 @@
 -- solo hace lo que le corresponde. Corre con: pnpm db:test
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(45);
+select plan(46);
 
 -- Estado conocido: sin pedidos previos (p. ej. de pruebas manuales). El rollback final lo deshace.
 delete from pedidos;
@@ -40,6 +40,8 @@ from productos where negocio_id = :B limit 1;
 insert into pedidos (id, negocio_id, origen, total_centavos)
 values ('a4000000-0000-4000-8000-000000000001', :A, 'mostrador', 28000);
 insert into uso_ia (negocio_id, modelo, tokens_entrada, tokens_salida) values (:B, 'x', 1, 1);
+insert into zonas_envio (id, negocio_id, nombre, costo_centavos)
+values ('b5000000-0000-4000-8000-000000000009', :B, 'Zona de B', 5000);
 
 -- Cajero de A: lectura --------------------------------------------------------------------
 select pg_temp.como(:cajero_a);
@@ -163,6 +165,10 @@ select throws_ok(
   $$insert into uso_ia (negocio_id, conversacion_id, modelo, tokens_entrada, tokens_salida)
     values ('a0000000-0000-4000-8000-000000000001', 'b3000000-0000-4000-8000-000000000001', 'x', 1, 1)$$,
   '23503', null, 'uso de IA de A no puede apuntar a una conversación de B');
+select throws_ok(
+  $$insert into pedidos (negocio_id, origen, zona_id)
+    values ('a0000000-0000-4000-8000-000000000001', 'mostrador', 'b5000000-0000-4000-8000-000000000009')$$,
+  '23503', null, 'pedido de A no puede usar una zona de envío de B');
 
 -- Verificación: las escrituras de arriba no cambiaron nada ----------------------------------
 

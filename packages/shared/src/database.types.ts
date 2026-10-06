@@ -95,6 +95,47 @@ export type Database = {
           },
         ]
       }
+      codigos_alta: {
+        Row: {
+          codigo_hash: string
+          created_at: string
+          id: string
+          negocio_id: string | null
+          nota: string | null
+          usado_at: string | null
+          usado_por: string | null
+          vence_at: string
+        }
+        Insert: {
+          codigo_hash: string
+          created_at?: string
+          id?: string
+          negocio_id?: string | null
+          nota?: string | null
+          usado_at?: string | null
+          usado_por?: string | null
+          vence_at: string
+        }
+        Update: {
+          codigo_hash?: string
+          created_at?: string
+          id?: string
+          negocio_id?: string | null
+          nota?: string | null
+          usado_at?: string | null
+          usado_por?: string | null
+          vence_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "codigos_alta_negocio_id_fkey"
+            columns: ["negocio_id"]
+            isOneToOne: false
+            referencedRelation: "negocios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contadores_pedidos: {
         Row: {
           jornada: string
@@ -175,6 +216,53 @@ export type Database = {
           },
         ]
       }
+      invitaciones: {
+        Row: {
+          creada_por: string | null
+          created_at: string
+          id: string
+          negocio_id: string
+          revocada_at: string | null
+          rol: Database["public"]["Enums"]["rol_miembro"]
+          token_hash: string
+          usada_at: string | null
+          usada_por: string | null
+          vence_at: string
+        }
+        Insert: {
+          creada_por?: string | null
+          created_at?: string
+          id?: string
+          negocio_id: string
+          revocada_at?: string | null
+          rol: Database["public"]["Enums"]["rol_miembro"]
+          token_hash: string
+          usada_at?: string | null
+          usada_por?: string | null
+          vence_at: string
+        }
+        Update: {
+          creada_por?: string | null
+          created_at?: string
+          id?: string
+          negocio_id?: string
+          revocada_at?: string | null
+          rol?: Database["public"]["Enums"]["rol_miembro"]
+          token_hash?: string
+          usada_at?: string | null
+          usada_por?: string | null
+          vence_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitaciones_negocio_id_fkey"
+            columns: ["negocio_id"]
+            isOneToOne: false
+            referencedRelation: "negocios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       limites_ia: {
         Row: {
           clave: string
@@ -203,6 +291,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      limites_registro: {
+        Row: {
+          clave: string
+          cuenta: number
+          ventana: string
+        }
+        Insert: {
+          clave: string
+          cuenta: number
+          ventana: string
+        }
+        Update: {
+          clave?: string
+          cuenta?: number
+          ventana?: string
+        }
+        Relationships: []
       }
       mensajes: {
         Row: {
@@ -384,6 +490,7 @@ export type Database = {
           creado_por: string | null
           created_at: string
           entrega: Json | null
+          envio_centavos: number
           estado: Database["public"]["Enums"]["estado_pedido"]
           id: string
           jornada: string
@@ -394,6 +501,7 @@ export type Database = {
           origen: Database["public"]["Enums"]["origen_pedido"]
           total_centavos: number
           updated_at: string
+          zona_id: string | null
         }
         Insert: {
           cancelado_motivo?: string | null
@@ -403,6 +511,7 @@ export type Database = {
           creado_por?: string | null
           created_at?: string
           entrega?: Json | null
+          envio_centavos?: number
           estado?: Database["public"]["Enums"]["estado_pedido"]
           id?: string
           jornada: string
@@ -413,6 +522,7 @@ export type Database = {
           origen: Database["public"]["Enums"]["origen_pedido"]
           total_centavos?: number
           updated_at?: string
+          zona_id?: string | null
         }
         Update: {
           cancelado_motivo?: string | null
@@ -422,6 +532,7 @@ export type Database = {
           creado_por?: string | null
           created_at?: string
           entrega?: Json | null
+          envio_centavos?: number
           estado?: Database["public"]["Enums"]["estado_pedido"]
           id?: string
           jornada?: string
@@ -432,6 +543,7 @@ export type Database = {
           origen?: Database["public"]["Enums"]["origen_pedido"]
           total_centavos?: number
           updated_at?: string
+          zona_id?: string | null
         }
         Relationships: [
           {
@@ -454,6 +566,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "negocios"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedidos_zona_id_negocio_id_fkey"
+            columns: ["zona_id", "negocio_id"]
+            isOneToOne: false
+            referencedRelation: "zonas_envio"
+            referencedColumns: ["id", "negocio_id"]
           },
         ]
       }
@@ -505,6 +624,54 @@ export type Database = {
           },
         ]
       }
+      reservas_registro: {
+        Row: {
+          codigo_id: string | null
+          created_at: string
+          email_hash: string
+          estado: string
+          habia_cuenta: boolean
+          id: string
+          invitacion_id: string | null
+          resuelta_at: string | null
+        }
+        Insert: {
+          codigo_id?: string | null
+          created_at?: string
+          email_hash: string
+          estado?: string
+          habia_cuenta: boolean
+          id?: string
+          invitacion_id?: string | null
+          resuelta_at?: string | null
+        }
+        Update: {
+          codigo_id?: string | null
+          created_at?: string
+          email_hash?: string
+          estado?: string
+          habia_cuenta?: boolean
+          id?: string
+          invitacion_id?: string | null
+          resuelta_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservas_registro_codigo_id_fkey"
+            columns: ["codigo_id"]
+            isOneToOne: false
+            referencedRelation: "codigos_alta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservas_registro_invitacion_id_fkey"
+            columns: ["invitacion_id"]
+            isOneToOne: false
+            referencedRelation: "invitaciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       uso_ia: {
         Row: {
           conversacion_id: string | null
@@ -550,11 +717,50 @@ export type Database = {
           },
         ]
       }
+      zonas_envio: {
+        Row: {
+          activa: boolean
+          costo_centavos: number
+          created_at: string
+          id: string
+          negocio_id: string
+          nombre: string
+          orden: number
+        }
+        Insert: {
+          activa?: boolean
+          costo_centavos: number
+          created_at?: string
+          id?: string
+          negocio_id: string
+          nombre: string
+          orden?: number
+        }
+        Update: {
+          activa?: boolean
+          costo_centavos?: number
+          created_at?: string
+          id?: string
+          negocio_id?: string
+          nombre?: string
+          orden?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zonas_envio_negocio_id_fkey"
+            columns: ["negocio_id"]
+            isOneToOne: false
+            referencedRelation: "negocios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      aceptar_invitacion: { Args: { p_token: string }; Returns: Json }
       alias_validos: { Args: { alias: string[] }; Returns: boolean }
       avanzar_estado: {
         Args: {
@@ -562,6 +768,14 @@ export type Database = {
           p_pedido_id: string
         }
         Returns: Json
+      }
+      cambiar_rol: {
+        Args: {
+          p_negocio_id: string
+          p_rol: Database["public"]["Enums"]["rol_miembro"]
+          p_user_id: string
+        }
+        Returns: undefined
       }
       cancelar_pedido: {
         Args: { p_motivo?: string; p_pedido_id: string }
@@ -591,7 +805,31 @@ export type Database = {
         }
         Returns: boolean
       }
+      consumir_limite_registro: {
+        Args: { p_ip_hash: string; p_max_ip: number; p_max_total: number }
+        Returns: boolean
+      }
+      crear_codigo_alta: {
+        Args: { p_dias?: number; p_nota?: string }
+        Returns: string
+      }
+      crear_invitacion: {
+        Args: {
+          p_negocio_id: string
+          p_rol: Database["public"]["Enums"]["rol_miembro"]
+        }
+        Returns: Json
+      }
+      crear_negocio: {
+        Args: { p_codigo: string; p_nombre: string }
+        Returns: Json
+      }
       es_miembro: { Args: { n: string }; Returns: boolean }
+      es_ultimo_dueno: {
+        Args: { p_negocio_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      existe_cuenta: { Args: { p_email_hash: string }; Returns: boolean }
       guardar_interpretacion: {
         Args: {
           p_borrador: Json
@@ -610,6 +848,42 @@ export type Database = {
           version: number
         }[]
       }
+      hash_codigo: { Args: { p_codigo: string }; Returns: string }
+      hash_email: { Args: { p_email: string }; Returns: string }
+      horarios_validos: { Args: { h: Json }; Returns: boolean }
+      invitacion_vigente: {
+        Args: { p_token: string }
+        Returns: {
+          creada_por: string | null
+          created_at: string
+          id: string
+          negocio_id: string
+          revocada_at: string | null
+          rol: Database["public"]["Enums"]["rol_miembro"]
+          token_hash: string
+          usada_at: string | null
+          usada_por: string | null
+          vence_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "invitaciones"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      marcar_agotado: {
+        Args: { p_agotado: boolean; p_producto_id: string }
+        Returns: Json
+      }
+      miembros_negocio: {
+        Args: { p_negocio_id: string }
+        Returns: {
+          email: string
+          rol: Database["public"]["Enums"]["rol_miembro"]
+          user_id: string
+        }[]
+      }
       mover_estado: {
         Args: {
           p_desde: Database["public"]["Enums"]["estado_pedido"]
@@ -620,6 +894,10 @@ export type Database = {
       }
       negocio_de_topic: { Args: { p_topic: string }; Returns: string }
       pedidos_cocina: { Args: { p_negocio_id: string }; Returns: Json }
+      preparar_cambio_equipo: {
+        Args: { p_negocio_id: string; p_user_id: string }
+        Returns: Database["public"]["Enums"]["rol_miembro"]
+      }
       puede_mover_estado: {
         Args: {
           p_desde: Database["public"]["Enums"]["estado_pedido"]
@@ -628,6 +906,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      quitar_miembro: {
+        Args: { p_negocio_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      reservar_registro: {
+        Args: { p_codigo?: string; p_email: string; p_token?: string }
+        Returns: string
+      }
+      resolver_reserva: { Args: { p_reserva: string }; Returns: string }
       retroceder_estado: {
         Args: {
           p_desde: Database["public"]["Enums"]["estado_pedido"]
@@ -635,10 +922,17 @@ export type Database = {
         }
         Returns: Json
       }
+      revocar_invitacion: {
+        Args: { p_invitacion_id: string }
+        Returns: undefined
+      }
+      slug_desde_nombre: { Args: { p_nombre: string }; Returns: string }
       tiene_rol: {
         Args: { n: string; roles: Database["public"]["Enums"]["rol_miembro"][] }
         Returns: boolean
       }
+      token_aleatorio: { Args: { p_bytes: number }; Returns: string }
+      ver_invitacion: { Args: { p_token: string }; Returns: Json }
     }
     Enums: {
       estado_pedido:

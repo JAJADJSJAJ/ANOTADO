@@ -1,6 +1,7 @@
 import { agregarItem, type Borrador, type Pendientes } from '@anotado/shared';
 import { type FormEvent, useState } from 'react';
 import type { Producto } from '../hooks/useMenu.ts';
+import type { Zona } from '../hooks/useZonas.ts';
 import {
   aEntregaBorrador,
   confirmarPedido,
@@ -8,6 +9,7 @@ import {
   desdeEntregaBorrador,
   type PedidoConfirmado,
 } from '../lib/pedidos.ts';
+import { mensajeDeFuncion } from '../lib/funciones.ts';
 import { supabase } from '../lib/supabase.ts';
 import { MensajeError } from './Estado.tsx';
 import { PanelPedido } from './PanelPedido.tsx';
@@ -38,12 +40,14 @@ export function TarjetaWhatsApp({
   inicial,
   productos,
   activos,
+  zonas,
   onCerrada,
 }: {
   negocioId: string;
   inicial: DatosTarjeta;
   productos: ReadonlyMap<string, Producto>;
   activos: Producto[];
+  zonas: Zona[];
   onCerrada: (confirmado: PedidoConfirmado | null, etiqueta: string) => void;
 }) {
   const [conversacionId, setConversacionId] = useState(inicial.conversacionId);
@@ -77,13 +81,13 @@ export function TarjetaWhatsApp({
     });
     setInterpretando(false);
     if (error || !data) {
-      setError(await mensajeDeError(error));
+      setError(await mensajeDeFuncion(error, 'No se pudo interpretar el mensaje. Probá de nuevo o cargalo a mano.'));
       return;
     }
     setConversacionId(data.conversacion_id);
     setVersion(data.version);
     setBorrador(data.borrador);
-    setEntrega(desdeEntregaBorrador(data.borrador.entrega));
+    setEntrega((e) => desdeEntregaBorrador(data.borrador.entrega, e.zonaId));
     setPendientes(data.pendientes);
     setMensaje('');
   }
@@ -184,6 +188,7 @@ export function TarjetaWhatsApp({
         borrador={borrador}
         onBorrador={setBorrador}
         productos={productos}
+        zonas={zonas}
         entrega={entrega}
         onEntrega={setEntrega}
         notas={notas}
@@ -265,14 +270,3 @@ function Aviso({ color, onCerrar, children }: { color: 'sky' | 'red'; onCerrar: 
     </div>
   );
 }
-
-/** El error de invoke trae la respuesta HTTP: se usa el mensaje en español que manda la función. */
-async function mensajeDeError(error: unknown): Promise<string> {
-  const respuesta = (error as { context?: Response } | null)?.context;
-  if (respuesta && typeof respuesta.json === 'function') {
-    const cuerpo = (await respuesta.json().catch(() => null)) as { error?: string } | null;
-    if (cuerpo?.error) return cuerpo.error;
-  }
-  return 'No se pudo interpretar el mensaje. Probá de nuevo o cargalo a mano.';
-}
-

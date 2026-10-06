@@ -28,7 +28,7 @@ import {
   construirMensajes,
   construirMenu,
   ErrorIA,
-  leerTextoAcotado,
+  leerCuerpoJson,
   llamarIA,
   type MensajeHistorial,
   type Pendientes,
@@ -98,24 +98,6 @@ function leerConfigIA(): ConfigIA | string {
   };
 }
 
-/**
- * Cuerpo JSON con tamaño máximo. Se corta MIENTRAS se lee el stream (no se carga entero para
- * medirlo después). Content-Length solo sirve para rechazar antes; no se confía en él.
- */
-async function leerCuerpo(req: Request): Promise<{ cuerpo: unknown } | { status: 400 | 413 | 415 }> {
-  const tipo = req.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
-  if (tipo !== 'application/json') return { status: 415 };
-  const declarado = Number(req.headers.get('content-length'));
-  if (Number.isFinite(declarado) && declarado > MAX_CUERPO_BYTES) return { status: 413 };
-  const texto = await leerTextoAcotado(req.body, MAX_CUERPO_BYTES).catch(() => '');
-  if (texto === null) return { status: 413 };
-  try {
-    return { cuerpo: JSON.parse(texto) };
-  } catch {
-    return { status: 400 };
-  }
-}
-
 const MENSAJES_ENTRADA: Record<400 | 413 | 415, string> = {
   400: 'Datos inválidos',
   413: 'Mensaje demasiado largo',
@@ -131,7 +113,7 @@ export default {
       console.error(`parse-order: configuración de IA inválida: ${config}`);
       return error(500, 'La IA no está configurada');
     }
-    const leido = await leerCuerpo(req);
+    const leido = await leerCuerpoJson(req, MAX_CUERPO_BYTES);
     if ('status' in leido) return error(leido.status, MENSAJES_ENTRADA[leido.status]);
     const entrada = EntradaSchema.safeParse(leido.cuerpo);
     if (!entrada.success) return error(400, 'Datos inválidos');

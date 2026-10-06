@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { leerTextoAcotado } from '../src/index.ts';
+import { leerCuerpoJson, leerTextoAcotado } from '../src/index.ts';
 
 /** Stream que entrega `partes` trozos de `tamaño` bytes y cuenta cuántos se leyeron. */
 function streamDe(partes: number, tamaño: number) {
@@ -42,5 +42,23 @@ describe('leerTextoAcotado', () => {
 
   it('cuerpo nulo es texto vacío', async () => {
     expect(await leerTextoAcotado(null, 10)).toBe('');
+  });
+});
+
+describe('leerCuerpoJson', () => {
+  const req = (cuerpo: string, tipo = 'application/json; charset=utf-8') =>
+    new Request('http://x', { method: 'POST', headers: { 'content-type': tipo }, body: cuerpo });
+
+  it('devuelve el JSON', async () => {
+    expect(await leerCuerpoJson(req('{"a":1}'), 100)).toEqual({ cuerpo: { a: 1 } });
+  });
+  it('415 si no es JSON', async () => {
+    expect(await leerCuerpoJson(req('a=1', 'application/x-www-form-urlencoded'), 100)).toEqual({ status: 415 });
+  });
+  it('413 si pasa el límite', async () => {
+    expect(await leerCuerpoJson(req(`"${'x'.repeat(200)}"`), 100)).toEqual({ status: 413 });
+  });
+  it('400 si está mal formado', async () => {
+    expect(await leerCuerpoJson(req('{'), 100)).toEqual({ status: 400 });
   });
 });

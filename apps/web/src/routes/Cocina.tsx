@@ -10,6 +10,7 @@ import {
 } from '@anotado/shared';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
+import { Agotados } from '../components/Agotados.tsx';
 import { ListaAvisos } from '../components/Avisos.tsx';
 import { BotonSalir } from '../components/BotonSalir.tsx';
 import { Cargando } from '../components/Estado.tsx';
@@ -17,6 +18,7 @@ import { Logo } from '../components/Marca.tsx';
 import { TarjetaCocina } from '../components/TarjetaCocina.tsx';
 import { useAhora } from '../hooks/useAhora.ts';
 import { useAvisos } from '../hooks/useAvisos.ts';
+import { useMenu } from '../hooks/useMenu.ts';
 import { useNegocio } from '../hooks/useNegocio.ts';
 import { type Conexion, usePedidosCocina } from '../hooks/usePedidosCocina.ts';
 import { useWakeLock } from '../hooks/useWakeLock.ts';
@@ -38,6 +40,8 @@ export function Cocina() {
   const [ocupados, setOcupados] = useState<ReadonlySet<string>>(new Set());
   const [recientes, setRecientes] = useState<ReadonlySet<string>>(new Set());
   const [aConfirmar, setAConfirmar] = useState<PedidoCocina | null>(null);
+  const [verAgotados, setVerAgotados] = useState(false);
+  const menu = useMenu(negocio.id);
   // Cancelados: quedan arriba hasta que alguien toca "Entendido" (que no se cocine de más).
   const [cancelados, setCancelados] = useState<PedidoCocina[]>([]);
   const { avisos, avisar, quitar } = useAvisos();
@@ -114,6 +118,18 @@ export function Cocina() {
         <Reloj ahora={ahora} />
         <div className="ml-auto flex items-center gap-2">
           <IndicadorConexion conexion={conexion} />
+          {iniciada && (
+            <button
+              type="button"
+              onClick={() => {
+                void menu.recargar();
+                setVerAgotados(true);
+              }}
+              className="rounded-full bg-white/10 px-3 py-2 text-sm font-bold"
+            >
+              Agotados
+            </button>
+          )}
           {iniciada && (
             <button
               type="button"
@@ -239,6 +255,25 @@ export function Cocina() {
         />
       )}
 
+
+      {verAgotados && (
+        <div role="dialog" aria-modal="true" aria-label="Agotados" className="absolute inset-0 z-50 flex flex-col bg-stone-950">
+          <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+            <h2 className="flex-1 text-2xl font-black">Agotados</h2>
+            <button
+              type="button"
+              onClick={() => setVerAgotados(false)}
+              className="rounded-2xl bg-indigo-500 px-6 py-3 text-xl font-black active:bg-indigo-600"
+            >
+              Listo
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <p className="mb-4 text-stone-300">Tocá lo que se terminó. Desde ese momento el mostrador ya no lo puede confirmar.</p>
+            <Agotados oscuro categorias={menu.categorias} productos={menu.productos} onCambio={() => void menu.recargar()} />
+          </div>
+        </div>
+      )}
       {!iniciada && <PantallaInicio nombre={negocio.nombre} onEmpezar={() => void empezar()} />}
     </div>
   );

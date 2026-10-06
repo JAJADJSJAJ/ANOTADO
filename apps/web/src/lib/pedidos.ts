@@ -3,17 +3,21 @@ import { supabase } from './supabase.ts';
 
 export type ModoEntrega = 'retiro' | 'delivery' | 'mesa';
 
-/** Entrega tal como se edita en pantalla. modo null = todavía no se eligió. */
-export type DatosEntrega = { modo: ModoEntrega | null; direccion: string; mesa: string };
+/**
+ * Entrega tal como se edita en pantalla. modo null = todavía no se eligió. zonaId '' = sin
+ * zona. La zona la elige el cajero: no está en el borrador de la IA.
+ */
+export type DatosEntrega = { modo: ModoEntrega | null; direccion: string; mesa: string; zonaId: string };
 
-export const ENTREGA_RETIRO: DatosEntrega = { modo: 'retiro', direccion: '', mesa: '' };
-export const ENTREGA_SIN_ELEGIR: DatosEntrega = { modo: null, direccion: '', mesa: '' };
+export const ENTREGA_RETIRO: DatosEntrega = { modo: 'retiro', direccion: '', mesa: '', zonaId: '' };
+export const ENTREGA_SIN_ELEGIR: DatosEntrega = { modo: null, direccion: '', mesa: '', zonaId: '' };
 
-export function desdeEntregaBorrador(e: EntregaBorrador | null): DatosEntrega {
-  if (!e) return ENTREGA_SIN_ELEGIR;
-  if (e.modo === 'delivery') return { modo: 'delivery', direccion: e.direccion ?? '', mesa: '' };
-  if (e.modo === 'mesa') return { modo: 'mesa', direccion: '', mesa: e.mesa ?? '' };
-  return ENTREGA_RETIRO;
+/** zonaId: la que ya había elegido el cajero (la IA no la conoce y no la pisa). */
+export function desdeEntregaBorrador(e: EntregaBorrador | null, zonaId = ''): DatosEntrega {
+  if (!e) return { ...ENTREGA_SIN_ELEGIR, zonaId };
+  if (e.modo === 'delivery') return { modo: 'delivery', direccion: e.direccion ?? '', mesa: '', zonaId };
+  if (e.modo === 'mesa') return { modo: 'mesa', direccion: '', mesa: e.mesa ?? '', zonaId };
+  return { ...ENTREGA_RETIRO, zonaId };
 }
 
 export function aEntregaBorrador(d: DatosEntrega): EntregaBorrador | null {
@@ -23,7 +27,7 @@ export function aEntregaBorrador(d: DatosEntrega): EntregaBorrador | null {
   return null;
 }
 
-export type PedidoConfirmado = { numero: number; total_centavos: number };
+export type PedidoConfirmado = { numero: number; total_centavos: number; envio_centavos: number };
 
 /**
  * Valida en pantalla y confirma con la RPC. No manda precios: el servidor los toma de la base.
@@ -44,7 +48,7 @@ export async function confirmarPedido(args: {
 
   const datosEntrega: Entrega =
     entrega.modo === 'delivery'
-      ? { modo: 'delivery', direccion: entrega.direccion }
+      ? { modo: 'delivery', direccion: entrega.direccion, ...(entrega.zonaId && { zona_id: entrega.zonaId }) }
       : entrega.modo === 'mesa'
         ? { modo: 'mesa', mesa: entrega.mesa }
         : { modo: 'retiro' };

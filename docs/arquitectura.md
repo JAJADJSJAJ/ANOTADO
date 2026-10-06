@@ -30,8 +30,12 @@ flowchart LR
 
 | Qué | Cómo | Por qué |
 |---|---|---|
-| Menú, ajustes del local | Directo a la tabla, con RLS por rol | Es lo que el dueño edita a mano |
-| Pedidos | `confirmar_pedido` (cajero, dueño) | Recalcula el total desde `productos`, ignora precios del cliente |
+| Menú, ajustes, horarios, zonas de envío | Directo a la tabla, con RLS por rol | Es lo que el dueño edita a mano |
+| Agotados | `marcar_agotado` (cualquier rol del local) | Solo toca `productos.activo`; precio y nombre siguen siendo del dueño |
+| Pedidos | `confirmar_pedido` (cajero, dueño) | Recalcula el total desde `productos` y el envío desde `zonas_envio`, ignora precios del cliente |
+| Cuentas | Edge Function `registro` | Solo con código de alta o invitación vigentes; la cuenta nace sin contraseña y se confirma por mail |
+| Locales | `crear_negocio` | Negocio + primer dueño en una transacción, consume el código del operador |
+| Equipo | `crear_invitacion` / `aceptar_invitacion` / `cambiar_rol` / `quitar_miembro` | Solo el dueño; el local nunca queda sin dueño |
 | Estado del pedido | `avanzar_estado` / `retroceder_estado` / `cancelar_pedido` | Solo cambian el estado, y cada rol solo mueve lo de su área |
 | Borrador de WhatsApp | `parse-order` → `guardar_interpretacion` | La IA no escribe: todo se guarda en una transacción al final |
 

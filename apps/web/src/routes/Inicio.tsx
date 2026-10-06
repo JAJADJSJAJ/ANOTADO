@@ -37,8 +37,13 @@ export function Inicio() {
   if (membresias.length === 1) return <Navigate to={`/${membresias[0]!.negocios.slug}`} replace />;
   if (membresias.length === 0) {
     return (
-      <PantallaMensaje titulo="Todavía no tenés un local asignado">
-        <p className="text-stone-600">Pedile al dueño del local que te agregue.</p>
+      <PantallaMensaje titulo="Todavía no tenés un local">
+        <p className="max-w-sm text-stone-600">
+          Si trabajás en uno, pedile al dueño un link de invitación. Si es tu local y tenés un código de Anotado:
+        </p>
+        <Link to="/registro" className="rounded-xl bg-indigo-600 px-6 py-3 text-lg font-bold text-white">
+          Dar de alta mi local
+        </Link>
         <BotonSalir />
       </PantallaMensaje>
     );
@@ -57,6 +62,9 @@ export function Inicio() {
           </li>
         ))}
       </ul>
+      <Link to="/registro" className="font-medium text-stone-600 underline">
+        Dar de alta otro local
+      </Link>
     </PantallaMensaje>
   );
 }
