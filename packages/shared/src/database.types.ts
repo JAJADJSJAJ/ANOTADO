@@ -170,6 +170,7 @@ export type Database = {
           estado: string
           etiqueta: string | null
           id: string
+          interpretando_hasta: string | null
           negocio_id: string
           pendientes: Json
           ultimo_mensaje_at: string
@@ -182,6 +183,7 @@ export type Database = {
           estado?: string
           etiqueta?: string | null
           id?: string
+          interpretando_hasta?: string | null
           negocio_id: string
           pendientes?: Json
           ultimo_mensaje_at?: string
@@ -194,6 +196,7 @@ export type Database = {
           estado?: string
           etiqueta?: string | null
           id?: string
+          interpretando_hasta?: string | null
           negocio_id?: string
           pendientes?: Json
           ultimo_mensaje_at?: string
@@ -316,8 +319,10 @@ export type Database = {
           conversacion_id: string
           created_at: string
           id: string
+          interpretado: boolean
           negocio_id: string
           rol: Database["public"]["Enums"]["rol_mensaje"]
+          tipo: string
           wa_message_id: string | null
         }
         Insert: {
@@ -325,8 +330,10 @@ export type Database = {
           conversacion_id: string
           created_at?: string
           id?: string
+          interpretado?: boolean
           negocio_id: string
           rol: Database["public"]["Enums"]["rol_mensaje"]
+          tipo?: string
           wa_message_id?: string | null
         }
         Update: {
@@ -334,8 +341,10 @@ export type Database = {
           conversacion_id?: string
           created_at?: string
           id?: string
+          interpretado?: boolean
           negocio_id?: string
           rol?: Database["public"]["Enums"]["rol_mensaje"]
+          tipo?: string
           wa_message_id?: string | null
         }
         Relationships: [
@@ -839,6 +848,18 @@ export type Database = {
         Args: { p_conversacion_id: string }
         Returns: undefined
       }
+      confirmar_conversacion: {
+        Args: {
+          p_conversacion_id: string
+          p_entrega?: Json
+          p_items: Json
+          p_mensajes: number
+          p_negocio_id: string
+          p_notas?: string
+          p_version: number
+        }
+        Returns: Json
+      }
       confirmar_pedido: {
         Args: {
           p_conversacion_id?: string
@@ -856,6 +877,15 @@ export type Database = {
           p_max_usuario: number
           p_negocio_id: string
           p_user_id: string
+        }
+        Returns: boolean
+      }
+      consumir_limite_ia_cliente: {
+        Args: {
+          p_cliente_id: string
+          p_max_cliente: number
+          p_max_negocio: number
+          p_negocio_id: string
         }
         Returns: boolean
       }
@@ -884,8 +914,29 @@ export type Database = {
         Args: { p_negocio_id: string; p_user_id: string }
         Returns: boolean
       }
+      exigir_borrador_valido: {
+        Args: {
+          p_borrador: Json
+          p_negocio_id: string
+          p_solo_activos: boolean
+        }
+        Returns: undefined
+      }
       exigir_operador: { Args: never; Returns: undefined }
+      exigir_pendientes_validos: {
+        Args: { p_pendientes: Json }
+        Returns: undefined
+      }
       existe_cuenta: { Args: { p_email_hash: string }; Returns: boolean }
+      guardar_borrador: {
+        Args: {
+          p_borrador: Json
+          p_conversacion_id: string
+          p_pendientes: Json
+          p_version: number
+        }
+        Returns: number
+      }
       guardar_interpretacion: {
         Args: {
           p_borrador: Json
@@ -903,6 +954,20 @@ export type Database = {
           conversacion_id: string
           version: number
         }[]
+      }
+      guardar_interpretacion_wa: {
+        Args: {
+          p_borrador: Json
+          p_conversacion_id: string
+          p_mensajes: string[]
+          p_modelo: string
+          p_negocio_id: string
+          p_pendientes: Json
+          p_tokens_entrada: number
+          p_tokens_salida: number
+          p_version: number
+        }
+        Returns: number
       }
       hash_codigo: { Args: { p_codigo: string }; Returns: string }
       hash_email: { Args: { p_email: string }; Returns: string }
@@ -956,6 +1021,10 @@ export type Database = {
         Returns: Json
       }
       negocio_de_topic: { Args: { p_topic: string }; Returns: string }
+      negocio_de_topic_conversaciones: {
+        Args: { p_topic: string }
+        Returns: string
+      }
       operador_anular_codigo: {
         Args: { p_codigo_id: string }
         Returns: undefined
@@ -980,6 +1049,10 @@ export type Database = {
           vence_at: string
         }[]
       }
+      operador_conectar_whatsapp: {
+        Args: { p_negocio_id: string; p_phone_number_id: string }
+        Returns: undefined
+      }
       operador_crear_codigo: {
         Args: { p_dias?: number; p_nota?: string }
         Returns: string
@@ -998,6 +1071,7 @@ export type Database = {
           pedidos_30d: number
           slug: string
           usos_ia_30d: number
+          wa_phone_number_id: string
         }[]
       }
       pedidos_cocina: { Args: { p_negocio_id: string }; Returns: Json }
@@ -1018,6 +1092,17 @@ export type Database = {
         Args: { p_negocio_id: string; p_user_id: string }
         Returns: undefined
       }
+      recibir_mensaje_wa: {
+        Args: {
+          p_contenido: string
+          p_nombre: string
+          p_phone_number_id: string
+          p_telefono: string
+          p_tipo: string
+          p_wa_message_id: string
+        }
+        Returns: Json
+      }
       reservar_registro: {
         Args: { p_codigo?: string; p_email: string; p_token?: string }
         Returns: string
@@ -1034,12 +1119,25 @@ export type Database = {
         Args: { p_invitacion_id: string }
         Returns: undefined
       }
+      sesion_con_totp: { Args: never; Returns: boolean }
       slug_desde_nombre: { Args: { p_nombre: string }; Returns: string }
+      soltar_conversacion_wa: {
+        Args: { p_conversacion_id: string; p_negocio_id: string }
+        Returns: boolean
+      }
       tiene_rol: {
         Args: { n: string; roles: Database["public"]["Enums"]["rol_miembro"][] }
         Returns: boolean
       }
       token_aleatorio: { Args: { p_bytes: number }; Returns: string }
+      tomar_conversacion_wa: {
+        Args: {
+          p_conversacion_id: string
+          p_negocio_id: string
+          p_segundos: number
+        }
+        Returns: boolean
+      }
       ver_invitacion: { Args: { p_token: string }; Returns: Json }
     }
     Enums: {
