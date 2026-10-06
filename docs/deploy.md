@@ -55,18 +55,37 @@ carga el operador; ninguna clave va al repo ni al chat.
    ```bash
    curl -s -X POST https://<ref>.supabase.co/functions/v1/registro \
      -H "apikey: <publishable key>" -H "content-type: application/json" \
-     -d '{"email":"x@x.uy","password":"una-clave-larga","codigo":"AAAA-BBBB-CCCC"}'
+     -d '{"email":"x@x.uy","codigo":"AAAA-BBBB-CCCC"}'
    ```
 
    Tiene que responder `403` con *El código no es válido…* (sin `apikey`, `401`).
 
+   `registro` arma el link del mail con el secret `SITIO_URL` (el dominio de Vercel, sin
+   barra final). Va en `.env.nube` junto con los de la IA. Sin él usa el *Origin* de la
+   solicitud, y Supabase Auth igual solo acepta destinos que estén en *Redirect URLs*.
+
 6. **Auth** (*Authentication*). Se configura en el dashboard. **No corras
-   `supabase config push`**: subiría `supabase/config.toml`, que es la config local (registro
-   abierto, Site URL en localhost).
-   - *Sign In / Providers → Email*: desactivar **Allow new users to sign up**. Los usuarios
-     los crea el operador.
-   - *URL Configuration*: **Site URL** = el dominio de Vercel (paso 2). Agregalo también en
-     *Redirect URLs*.
+   `supabase config push`**: subiría `supabase/config.toml`, que es la config local (Site URL
+   en localhost).
+   - *Sign In / Providers → Email*: desactivar **Allow new users to sign up**. Las cuentas
+     las crea solo la función `registro`, con código o invitación.
+   - *URL Configuration*: **Site URL** = el dominio de Vercel (paso 2). En *Redirect URLs*
+     agregá `https://<dominio>/**` (con los dos asteriscos): los mails vuelven a
+     `/bienvenida?siguiente=…`.
+   - **SMTP propio** (*Project Settings → Authentication → SMTP Settings*). Sin esto no
+     llegan los mails de alta ni de contraseña olvidada: el SMTP de Supabase solo manda a los
+     mails del equipo del proyecto. Con Brevo (gratis, 300 mails por día):
+     1. Creá la cuenta en brevo.com y verificá un remitente (*Senders*), por ejemplo tu
+        Gmail o uno del dominio si tenés.
+     2. *SMTP & API → SMTP*: generá una **SMTP key**. Es una contraseña: va directo al
+        dashboard de Supabase, ni al repo ni al chat.
+     3. En Supabase: *Enable custom SMTP*, Host `smtp-relay.brevo.com`, Port `587`, User = el
+        login SMTP que muestra Brevo, Password = la SMTP key, Sender email = el remitente
+        verificado, Sender name `Anotado`.
+     4. *Rate Limits*: **Rate limit for sending emails** en 30 por hora (sobra).
+   - *Email Templates*: pegá los de `supabase/templates/` en **Invite user**
+     (`invitacion.html`, asunto *Confirmá tu mail para entrar a Anotado*) y **Reset password**
+     (`recuperar.html`, asunto *Elegí una contraseña nueva para Anotado*).
 7. **Realtime** (*Realtime → Settings*): desactivar **Allow public access**. Así solo
    funcionan los canales privados, que la base autoriza por negocio.
 8. **Local de demo:**
@@ -99,6 +118,8 @@ carga el operador; ninguna clave va al repo ni al chat.
 - [ ] *Realtime → Settings*: **Allow public access** apagado.
 - [ ] `pnpm supabase secrets list` muestra los `IA_*`.
 - [ ] *Edge Functions → registro*: **Enforce JWT verification** apagado.
+- [ ] SMTP propio configurado y plantillas en español (paso 1.6). Probá *Me olvidé la contraseña* con tu mail.
+- [ ] *Redirect URLs* incluye `https://<dominio>/**`.
 
 ## 2. Vercel
 
@@ -148,14 +169,8 @@ habilita como arriba. Para ver los códigos y si se usaron:
 select nota, vence_at, registros, usado_at, negocio_id from codigos_alta order by created_at desc;
 ```
 
-**Contraseñas olvidadas.** Sin SMTP propio no hay mail de recuperación (el de Supabase solo
-le manda a los mails del equipo del proyecto). El operador pone una contraseña temporal y se
-la pasa a la persona por un canal seguro:
-
-```sql
-update auth.users set encrypted_password = extensions.crypt('<temporal>', extensions.gen_salt('bf'))
-where email = '<mail>';
-```
+**Contraseñas olvidadas.** Las resuelve cada persona con *Me olvidé la contraseña* en la
+pantalla de entrar (necesita el SMTP del paso 1.6).
 
 **Cambios posteriores:**
 

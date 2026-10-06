@@ -53,7 +53,7 @@ Detalle de cada flujo en [`docs/arquitectura.md`](docs/arquitectura.md).
 
 - **El estado vive en la base, no en la IA.** La IA traduce texto a acciones; el borrador del pedido está en Postgres.
 - **La IA propone, el humano confirma.** Lo dudoso se marca, nunca se inventa.
-- **Aislamiento por negocio con RLS** en todas las tablas, verificado con 323 tests pgTAP que corren en cada PR.
+- **Aislamiento por negocio con RLS** en todas las tablas, verificado con 330 tests pgTAP que corren en cada PR.
 - **Los precios nunca salen de la IA.** El total se recalcula en el servidor.
 - **La cocina ve solo lo que cocina.** Lee por una RPC sin dirección ni teléfono, y Realtime avisa solo "cambió el pedido X": la lista siempre se recarga desde la base, así un aviso perdido no deja la pantalla mal.
 - **La IA se prende por local, con dos llaves:** la habilita el operador y la prende o apaga el dueño.
@@ -97,7 +97,7 @@ Usuarios de prueba (contraseña `anotado123`): `dueno@elceibo.test`, `cajero@elc
 
 Para la IA en local: copiá `supabase/functions/.env.example` a `supabase/functions/.env`, completá la key y corré `pnpm supabase functions serve`.
 
-Para probar el alta de un local, `pnpm supabase functions serve` (la función `registro` crea las cuentas) y generá un código en Studio → SQL: `select crear_codigo_alta('prueba');`. Después abrí `/registro?codigo=<código>`.
+Para probar el alta de un local, `pnpm supabase functions serve` (la función `registro` crea las cuentas) y generá un código en Studio → SQL: `select crear_codigo_alta('prueba');`. Después abrí `/registro?codigo=<código>`. El mail para confirmar la cuenta y elegir la contraseña llega a Mailpit (abajo).
 
 Para entrar con tu propio mail, copiá `supabase/seed.local.example.sql` a `supabase/seed.local.sql` (ignorado por git), poné tu mail y corré `pnpm db:reset`.
 
