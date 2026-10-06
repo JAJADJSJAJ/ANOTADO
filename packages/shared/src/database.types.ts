@@ -321,6 +321,7 @@ export type Database = {
           id: string
           interpretado: boolean
           negocio_id: string
+          orden: number
           rol: Database["public"]["Enums"]["rol_mensaje"]
           tipo: string
           wa_message_id: string | null
@@ -332,6 +333,7 @@ export type Database = {
           id?: string
           interpretado?: boolean
           negocio_id: string
+          orden?: never
           rol: Database["public"]["Enums"]["rol_mensaje"]
           tipo?: string
           wa_message_id?: string | null
@@ -343,6 +345,7 @@ export type Database = {
           id?: string
           interpretado?: boolean
           negocio_id?: string
+          orden?: never
           rol?: Database["public"]["Enums"]["rol_mensaje"]
           tipo?: string
           wa_message_id?: string | null

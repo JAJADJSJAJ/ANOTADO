@@ -73,7 +73,7 @@ export function useConversaciones(negocioId: string) {
               .eq('negocio_id', negocioId)
               .in('conversacion_id', ids)
               // Los más nuevos primero: si se pasa del tope, se cortan los viejos, nunca los últimos.
-              .order('created_at', { ascending: false })
+              .order('orden', { ascending: false })
               .limit(MAX_MENSAJES)
           : { data: [], error: null };
         if (errMensajes) {

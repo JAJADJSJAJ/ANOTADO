@@ -183,7 +183,7 @@ export default {
         .select('rol, contenido')
         .eq('conversacion_id', conversacionId)
         .eq('negocio_id', negocio_id)
-        .order('created_at', { ascending: false })
+        .order('orden', { ascending: false })
         .limit(MAX_HISTORIAL - 1);
       if (errHist) return error(500, 'No se pudo cargar el historial');
       historial = (previos ?? []).reverse();

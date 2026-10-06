@@ -2,7 +2,7 @@
 -- con la última versión, avisos en tiempo real y conexión del número por el operador.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(67);
+select plan(76);
 
 \set A '\'a0000000-0000-4000-8000-000000000001\''
 \set B '\'b0000000-0000-4000-8000-000000000001\''
@@ -55,6 +55,31 @@ select throws_ok($$select guardar_interpretacion_wa('a0000000-0000-4000-8000-000
   array[gen_random_uuid()], '{"items":[],"entrega":null}', '{}', 'x', 1, 1)$$,
   '42501', null, 'authenticated no puede guardar interpretaciones');
 reset role;
+
+-- Permisos declarados: las funciones del webhook, solo service_role; las del mostrador, solo
+-- authenticated (después validan rol). anon, nada.
+select ok(bool_and(has_function_privilege('service_role', f, 'execute')
+                   and not has_function_privilege('authenticated', f, 'execute')
+                   and not has_function_privilege('anon', f, 'execute')),
+  'webhook: execute solo para service_role')
+from unnest(array[
+  'public.recibir_mensaje_wa(text, text, text, text, text, text)',
+  'public.tomar_conversacion_wa(uuid, uuid, int)',
+  'public.soltar_conversacion_wa(uuid, uuid)',
+  'public.consumir_limite_ia_cliente(uuid, uuid, int, int)',
+  'public.guardar_interpretacion_wa(uuid, uuid, int, uuid[], jsonb, jsonb, text, int, int)'
+]::regprocedure[]) f;
+select ok(bool_and(has_function_privilege('authenticated', f, 'execute') and not has_function_privilege('anon', f, 'execute')),
+  'mostrador y operador: execute para authenticated, no para anon')
+from unnest(array[
+  'public.guardar_borrador(uuid, int, jsonb, jsonb)',
+  'public.confirmar_conversacion(uuid, uuid, int, uuid, jsonb, jsonb, text)',
+  'public.operador_conectar_whatsapp(uuid, text)'
+]::regprocedure[]) f;
+select ok(not bool_or(has_function_privilege(r, f, 'execute')),
+  'los validadores internos no se llaman desde afuera')
+from unnest(array['public.exigir_borrador_valido(uuid, jsonb, boolean)', 'public.exigir_pendientes_validos(jsonb)']::regprocedure[]) f,
+  unnest(array['anon', 'authenticated']) r;
 
 -- Webhook (service_role) ----------------------------------------------------------------------
 set local role service_role;
@@ -121,6 +146,20 @@ select throws_ok(
   format($$select guardar_interpretacion_wa(%L, %L, %s, array[(select id from mensajes where wa_message_id = 'wamid.1')],
     '{"items":[{"producto_id":"x","cantidad":1}],"entrega":null}', '{}', 'x', 1, 1)$$, :A, :conv, (select version from v0)),
   '22023', null, 'item con forma inválida');
+-- Los ids tienen que ser mensajes de texto del cliente, pendientes y de esta conversación.
+select throws_ok(
+  format($$select guardar_interpretacion_wa(%L, %L, %s, array[(select id from mensajes where wa_message_id = 'wamid.b1')],
+    '{"items":[],"entrega":null}', '{}', 'x', 1, 1)$$, :A, :conv, (select version from v0)),
+  '22023', null, 'no marca un mensaje de otra conversación (de otro local)');
+select throws_ok(
+  format($$select guardar_interpretacion_wa(%L, %L, %s, array[(select id from mensajes where wa_message_id = 'wamid.2')],
+    '{"items":[],"entrega":null}', '{}', 'x', 1, 1)$$, :A, :conv, (select version from v0)),
+  '22023', null, 'no acepta un audio como interpretado');
+select throws_ok(
+  format($$select guardar_interpretacion_wa(%L, %L, %s, array[(select id from mensajes where wa_message_id = 'wamid.1'), gen_random_uuid()],
+    '{"items":[],"entrega":null}', '{}', 'x', 1, 1)$$, :A, :conv, (select version from v0)),
+  '22023', null, 'si sobra un id que no existe, no marca nada');
+select is((select interpretado from mensajes where wa_message_id = 'wamid.1'), false, 'los rechazos no marcaron nada');
 select is(
   guardar_interpretacion_wa(:A, :conv, (select version from v0), array[(select id from mensajes where wa_message_id = 'wamid.1')],
     (select b from nuevo_item), '{"dudosos":["la de siempre"],"preguntas":[],"errores":[]}', 'modelo-x', 10, 5),
@@ -131,6 +170,10 @@ select throws_ok(
   format($$select guardar_interpretacion_wa(%L, %L, %s, array[(select id from mensajes where wa_message_id = 'wamid.1')],
     '{"items":[],"entrega":null}', '{}', 'x', 1, 1)$$, :A, :conv, (select version from v0)),
   '40001', null, 'con una versión vieja se rechaza (el cajero editó en el medio)');
+select throws_ok(
+  format($$select guardar_interpretacion_wa(%L, %L, %s, array[(select id from mensajes where wa_message_id = 'wamid.1')],
+    '{"items":[],"entrega":null}', '{}', 'x', 1, 1)$$, :A, :conv, (select version from v0) + 1),
+  '22023', null, 'no vuelve a marcar uno ya interpretado');
 
 -- Un mensaje que llega mientras la IA interpreta otro queda pendiente.
 select recibir_mensaje_wa('1111111111', 'wamid.4', '59899000001', null, 'texto', 'y una coca');
@@ -170,21 +213,21 @@ select is((select count(*) from mensajes where conversacion_id = :conv), 0::bigi
 reset role;
 
 -- Confirmar con la última versión -------------------------------------------------------------
--- En una transacción todos los now() son iguales: se escalonan las horas como en la realidad.
-update mensajes m set created_at = now() - make_interval(mins => (10 - o.n)::int)
-from (select id, row_number() over (order by wa_message_id) as n from mensajes where conversacion_id = :conv) o
-where m.id = o.id;
+-- Adentro de esta transacción todos los mensajes tienen la MISMA hora (now()): es justo el caso
+-- del empate. Se compara por orden de llegada, no por hora.
+select is((select count(distinct created_at) from mensajes where conversacion_id = :conv), 1::bigint,
+  'todos los mensajes de la conversación tienen la misma hora (empate)');
 create temp table actual as
   select version,
-    (select id from mensajes where conversacion_id = :conv order by created_at desc limit 1) as ultimo,
-    (select id from mensajes where conversacion_id = :conv order by created_at desc offset 1 limit 1) as anterior
+    (select id from mensajes where conversacion_id = :conv order by orden desc limit 1) as ultimo,
+    (select id from mensajes where conversacion_id = :conv order by orden desc offset 1 limit 1) as anterior
   from conversaciones where id = :conv;
 grant select on actual to authenticated;
 select pg_temp.como(:cajero_a);
 select throws_ok(
   format($$select confirmar_conversacion(%L, %L, %s, %L, (select b -> 'items' from nuevo_item), '{"modo":"retiro"}')$$,
     :A, :conv, (select version from actual), (select anterior from actual)),
-  '40001', null, 'si llegó un mensaje que la pantalla no vio, no confirma');
+  '40001', null, 'con la misma hora, un mensaje posterior al visto igual frena la confirmación');
 select throws_ok(
   format($$select confirmar_conversacion(%L, %L, %s, null, (select b -> 'items' from nuevo_item), '{"modo":"retiro"}')$$,
     :A, :conv, (select version from actual)),

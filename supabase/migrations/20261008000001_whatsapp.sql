@@ -24,9 +24,16 @@
 alter table public.mensajes
   add column tipo text not null default 'texto'
     check (tipo in ('texto', 'audio', 'imagen', 'video', 'documento', 'ubicacion', 'sticker', 'contacto', 'otro')),
-  add column interpretado boolean not null default true;
+  add column interpretado boolean not null default true,
+  -- Orden estable de llegada. created_at NO sirve: es la hora en que EMPIEZA la transacción, y un
+  -- mensaje que esperó el bloqueo del cliente puede quedar con una hora anterior a otro que se
+  -- guardó antes que él (reproducido con dos sesiones). El número se toma al insertar, y los
+  -- mensajes de una conversación se insertan de a uno (bloqueo del cliente en el webhook, de la
+  -- conversación en guardar_interpretacion): sigue el orden real, sin empates.
+  add column orden bigint generated always as identity;
 
-create index mensajes_sin_interpretar on public.mensajes (conversacion_id, created_at) where not interpretado;
+create index mensajes_conversacion_orden on public.mensajes (conversacion_id, orden);
+create index mensajes_sin_interpretar on public.mensajes (conversacion_id, orden) where not interpretado;
 
 alter table public.conversaciones add column interpretando_hasta timestamptz;
 
@@ -316,6 +323,18 @@ begin
     raise exception 'La conversación cambió mientras se interpretaba' using errcode = '40001';
   end if;
 
+  -- Todos los ids tienen que ser mensajes de texto del cliente, de ESTA conversación y todavía
+  -- sin interpretar: ni de otra conversación, ni ya interpretados, ni audios. Con la fila de la
+  -- conversación bloqueada, nadie más los marca en el medio. Repetidos cuentan una vez.
+  if (
+    select count(*) from public.mensajes m
+    where m.id = any (p_mensajes)
+      and m.conversacion_id = p_conversacion_id and m.negocio_id = p_negocio_id
+      and m.rol = 'cliente' and m.tipo = 'texto' and not m.interpretado
+  ) <> (select count(distinct x) from unnest(p_mensajes) x) then
+    raise exception 'Mensajes interpretados inválidos' using errcode = '22023';
+  end if;
+
   update public.mensajes m set interpretado = true
   where m.id = any (p_mensajes) and m.conversacion_id = p_conversacion_id and m.negocio_id = p_negocio_id;
 
@@ -403,7 +422,7 @@ create function public.confirmar_conversacion(
 language plpgsql security definer set search_path = '' as $$
 declare
   v_version int;
-  v_visto_at timestamptz;
+  v_visto bigint;
 begin
   if not public.tiene_rol(p_negocio_id, '{dueno,cajero}') then
     raise exception 'Sin permiso para crear pedidos en este negocio' using errcode = '42501';
@@ -415,9 +434,10 @@ begin
   if not found then
     raise exception 'La conversación no existe o ya está cerrada' using errcode = '22023';
   end if;
-  -- El último mensaje que vio la pantalla tiene que ser de esta conversación.
+  -- El último mensaje que vio la pantalla tiene que ser de esta conversación. Se compara por
+  -- orden de llegada (mensajes.orden), no por hora: ver el comentario de la columna.
   if p_ultimo_mensaje is not null then
-    select m.created_at into v_visto_at
+    select m.orden into v_visto
     from public.mensajes m
     where m.id = p_ultimo_mensaje and m.conversacion_id = p_conversacion_id;
     if not found then
@@ -428,7 +448,7 @@ begin
      or exists (
        select 1 from public.mensajes m
        where m.conversacion_id = p_conversacion_id
-         and (v_visto_at is null or m.created_at > v_visto_at)
+         and (v_visto is null or m.orden > v_visto)
      ) then
     raise exception 'Llegó un mensaje nuevo o la tarjeta cambió. Revisala y confirmá de nuevo.' using errcode = '40001';
   end if;

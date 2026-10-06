@@ -139,7 +139,7 @@ async function vueltas(
       .eq('negocio_id', negocioId)
       .eq('interpretado', false)
       .eq('tipo', 'texto')
-      .order('created_at')
+      .order('orden')
       .limit(MAX_MENSAJES_POR_VUELTA);
     if (errNuevos) return 'error';
     if (!nuevos?.length) return algunaOk ? 'ok' : 'nada';
@@ -180,7 +180,7 @@ async function vueltas(
       .eq('conversacion_id', conversacionId)
       .eq('negocio_id', negocioId)
       .eq('interpretado', true)
-      .order('created_at', { ascending: false })
+      .order('orden', { ascending: false })
       .limit(5);
     if (errHist) return 'error';
     const historial = historialWhatsApp(
