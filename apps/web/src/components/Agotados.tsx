@@ -39,6 +39,9 @@ export function Agotados({
 
   return (
     <div className="flex flex-col gap-4">
+      <p className={`text-sm ${oscuro ? 'text-stone-400' : 'text-stone-500'}`}>
+        Ojo: lo que el dueño sacó del menú también aparece como agotado. Si lo pasás a &quot;Hay&quot;, se vuelve a ofrecer.
+      </p>
       {error && <MensajeError>{error}</MensajeError>}
       {grupos.map((g) => (
         <section key={g.nombre}>

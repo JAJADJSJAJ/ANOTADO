@@ -10,6 +10,7 @@ import { SoloRoles } from './components/SoloRoles.tsx';
 import { AdminAjustes } from './routes/AdminAjustes.tsx';
 import { AdminEquipo } from './routes/AdminEquipo.tsx';
 import { AdminMenu } from './routes/AdminMenu.tsx';
+import { Bienvenida } from './routes/Bienvenida.tsx';
 import { Cocina } from './routes/Cocina.tsx';
 import { Inicio } from './routes/Inicio.tsx';
 import { Invitacion } from './routes/Invitacion.tsx';
@@ -23,6 +24,8 @@ const router = createBrowserRouter([
   // Sin sesión obligatoria: quien llega con un código o una invitación todavía no tiene cuenta.
   { path: '/registro', element: <Registro /> },
   { path: '/invitacion/:token', element: <Invitacion /> },
+  // Destino de los links del mail (cuenta nueva, contraseña olvidada): toma la sesión del link.
+  { path: '/bienvenida', element: <Bienvenida /> },
   {
     element: <RequiereSesion />,
     children: [

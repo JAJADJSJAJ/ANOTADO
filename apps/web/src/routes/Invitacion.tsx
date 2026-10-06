@@ -1,12 +1,12 @@
-import { MIN_PASSWORD, type RolMiembro, TokenInvitacionSchema } from '@anotado/shared';
+import { type RolMiembro, TokenInvitacionSchema } from '@anotado/shared';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { BotonSalir } from '../components/BotonSalir.tsx';
-import { BotonPrincipal, Campo, PantallaCuenta } from '../components/Cuenta.tsx';
+import { BotonPrincipal, Campo, MailEnviado, PantallaCuenta } from '../components/Cuenta.tsx';
 import { Cargando, MensajeError } from '../components/Estado.tsx';
 import { useSesion } from '../hooks/useSesion.ts';
 import { NOMBRE_ROL } from '../lib/contextos.ts';
-import { crearCuentaYEntrar } from '../lib/funciones.ts';
+import { pedirCuenta } from '../lib/funciones.ts';
 import { supabase } from '../lib/supabase.ts';
 
 type DatosInvitacion = { negocio: string; rol: RolMiembro; ya_es_miembro: boolean };
@@ -37,7 +37,7 @@ export function Invitacion() {
 
 function CrearCuenta({ token }: { token: string }) {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [mailEnviado, setMailEnviado] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -45,11 +45,14 @@ function CrearCuenta({ token }: { token: string }) {
     e.preventDefault();
     setError(null);
     setEnviando(true);
-    // Al entrar, la sesión cambia y esta pantalla pasa sola a "Aceptar".
-    const err = await crearCuentaYEntrar({ email: email.trim(), password, invitacion: token });
+    // El mail trae un link a /bienvenida, que después vuelve acá con sesión para aceptar.
+    const err = await pedirCuenta({ email: email.trim(), invitacion: token });
     setEnviando(false);
     if (err) setError(err);
+    else setMailEnviado(true);
   }
+
+  if (mailEnviado) return <MailEnviado email={email.trim()} onOtroMail={() => setMailEnviado(false)} />;
 
   return (
     <>
@@ -63,21 +66,12 @@ function CrearCuenta({ token }: { token: string }) {
           type="email"
           autoComplete="email"
           required
+          ayuda="Te mandamos un link para confirmarlo y elegir tu contraseña."
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <Campo
-          etiqueta="Elegí una contraseña"
-          type="password"
-          autoComplete="new-password"
-          required
-          minLength={MIN_PASSWORD}
-          ayuda={`Al menos ${MIN_PASSWORD} caracteres.`}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
         {error && <MensajeError>{error}</MensajeError>}
-        <BotonPrincipal disabled={enviando}>{enviando ? 'Creando…' : 'Crear cuenta'}</BotonPrincipal>
+        <BotonPrincipal disabled={enviando}>{enviando ? 'Enviando…' : 'Seguir'}</BotonPrincipal>
       </form>
       <p className="border-t border-stone-200 pt-4 text-center text-stone-600">
         ¿Ya tenés cuenta?{' '}

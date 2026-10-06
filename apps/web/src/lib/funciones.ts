@@ -15,19 +15,12 @@ export async function mensajeDeFuncion(error: unknown, porDefecto: string): Prom
 }
 
 /**
- * Crea la cuenta (Edge Function registro) y entra con ella. Si el mail ya tiene cuenta, la
- * función responde 409 con un mensaje que lo dice: la persona entra con su contraseña.
+ * Pide la cuenta (Edge Function registro). La función manda un mail: la persona lo abre, elige
+ * su contraseña en /bienvenida y vuelve a donde estaba. Devuelve el error para mostrar, o null.
  */
-export async function crearCuentaYEntrar(datos: Registro): Promise<string | null> {
+export async function pedirCuenta(datos: Registro): Promise<string | null> {
   const valido = RegistroSchema.safeParse(datos);
   if (!valido.success) return valido.error.issues[0]?.message ?? 'Revisá los datos.';
-
   const { error } = await supabase.functions.invoke('registro', { body: valido.data });
-  if (error) return mensajeDeFuncion(error, 'No se pudo crear la cuenta. Probá de nuevo.');
-
-  const { error: errLogin } = await supabase.auth.signInWithPassword({
-    email: valido.data.email,
-    password: valido.data.password,
-  });
-  return errLogin ? 'La cuenta se creó, pero no se pudo entrar. Probá desde "Entrar".' : null;
+  return error ? mensajeDeFuncion(error, 'No se pudo crear la cuenta. Probá de nuevo.') : null;
 }

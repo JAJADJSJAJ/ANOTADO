@@ -47,3 +47,20 @@ export function BotonPrincipal({ children, ...boton }: ButtonHTMLAttributes<HTML
     </button>
   );
 }
+
+/** Después de pedir la cuenta: falta abrir el mail para elegir la contraseña. */
+export function MailEnviado({ email, onOtroMail }: { email: string; onOtroMail: () => void }) {
+  return (
+    <div role="status" className="flex flex-col gap-3">
+      <h2 className="text-xl font-black">Revisá tu mail</h2>
+      <p className="text-lg text-stone-700">
+        Te mandamos un link a <strong className="break-all">{email}</strong>. Abrilo para confirmar el mail y elegir tu
+        contraseña. Después seguís desde donde quedaste.
+      </p>
+      <p className="text-stone-600">Si en unos minutos no llegó, mirá en Spam o pedilo de nuevo.</p>
+      <button type="button" onClick={onOtroMail} className="self-start font-medium text-indigo-700 underline">
+        Pedirlo de nuevo o usar otro mail
+      </button>
+    </div>
+  );
+}
