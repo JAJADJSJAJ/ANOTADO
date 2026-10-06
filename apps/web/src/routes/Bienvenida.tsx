@@ -1,5 +1,5 @@
 import { MIN_PASSWORD, PasswordSchema, rutaInterna } from '@anotado/shared';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { BotonPrincipal, Campo, PantallaCuenta } from '../components/Cuenta.tsx';
 import { Cargando, MensajeError } from '../components/Estado.tsx';
@@ -22,6 +22,18 @@ export function Bienvenida() {
   const [repetida, setRepetida] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  // Cuentas con código del celular (el operador): Supabase exige ese código para cambiar la
+  // contraseña. Se pide acá mismo, antes de guardar.
+  const [pideCodigo, setPideCodigo] = useState(false);
+  const [codigo, setCodigo] = useState('');
+  const userId = sesion?.user.id;
+
+  useEffect(() => {
+    if (!userId) return;
+    void supabase.auth.mfa.getAuthenticatorAssuranceLevel().then(({ data }) => {
+      if (data?.nextLevel === 'aal2' && data.currentLevel !== 'aal2') setPideCodigo(true);
+    });
+  }, [userId]);
 
   if (sesion === undefined) return <Cargando />;
 
@@ -47,9 +59,20 @@ export function Bienvenida() {
     if (!valida.success) return setError(valida.error.issues[0]?.message ?? 'Contraseña inválida.');
     if (password !== repetida) return setError('Las dos contraseñas no coinciden.');
     setEnviando(true);
+    if (pideCodigo) {
+      const errCodigo = await verificarCodigo(codigo);
+      if (errCodigo) {
+        setEnviando(false);
+        return setError(errCodigo);
+      }
+    }
     const { error } = await supabase.auth.updateUser({ password: valida.data });
     setEnviando(false);
     if (error) {
+      if (error.code === 'insufficient_aal') {
+        setPideCodigo(true);
+        return setError('Tu cuenta usa el código de la app del celular: escribilo y volvé a guardar.');
+      }
       return setError(
         error.code === 'same_password' ? 'Es la misma contraseña que tenías: elegí otra.' : error.message,
       );
@@ -84,9 +107,31 @@ export function Bienvenida() {
           value={repetida}
           onChange={(e) => setRepetida(e.target.value)}
         />
+        {pideCodigo && (
+          <Campo
+            etiqueta="Código de la app del celular"
+            ayuda="Tu cuenta tiene verificación en dos pasos: escribí los 6 números que te muestra."
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            required
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value)}
+          />
+        )}
         {error && <MensajeError>{error}</MensajeError>}
         <BotonPrincipal disabled={enviando}>{enviando ? 'Guardando…' : 'Guardar y seguir'}</BotonPrincipal>
       </form>
     </PantallaCuenta>
   );
+}
+
+/** Verifica el código TOTP de la cuenta (sube la sesión a aal2). Devuelve el error, o null. */
+async function verificarCodigo(codigo: string): Promise<string | null> {
+  const { data, error } = await supabase.auth.mfa.listFactors();
+  if (error) return error.message;
+  const factor = data.totp.find((f) => f.status === 'verified');
+  if (!factor) return 'No encontramos la verificación en dos pasos de tu cuenta.';
+  const { error: errVerificar } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: codigo.trim() });
+  return errVerificar ? 'Código incorrecto o vencido. Probá con el que aparece ahora en el celular.' : null;
 }
