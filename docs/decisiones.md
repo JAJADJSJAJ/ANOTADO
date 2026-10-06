@@ -245,6 +245,9 @@ Confirmar comparaba contra la **hora** del último mensaje visto. El revisor mar
 ### Solo se marcan mensajes pendientes de esa conversación (revisión)
 `guardar_interpretacion_wa` exige que **todos** los ids recibidos sean mensajes de texto del cliente, de esa conversación y todavía sin interpretar. Si alguno no cumple, 22023 y no marca nada. Antes ignoraba en silencio los que no correspondían. Hay tests de permisos declarados: las funciones del webhook, solo `service_role`; las del mostrador, `authenticated` (y después validan el rol); `anon`, ninguna.
 
+### Límite de recepción (revisión, segunda vuelta, hecha por Codex)
+Cualquiera puede escribirle al número del local, y cada mensaje es una fila: sin límite, alguien podía llenar la base. `recibir_mensaje_wa` cuenta por minuto (en `limites_ia`, claves `recibir:…`): **20 por cliente y 300 por número del local**. Los reintentos de Meta no cuentan, porque salen antes por el dedupe. Pasado el límite, el mensaje no se guarda, Meta recibe 200 (no reintenta) y el webhook loguea solo cuántos descartó. Un cliente real no manda 20 mensajes por minuto. **Pendiente de decidir:** retención (borrar mensajes de conversaciones cerradas después de N días; el pedido conserva su copia en `mensaje_original`).
+
 ### El operador conecta el número
 `negocios.wa_phone_number_id` ya existía y no está en el GRANT de update: lo carga el operador desde el panel (`operador_conectar_whatsapp`, con TOTP y registro). El phone number ID no es secreto; la firma del webhook es la que autentica.
 

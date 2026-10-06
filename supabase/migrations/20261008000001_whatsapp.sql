@@ -129,8 +129,9 @@ revoke all on function public.exigir_pendientes_validos(jsonb) from public, anon
 -- 3. Webhook (solo service_role) ---------------------------------------------------------------
 
 -- Guarda un mensaje de WhatsApp. Devuelve null si no hay que hacer nada (número sin local o
--- local suspendido, o un reintento de Meta ya guardado). Si no, el negocio, la conversación
--- y si hay que interpretarla (solo texto, y solo con la IA permitida y prendida).
+-- local suspendido, o un reintento de Meta ya guardado), y {limitado: true} si se pasó el
+-- límite de recepción. Si no, el negocio, la conversación y si hay que interpretarla (solo
+-- texto, y solo con la IA permitida y prendida).
 create function public.recibir_mensaje_wa(
   p_phone_number_id text,
   p_wa_message_id text,
@@ -150,6 +151,11 @@ declare
   v_cliente_id uuid;
   v_conv_id uuid;
   v_ultimo timestamptz;
+  c_max_por_cliente constant int := 20;   -- mensajes por minuto
+  c_max_por_negocio constant int := 300;  -- mensajes por minuto, entre todos los clientes
+  v_ventana timestamptz;
+  v_cuenta_negocio int;
+  v_cuenta_cliente int;
 begin
   if p_wa_message_id is null or char_length(p_wa_message_id) not between 1 and 200 then
     raise exception 'wa_message_id inválido' using errcode = '22023';
@@ -184,6 +190,24 @@ begin
   -- Reintento simultáneo: con el cliente bloqueado, se vuelve a mirar.
   if exists (select 1 from public.mensajes m where m.wa_message_id = p_wa_message_id) then
     return null;
+  end if;
+
+  -- Límite de recepción (revisión): cada mensaje es una fila, y cualquiera puede escribirle al
+  -- local. Por minuto, por cliente y por número del local (los reintentos de Meta no cuentan:
+  -- ya salieron arriba). Pasado el límite, el mensaje no se guarda y Meta recibe 200 igual.
+  v_ventana := date_trunc('minute', now());
+  delete from public.limites_ia l
+  where l.negocio_id = v_negocio_id and l.ventana < v_ventana - interval '10 minutes';
+  insert into public.limites_ia as l (negocio_id, clave, ventana, cuenta)
+  values (v_negocio_id, 'recibir:negocio', v_ventana, 1)
+  on conflict (negocio_id, clave, ventana) do update set cuenta = l.cuenta + 1
+  returning cuenta into v_cuenta_negocio;
+  insert into public.limites_ia as l (negocio_id, clave, ventana, cuenta)
+  values (v_negocio_id, 'recibir:' || v_cliente_id, v_ventana, 1)
+  on conflict (negocio_id, clave, ventana) do update set cuenta = l.cuenta + 1
+  returning cuenta into v_cuenta_cliente;
+  if v_cuenta_negocio > c_max_por_negocio or v_cuenta_cliente > c_max_por_cliente then
+    return jsonb_build_object('limitado', true);
   end if;
 
   select cv.id, cv.ultimo_mensaje_at, jsonb_array_length(coalesce(cv.borrador -> 'items', '[]')) > 0

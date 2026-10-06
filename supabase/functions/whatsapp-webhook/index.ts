@@ -8,6 +8,8 @@
 //         2. Cada mensaje se GUARDA antes de contestar (recibir_mensaje_wa): dedupe por
 //            wa_message_id (Meta reintenta), local por phone_number_id, cliente por teléfono.
 //            Si la base falla, 500 y Meta vuelve a mandar todo (lo ya guardado no se duplica).
+//            Pasado el límite de recepción (20 por minuto por cliente, 300 por número), el
+//            mensaje no se guarda: cada uno es una fila y cualquiera puede escribirle al local.
 //         3. 200 enseguida. La IA corre DESPUÉS (EdgeRuntime.waitUntil), así Meta no espera
 //            ni reintenta por una IA lenta. Si la IA no corre, los mensajes igual se ven.
 // El pedido NUNCA se crea acá: la IA propone y el cajero confirma.
@@ -75,6 +77,7 @@ export default {
     // 2. Guardar cada mensaje, en orden.
     const admin = ctx.supabaseAdmin;
     const aInterpretar = new Map<string, string>(); // conversación → negocio
+    let limitados = 0;
     for (const m of extraerMensajes(payload.data)) {
       const { data, error } = await admin.rpc('recibir_mensaje_wa', {
         p_phone_number_id: m.phoneNumberId,
@@ -91,9 +94,12 @@ export default {
         console.error('whatsapp-webhook: no se pudo guardar el mensaje', error.code);
         return vacia(500);
       }
-      const r = data as { negocio_id: string; conversacion_id: string; interpretar: boolean } | null;
-      if (r?.interpretar) aInterpretar.set(r.conversacion_id, r.negocio_id);
+      const r = data as { negocio_id: string; conversacion_id: string; interpretar: boolean; limitado?: boolean } | null;
+      if (r?.limitado) limitados++;
+      else if (r?.interpretar) aInterpretar.set(r.conversacion_id, r.negocio_id);
     }
+    // Sin teléfonos ni contenido: solo cuántos se descartaron por el límite de recepción.
+    if (limitados > 0) console.warn(`whatsapp-webhook: ${limitados} mensaje(s) descartados por el límite de recepción`);
 
     // 3. IA en segundo plano.
     if (aInterpretar.size > 0) {

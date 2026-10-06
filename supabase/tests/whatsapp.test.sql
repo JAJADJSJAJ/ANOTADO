@@ -2,7 +2,7 @@
 -- con la última versión, avisos en tiempo real y conexión del número por el operador.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(76);
+select plan(80);
 
 \set A '\'a0000000-0000-4000-8000-000000000001\''
 \set B '\'b0000000-0000-4000-8000-000000000001\''
@@ -118,6 +118,27 @@ select throws_ok($$select recibir_mensaje_wa('1111111111', 'wamid.3', '+598 99',
   '22023', null, 'teléfono con formato inválido');
 select throws_ok($$select recibir_mensaje_wa('1111111111', 'wamid.3', '59899000001', null, 'texto', '')$$,
   '22023', null, 'mensaje vacío');
+
+-- Límite de recepción: 20 por minuto por cliente, 300 por número del local.
+reset role;
+insert into limites_ia (negocio_id, clave, ventana, cuenta)
+values (:A, 'recibir:' || (select id from clientes where negocio_id = :A and telefono = '59899000001'), date_trunc('minute', now()), 20)
+on conflict (negocio_id, clave, ventana) do update set cuenta = 20;
+set local role service_role;
+select is(recibir_mensaje_wa('1111111111', 'wamid.lim1', '59899000001', null, 'texto', 'spam') ->> 'limitado', 'true',
+  'pasado el límite por cliente, no se guarda');
+select is((select count(*) from mensajes where wa_message_id = 'wamid.lim1'), 0::bigint, 'el mensaje limitado no quedó en la base');
+select isnt(recibir_mensaje_wa('1111111111', 'wamid.lim2', '59899000077', null, 'texto', 'hola') ->> 'conversacion_id', null,
+  'otro cliente del mismo local sigue entrando');
+reset role;
+update limites_ia set cuenta = 300
+where negocio_id = :A and clave = 'recibir:negocio' and ventana = date_trunc('minute', now());
+set local role service_role;
+select is(recibir_mensaje_wa('1111111111', 'wamid.lim3', '59899000088', null, 'texto', 'hola') ->> 'limitado', 'true',
+  'pasado el límite del número del local, tampoco');
+reset role;
+delete from limites_ia where clave like 'recibir:%';
+set local role service_role;
 
 -- Turno de la IA.
 select is(tomar_conversacion_wa(:A, :conv, 60), true, 'el primero toma el turno');
