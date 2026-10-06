@@ -311,6 +311,14 @@ begin
   if v_id is null then
     raise exception 'La invitación no existe, venció o ya se usó' using errcode = 'P0002';
   end if;
+  -- El local tiene que seguir activo al sumarse. Insertar en miembros solo toma un bloqueo
+  -- liviano del local (el de la FK), que no choca con la suspensión: se bloquea la fila con
+  -- `for share`, que sí choca con su update, y se vuelve a mirar `activo` después del bloqueo
+  -- (revisión). Si la suspensión ganó, la invitación no sirve.
+  perform 1 from public.negocios where id = v_negocio_id and activo for share;
+  if not found then
+    raise exception 'La invitación no existe, venció o ya se usó' using errcode = 'P0002';
+  end if;
   -- Un miembro no cambia su propio rol con un link: eso lo hace el dueño desde Equipo.
   if exists (select 1 from public.miembros where negocio_id = v_negocio_id and user_id = v_user) then
     raise exception 'Ya sos parte de este local' using errcode = '23505';
