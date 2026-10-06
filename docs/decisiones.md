@@ -210,6 +210,38 @@ Quién es operador lo dice la tabla `operadores`, que la web no puede escribir (
 ### Suspender: un solo lugar
 `negocios.activo` ya existía y la web nunca lo pudo editar. `es_miembro` y `tiene_rol` ahora exigen local activo, y como todas las policies y RPC del local pasan por ellas, la suspensión corta todo de una vez (pantallas, RPC, Realtime, `parse-order`). `mis_locales_suspendidos()` le dice a su gente por qué no entra. Lo que leía la membresía directo eran las invitaciones: ahora las de un local suspendido no se ven, no se aceptan y no sirven para crear cuentas. Al aceptar, se bloquea la fila del local con `for share` (choca con el update de la suspensión) y se vuelve a mirar `activo`: una aceptación y una suspensión simultáneas no pueden sumar a alguien a un local ya suspendido (revisión; reproducido con dos sesiones). Una tablet de cocina ya suscripta a Realtime puede seguir conectada hasta renovar el token, pero no recibe nada: en un local suspendido no se puede crear ni mover pedidos, y la lista se lee por una RPC que ya lo rechaza.
 
+## Fase 5
+
+### Webhook: guardar primero, contestar 200, interpretar después
+`whatsapp-webhook` no pide sesión (la llama Meta): se autentica con la firma `X-Hub-Signature-256`, un HMAC-SHA256 del cuerpo **crudo** con el App Secret, comparado en tiempo constante. Sin firma válida, 401 sin leer nada; sin `WA_APP_SECRET`, 503 (falla cerrado). Cada mensaje se guarda con `recibir_mensaje_wa` **antes** de contestar: si la base falla, 500 y Meta reintenta. La IA corre después con `EdgeRuntime.waitUntil`, así Meta no espera una IA lenta ni reintenta por eso. Si la IA no corre (apagada, límite, falla), los mensajes igual aparecen en el mostrador. Esta fase no usa el token de acceso de Meta (solo recibe), así que los únicos secrets nuevos son `WA_APP_SECRET` y `WA_VERIFY_TOKEN`.
+
+### Dedupe y orden por cliente
+`mensajes.wa_message_id` ya era único. `recibir_mensaje_wa` hace upsert del cliente (`negocio_id`, `telefono`), que **bloquea su fila**: dos mensajes simultáneos del mismo cliente se guardan de a uno y no abren dos conversaciones; un reintento de Meta en paralelo vuelve a mirar el `wa_message_id` con el cliente bloqueado. Reproducido con dos sesiones en paralelo. El local sale del `phone_number_id` que recibió el mensaje; un número sin local o un local suspendido se descarta con 200. El nombre del perfil de WhatsApp no pisa el que haya cargado el local.
+
+### Cuándo empieza otra conversación
+Al confirmar o descartar, como antes. Además, si la conversación abierta lleva **30 minutos** sin mensajes, el siguiente abre una nueva (el plan decía 3 h; es mucho: el cliente que vuelve a la noche es otro pedido). Excepción: si tiene un pedido armado sin confirmar, aguanta hasta 3 h, porque cerrarla lo haría desaparecer del mostrador. Se resuelve al recibir el mensaje, sin cron.
+
+### La IA interpreta ráfagas, con un turno por conversación
+Los clientes escriben de a pedacitos ("hola" / "2 completas" / "a Blandengues 450"). El intérprete (`_shared/interpretar-whatsapp.ts`) toma un **turno** (`conversaciones.interpretando_hasta`, vence solo a los 90 s si el proceso muere), espera 2,5 s y junta todos los mensajes sin interpretar en una sola llamada. `guardar_interpretacion_wa` marca como interpretados **solo** los que leyó la IA: uno que llegó mientras tanto queda para la vuelta siguiente, y al soltar el turno se vuelve a mirar (nadie más lo habría tomado). El turno no hace falta para la integridad (eso lo da la versión), sino para no pagar dos veces lo mismo. Probado: tres mensajes seguidos, una llamada.
+
+### Audios, fotos y ubicaciones: marcados, no interpretados
+Se guardan como `[Audio]`, `[Foto] <texto>`, `[Ubicación] … <link al mapa>` con su `tipo`, y la tarjeta los marca en amarillo. La IA no los interpreta pero los ve como contexto. Escucharlos o verlos necesita el token de Meta, Storage y (para audios) transcripción paga: queda para después. Ojo: con la Cloud API el número no está en un celular, así que hoy el cajero no puede escuchar un audio en otro lado ni contestarle al cliente (eso es Fase 6). Las reacciones y avisos del sistema no se guardan.
+
+### Lo que edita el cajero se guarda solo
+Antes las ediciones quedaban en la pantalla hasta confirmar; con mensajes que llegan solos, la IA pisaría lo corregido. `guardar_borrador` (dueño o cajero, con versión) guarda a los 800 ms de dejar de tocar. La IA siempre parte del borrador guardado: si el cajero editó mientras interpretaba, `guardar_interpretacion_wa` da 40001 y el intérprete vuelve a empezar sobre lo nuevo. Si la IA ganó, la pantalla recibe 40001, adopta lo del servidor y avisa "revisá tu último cambio". La zona y las notas no se guardan (no van al borrador). Valida forma, largos y que los productos sean del negocio (`exigir_borrador_valido`); activos lo exige recién `confirmar_pedido`.
+
+### Confirmar con lo que se ve en pantalla
+`confirmar_conversacion` exige la versión del borrador **y** la cantidad de mensajes que muestra la pantalla: si el cliente mandó "agregame una coca" justo cuando el cajero tocaba Confirmar, no se confirma y la tarjeta se actualiza. Por dentro llama a `confirmar_pedido` en la misma transacción (rol, productos activos, total recalculado, zona, cierre).
+
+### Límites de IA para WhatsApp
+Además del límite por negocio (60 por minuto, compartido con `parse-order`), 10 por minuto **por cliente**: alguien que manda spam no gasta la cuota del local. Pasado el límite, el mensaje queda sin interpretar y el cajero puede tocar "Interpretar" (cuenta como un intento suyo).
+
+### Realtime de conversaciones solo para dueño y cajero
+Canal privado `negocio:<id>:conversaciones`, con policy que exige `tiene_rol(dueno, cajero)`: cocina no se entera de conversaciones. El aviso lleva solo `conversacion_id`; la pantalla relee por RLS, con las mismas recargas de seguridad que la cocina (reconexión, volver a la pestaña, cada 30 s). Tomar o soltar el turno de la IA no avisa.
+
+### El operador conecta el número
+`negocios.wa_phone_number_id` ya existía y no está en el GRANT de update: lo carga el operador desde el panel (`operador_conectar_whatsapp`, con TOTP y registro). El phone number ID no es secreto; la firma del webhook es la que autentica.
+
 ## Pendiente de decidir
 
 - **Clave de idempotencia para tarjetas nuevas de WhatsApp** (Fase 2). No bloquea.

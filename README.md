@@ -16,7 +16,8 @@ Los locales de comida reciben pedidos por WhatsApp y los anotan en papel: se mez
 
 ## Qué hace
 
-- **Mostrador:** carga manual con botones grandes, o pegar el mensaje de WhatsApp y dejar que la IA arme el borrador. Lo dudoso aparece marcado, nunca inventado. Se confirma con un toque.
+- **WhatsApp conectado:** el cliente escribe al número del local y la tarjeta aparece sola en el mostrador, con sus mensajes y el pedido que armó la IA. Varios mensajes seguidos se interpretan juntos; audios y fotos quedan marcados para el cajero.
+- **Mostrador:** carga manual con botones grandes, o pegar el mensaje de WhatsApp y dejar que la IA arme el borrador. Lo dudoso aparece marcado, nunca inventado. Lo que corrige el cajero se guarda solo y la IA sigue sobre eso. Se confirma con un toque.
 - **Cocina:** una tablet con las tarjetas en orden de llegada (lo más viejo a la izquierda), número gigante, notas resaltadas y temporizador verde/amarillo/rojo. Suena cuando entra un pedido, mantiene la pantalla encendida y avisa si se corta internet. Al volver la conexión recarga todo: un corte no pierde pedidos.
 - **Entregas:** los listos para entregar con dirección y total, y cancelar con motivo.
 - **Multi-local desde el día uno:** cada negocio ve solo lo suyo, con roles de dueño, cajero y cocina. Un local nuevo se da de alta solo con un código de Anotado, carga su menú y suma a su equipo con un link por WhatsApp.
@@ -27,21 +28,27 @@ Los locales de comida reciben pedidos por WhatsApp y los anotan en papel: se mez
 
 ```mermaid
 flowchart LR
-  cliente([Cliente]) -- WhatsApp --> mostrador
+  cliente([Cliente]) -- WhatsApp --> meta[Meta<br/>Cloud API]
+  meta -- webhook firmado --> wh
   subgraph web[Web en Vercel]
     mostrador[Mostrador<br/>compu del cajero]
     cocina[Cocina<br/>tablet]
   end
   subgraph supabase[Supabase]
+    wh[Edge Function<br/>whatsapp-webhook]
     fn[Edge Function<br/>parse-order]
     db[(Postgres<br/>RLS + RPC)]
     rt[Realtime<br/>canal privado por negocio]
   end
   ia[IA vía OpenRouter<br/>DeepSeek V4 Flash]
 
-  mostrador -- 1 · mensaje pegado --> fn
-  fn <-- 2 · menú sin precios<br/>3 · acciones JSON --> ia
-  fn -- 4 · borrador validado --> db
+  wh -- 1 · guarda el mensaje --> db
+  wh <-- 2 · menú sin precios<br/>3 · acciones JSON --> ia
+  wh -- 4 · borrador validado --> db
+  db -. aviso: conversación .-> rt
+  rt -.-> mostrador
+  mostrador -- o pega el mensaje --> fn
+  fn <--> ia
   mostrador -- 5 · confirmar_pedido<br/>total recalculado --> db
   db -- 6 · aviso: id + estado --> rt
   rt -- 7 --> cocina
@@ -54,7 +61,7 @@ Detalle de cada flujo en [`docs/arquitectura.md`](docs/arquitectura.md).
 
 - **El estado vive en la base, no en la IA.** La IA traduce texto a acciones; el borrador del pedido está en Postgres.
 - **La IA propone, el humano confirma.** Lo dudoso se marca, nunca se inventa.
-- **Aislamiento por negocio con RLS** en todas las tablas, verificado con 380 tests pgTAP que corren en cada PR.
+- **Aislamiento por negocio con RLS** en todas las tablas, verificado con 445 tests pgTAP que corren en cada PR.
 - **Los precios nunca salen de la IA.** El total se recalcula en el servidor.
 - **La cocina ve solo lo que cocina.** Lee por una RPC sin dirección ni teléfono, y Realtime avisa solo "cambió el pedido X": la lista siempre se recarga desde la base, así un aviso perdido no deja la pantalla mal.
 - **La IA se prende por local, con dos llaves:** la habilita el operador y la prende o apaga el dueño.
@@ -118,6 +125,6 @@ docs/               Arquitectura, decisiones y deploy
 
 ## Próximos pasos
 
-- **Fase 5, WhatsApp real:** Cloud API de Meta, y el pedido aparece en revisión sin pegar nada.
 - **Fase 6, el bot responde:** aclaraciones y confirmación del pedido por WhatsApp.
+- Escuchar audios y ver fotos desde la tarjeta (hoy quedan marcados).
 - Impresión de comandas en impresoras térmicas.

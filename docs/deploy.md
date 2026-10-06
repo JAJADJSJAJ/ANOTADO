@@ -122,6 +122,8 @@ carga el operador; ninguna clave va al repo ni al chat.
 - [ ] *Edge Functions → registro*: **Enforce JWT verification** apagado.
 - [ ] SMTP propio configurado y plantillas en español (paso 1.6). Probá *Me olvidé la contraseña* con tu mail.
 - [ ] *Redirect URLs* incluye `https://<dominio>/**`.
+- [ ] *Edge Functions → whatsapp-webhook*: **Enforce JWT verification** apagado.
+- [ ] `pnpm supabase secrets list` muestra `WA_APP_SECRET` y `WA_VERIFY_TOKEN`.
 
 ## 2. Vercel
 
@@ -143,6 +145,58 @@ carga el operador; ninguna clave va al repo ni al chat.
 *Settings → Secrets and variables → Actions → Variables* (variables, no secretos):
 `SUPABASE_URL` y `SUPABASE_PUBLISHABLE_KEY`. Las usa `mantener-activo.yml`, que consulta
 la API una vez por día para que el plan gratis no pause el proyecto.
+
+## 4. WhatsApp (Meta Cloud API)
+
+Con el número de prueba de Meta (gratis, hasta 5 destinatarios). Ninguna clave va al repo ni
+al chat: el App Secret va directo a `.env.nube`.
+
+1. **App en Meta.** [developers.facebook.com](https://developers.facebook.com) → *My Apps →
+   Create app* → tipo **Business** → agregá el producto **WhatsApp**. Meta crea un número de
+   prueba.
+2. **Datos del número.** *WhatsApp → API Setup*: anotá el **Phone number ID** (no es secreto).
+   En *To*, agregá tu celular como destinatario y verificalo con el código que te llega.
+3. **Secrets.** *App settings → Basic → App secret → Show*. En `supabase/functions/.env.nube`:
+   - `WA_APP_SECRET=` el App Secret.
+   - `WA_VERIFY_TOKEN=` uno que inventás vos, largo y al azar (generalo con tu gestor de
+     contraseñas). Lo vas a pegar también en Meta, en el paso 5.
+
+   ```bash
+   pnpm supabase secrets set --env-file supabase/functions/.env.nube
+   pnpm supabase secrets list      # tienen que aparecer WA_APP_SECRET y WA_VERIFY_TOKEN
+   ```
+
+4. **Base y funciones** (después de mergear):
+
+   ```bash
+   pnpm supabase db push
+   pnpm supabase functions deploy whatsapp-webhook
+   pnpm supabase functions deploy parse-order
+   ```
+
+   En *Edge Functions → whatsapp-webhook → Details*, **Enforce JWT verification** apagado
+   (lo llama Meta, sin sesión). Prueba rápida, no guarda nada:
+
+   ```bash
+   curl -s -o /dev/null -w "%{http_code}\n" -X POST https://<ref>.supabase.co/functions/v1/whatsapp-webhook \
+     -H "content-type: application/json" -d '{}'
+   ```
+
+   Tiene que dar **401** (sin firma). Si da 503, falta `WA_APP_SECRET`.
+5. **Webhook en Meta.** *WhatsApp → Configuration → Webhook → Edit*:
+   - *Callback URL*: `https://<ref>.supabase.co/functions/v1/whatsapp-webhook`
+   - *Verify token*: el `WA_VERIFY_TOKEN` del paso 3 → **Verify and save**.
+   - *Webhook fields → Manage*: suscribí **messages**.
+6. **Conectar el local.** En `/operador`, en el local (por ejemplo El Ceibo), **Conectar
+   WhatsApp** y pegá el Phone number ID.
+7. **Probar.** Desde tu celular, mandale "hola, 2 completas" al número de prueba. En el
+   mostrador (pestaña *WhatsApp*) tiene que aparecer la tarjeta con el pedido en unos
+   segundos. Si no llega nada, mirá *Edge Functions → whatsapp-webhook → Logs*: 401 = el App
+   Secret no coincide; ningún request = el campo *messages* no está suscripto.
+
+**Número propio (después).** Requiere la verificación del negocio en Meta. Cuando esté, se
+agrega el número a la misma app y se conecta su Phone number ID al local desde el panel; el
+webhook es el mismo.
 
 ## Operación
 
@@ -193,6 +247,6 @@ pantalla de entrar (necesita el SMTP del paso 1.6).
 | Cambió | Comando |
 |---|---|
 | `supabase/migrations/` | `pnpm supabase db push` |
-| `supabase/functions/` o `packages/shared/` (lo usan las funciones) | `pnpm supabase functions deploy parse-order` y `pnpm supabase functions deploy registro` |
-| Secrets de la IA | `pnpm supabase secrets set --env-file supabase/functions/.env.nube` |
+| `supabase/functions/` o `packages/shared/` (lo usan las funciones) | `pnpm supabase functions deploy parse-order`, `registro` y `whatsapp-webhook` (de a una) |
+| Secrets de la IA o de WhatsApp | `pnpm supabase secrets set --env-file supabase/functions/.env.nube` |
 | `apps/web/` | Automático: Vercel deploya cada push a `main` |
