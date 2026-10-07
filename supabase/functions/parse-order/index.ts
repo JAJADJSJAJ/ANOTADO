@@ -7,6 +7,9 @@
 //      negocio (ia_permitida por el operador, ia_activa por el dueño).
 //   3. Límite atómico por usuario y por negocio (consumir_limite_ia). Cuenta INTENTOS, no
 //      interpretaciones exitosas: a propósito, un intento fallido también le cuesta al proveedor.
+//   3b. Con interpretar_pendientes (WhatsApp real, botón "Interpretar"): no hay mensaje
+//      pegado; interpreta los mensajes guardados sin interpretar con el mismo intérprete del
+//      webhook (_shared/interpretar-whatsapp.ts) y termina ahí.
 //   4. Lecturas: menú activo, conversación (del negocio, abierta, versión) e historial.
 //   5. IA sin escribir nada: timeout 15 s y un reintento (llamarIA), respuesta validada con Zod.
 //   6. Reducer de shared: valida productos, cantidades y largos acción por acción.
@@ -24,7 +27,6 @@ import {
   type Borrador,
   BorradorSchema,
   borradorVacio,
-  type ConfigIA,
   construirMensajes,
   construirMenu,
   ErrorIA,
@@ -36,12 +38,13 @@ import {
 } from '@anotado/shared';
 import { withSupabase } from '@supabase/server';
 import { z } from 'zod';
+import { leerConfigIA } from '../_shared/config-ia.ts';
+import { combinarPendientes, interpretarConversacion, LIMITE_IA_NEGOCIO } from '../_shared/interpretar-whatsapp.ts';
 
 const MAX_HISTORIAL = 6;
-const MAX_PENDIENTES = 30;
 const MAX_CUERPO_BYTES = 32 * 1024;
 const LIMITE_POR_USUARIO = 20; // por minuto
-const LIMITE_POR_NEGOCIO = 60; // por minuto
+const LIMITE_POR_NEGOCIO = LIMITE_IA_NEGOCIO; // por minuto, compartido con WhatsApp
 const SIN_PENDIENTES: Pendientes = { dudosos: [], preguntas: [], errores: [] };
 
 const EntradaSchema = z.object({
@@ -50,7 +53,13 @@ const EntradaSchema = z.object({
   conversacion_id: z.uuid().nullable().default(null),
   /** Versión de la conversación que tiene la pantalla (obligatoria si hay conversacion_id). */
   version: z.int().min(0).optional(),
-  mensaje: z.string().trim().min(1).max(2000),
+  /** Mensaje pegado por el cajero. Falta solo con interpretar_pendientes. */
+  mensaje: z.string().trim().min(1).max(2000).optional(),
+  /**
+   * Conversación de WhatsApp real: interpretar los mensajes que quedaron sin interpretar (la IA
+   * estaba apagada, se pasó el límite o falló). No lleva mensaje ni borrador: usa lo guardado.
+   */
+  interpretar_pendientes: z.literal(true).optional(),
   etiqueta: z.string().trim().max(40).optional(),
   /** Borrador tal como lo dejó el cajero (pudo editarlo a mano). Se revalida contra el menú. */
   borrador: BorradorSchema.optional(),
@@ -59,43 +68,6 @@ const EntradaSchema = z.object({
 
 function error(status: number, mensaje: string) {
   return Response.json({ error: mensaje }, { status });
-}
-
-/** Lee y valida la configuración de IA. Un IA_EXTRA mal formado no rompe la función. */
-function leerConfigIA(): ConfigIA | string {
-  const baseUrl = Deno.env.get('IA_BASE_URL');
-  const apiKey = Deno.env.get('IA_API_KEY');
-  const modelo = Deno.env.get('IA_MODELO');
-  if (!baseUrl || !apiKey || !modelo) return 'faltan IA_BASE_URL, IA_API_KEY o IA_MODELO';
-  // La URL la pone solo el operador (secreto del servidor), nunca la solicitud. Igual se valida:
-  // https obligatorio salvo para desarrollo local.
-  let url: URL;
-  try {
-    url = new URL(baseUrl);
-  } catch {
-    return 'IA_BASE_URL no es una URL válida';
-  }
-  const local = ['localhost', '127.0.0.1', 'host.docker.internal'].includes(url.hostname);
-  if (url.protocol !== 'https:' && !(local && url.protocol === 'http:')) return 'IA_BASE_URL tiene que ser https';
-  let cuerpoExtra: Record<string, unknown> | undefined;
-  const extra = Deno.env.get('IA_EXTRA');
-  if (extra) {
-    try {
-      const valor = JSON.parse(extra);
-      if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return 'IA_EXTRA no es un objeto JSON';
-      cuerpoExtra = valor;
-    } catch {
-      return 'IA_EXTRA no es JSON válido';
-    }
-  }
-  return {
-    baseUrl,
-    apiKey,
-    modelo,
-    formato: Deno.env.get('IA_FORMATO') === 'json_schema' ? 'json_schema' : 'json_object',
-    cuerpoExtra,
-    headers: { 'X-Title': 'Anotado' },
-  };
 }
 
 const MENSAJES_ENTRADA: Record<400 | 413 | 415, string> = {
@@ -119,10 +91,13 @@ export default {
     if (!entrada.success) return error(400, 'Datos inválidos');
     // Una tarjeta existente tiene que decir de qué versión parte: si no, no se sabría si la
     // pantalla estaba desactualizada (control optimista completo).
-    if (entrada.data.conversacion_id && entrada.data.version === undefined) {
+    if (entrada.data.conversacion_id && entrada.data.version === undefined && !entrada.data.interpretar_pendientes) {
       return error(400, 'Falta la versión de la conversación');
     }
-    const { negocio_id, mensaje, etiqueta } = entrada.data;
+    if (entrada.data.interpretar_pendientes ? !entrada.data.conversacion_id : !entrada.data.mensaje) {
+      return error(400, 'Datos inválidos');
+    }
+    const { negocio_id, etiqueta } = entrada.data;
 
     // 2. Rol, con el cliente del usuario: tiene_rol usa auth.uid() de quien llama.
     const userId = ctx.userClaims?.id;
@@ -157,6 +132,21 @@ export default {
     });
     if (errLimite) return error(500, 'No se pudo verificar el límite de uso');
     if (!dentroDelLimite) return error(429, 'Demasiados mensajes seguidos, esperá un minuto');
+
+    // 3b. WhatsApp real: interpretar lo pendiente con el mismo intérprete del webhook (turno,
+    // versión, solo los mensajes que lee). El límite ya se consumió arriba, por usuario.
+    if (entrada.data.interpretar_pendientes) {
+      const r = await interpretarConversacion(admin, config, negocio_id, entrada.data.conversacion_id!, {
+        esperarRafaga: false,
+        consumirLimite: false,
+      });
+      if (r === 'ok' || r === 'nada') return Response.json({ resultado: r });
+      if (r === 'ocupada') return error(409, 'Ya se está interpretando. En unos segundos aparece.');
+      if (r === 'ia_apagada') return error(403, 'La IA está apagada para este local');
+      if (r === 'error_ia') return error(502, 'No se pudo interpretar. Probá de nuevo o cargalo a mano.');
+      return error(500, 'No se pudo interpretar. Probá de nuevo.');
+    }
+    const mensaje = entrada.data.mensaje!;
 
     // 4a. Menú del negocio.
     const { data: productos, error: errMenu } = await admin
@@ -193,7 +183,7 @@ export default {
         .select('rol, contenido')
         .eq('conversacion_id', conversacionId)
         .eq('negocio_id', negocio_id)
-        .order('created_at', { ascending: false })
+        .order('orden', { ascending: false })
         .limit(MAX_HISTORIAL - 1);
       if (errHist) return error(500, 'No se pudo cargar el historial');
       historial = (previos ?? []).reverse();
@@ -220,15 +210,8 @@ export default {
     // 6. Reducer.
     const aplicado = aplicarAcciones(borradorInicial, resultado.respuesta.acciones, menu);
     // dudosos y preguntas se acumulan hasta que el cajero los resuelve; errores son solo los
-    // de este mensaje (los anteriores ya se mostraron). Todo acotado a MAX_PENDIENTES.
-    const pendientes: Pendientes = {
-      dudosos: [...pendientesPrevios.dudosos, ...aplicado.dudosos].slice(-MAX_PENDIENTES),
-      preguntas: [...pendientesPrevios.preguntas, ...aplicado.preguntas].slice(-MAX_PENDIENTES),
-      errores: [
-        ...(quitados ? [`${quitados} producto(s) ya no están disponibles y se sacaron del pedido`] : []),
-        ...aplicado.errores,
-      ].slice(-MAX_PENDIENTES),
-    };
+    // de este mensaje (los anteriores ya se mostraron). Todo acotado.
+    const pendientes: Pendientes = combinarPendientes(pendientesPrevios, aplicado, quitados);
 
     // 7. Todo junto, en una transacción.
     const { data: guardado, error: errGuardar } = await admin

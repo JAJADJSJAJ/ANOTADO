@@ -1,4 +1,11 @@
-import { type Borrador, ConfirmarPedidoSchema, type Entrega, type EntregaBorrador, type Origen } from '@anotado/shared';
+import {
+  type Borrador,
+  type ConfirmarPedido,
+  ConfirmarPedidoSchema,
+  type Entrega,
+  type EntregaBorrador,
+  type Origen,
+} from '@anotado/shared';
 import { supabase } from './supabase.ts';
 
 export type ModoEntrega = 'retiro' | 'delivery' | 'mesa';
@@ -29,18 +36,15 @@ export function aEntregaBorrador(d: DatosEntrega): EntregaBorrador | null {
 
 export type PedidoConfirmado = { numero: number; total_centavos: number; envio_centavos: number };
 
-/**
- * Valida en pantalla y confirma con la RPC. No manda precios: el servidor los toma de la base.
- * Devuelve el error listo para mostrar.
- */
-export async function confirmarPedido(args: {
-  negocioId: string;
+type DatosPedido = {
   origen: Origen;
   borrador: Borrador;
   entrega: DatosEntrega;
   notas: string;
-  conversacionId?: string | null;
-}): Promise<{ ok: true; pedido: PedidoConfirmado } | { ok: false; error: string }> {
+};
+
+/** Valida en pantalla y arma lo que va a la RPC. Devuelve el error listo para mostrar. */
+function validar(args: DatosPedido): { ok: true; pedido: ConfirmarPedido } | { ok: false; error: string } {
   const { entrega } = args;
   if (!entrega.modo) return { ok: false, error: 'Elegí cómo se entrega el pedido.' };
   if (entrega.modo === 'delivery' && !entrega.direccion.trim()) return { ok: false, error: 'Escribí la dirección del delivery.' };
@@ -60,15 +64,49 @@ export async function confirmarPedido(args: {
     notas: args.notas.trim() || undefined,
   });
   if (!pedido.success) return { ok: false, error: 'Revisá el pedido: hay datos inválidos.' };
+  return { ok: true, pedido: pedido.data };
+}
 
+/**
+ * Valida en pantalla y confirma con la RPC. No manda precios: el servidor los toma de la base.
+ * Devuelve el error listo para mostrar.
+ */
+export async function confirmarPedido(
+  args: DatosPedido & { negocioId: string },
+): Promise<{ ok: true; pedido: PedidoConfirmado } | { ok: false; error: string }> {
+  const v = validar(args);
+  if (!v.ok) return v;
   const { data, error } = await supabase.rpc('confirmar_pedido', {
     p_negocio_id: args.negocioId,
-    p_origen: pedido.data.origen,
-    p_items: pedido.data.items,
-    p_entrega: pedido.data.entrega,
-    p_notas: pedido.data.notas,
-    p_conversacion_id: args.conversacionId ?? undefined,
+    p_origen: v.pedido.origen,
+    p_items: v.pedido.items,
+    p_entrega: v.pedido.entrega,
+    p_notas: v.pedido.notas,
   });
   if (error) return { ok: false, error: error.message };
+  return { ok: true, pedido: data as PedidoConfirmado };
+}
+
+/**
+ * Confirma una tarjeta de WhatsApp. Además de lo de confirmarPedido, manda la versión de la
+ * tarjeta y el último mensaje que se ve en pantalla: si llegó algo que el cajero no vio, la
+ * base no confirma (cambio = true) y la pantalla se actualiza.
+ */
+export async function confirmarConversacion(
+  args: Omit<DatosPedido, 'origen'> & { negocioId: string; conversacionId: string; version: number; ultimoMensaje: string | null },
+): Promise<{ ok: true; pedido: PedidoConfirmado } | { ok: false; error: string; cambio?: boolean }> {
+  const v = validar({ ...args, origen: 'whatsapp' });
+  if (!v.ok) return v;
+  const { data, error } = await supabase.rpc('confirmar_conversacion', {
+    p_negocio_id: args.negocioId,
+    p_conversacion_id: args.conversacionId,
+    p_version: args.version,
+    // null = la pantalla no vio ningún mensaje (los tipos generados no marcan parámetros null).
+    p_ultimo_mensaje: args.ultimoMensaje as string,
+    p_items: v.pedido.items,
+    p_entrega: v.pedido.entrega,
+    p_notas: v.pedido.notas,
+  });
+  if (error) return { ok: false, error: error.message, cambio: error.code === '40001' };
   return { ok: true, pedido: data as PedidoConfirmado };
 }

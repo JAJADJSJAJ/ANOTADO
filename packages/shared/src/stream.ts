@@ -7,7 +7,19 @@ export async function leerTextoAcotado(
   cuerpo: ReadableStream<Uint8Array> | null,
   maxBytes: number,
 ): Promise<string | null> {
-  if (!cuerpo) return '';
+  const bytes = await leerBytesAcotados(cuerpo, maxBytes);
+  return bytes === null ? null : new TextDecoder().decode(bytes);
+}
+
+/**
+ * Igual que leerTextoAcotado, pero devuelve los bytes tal cual llegaron. Para verificar firmas
+ * (webhook de WhatsApp), que se calculan sobre los bytes y no sobre el texto decodificado.
+ */
+export async function leerBytesAcotados(
+  cuerpo: ReadableStream<Uint8Array> | null,
+  maxBytes: number,
+): Promise<Uint8Array<ArrayBuffer> | null> {
+  if (!cuerpo) return new Uint8Array();
   const lector = cuerpo.getReader();
   const partes: Uint8Array[] = [];
   let total = 0;
@@ -27,7 +39,7 @@ export async function leerTextoAcotado(
     bytes.set(parte, desde);
     desde += parte.byteLength;
   }
-  return new TextDecoder().decode(bytes);
+  return bytes;
 }
 
 /**

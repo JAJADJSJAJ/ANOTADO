@@ -12,4 +12,5 @@ export * from './registro.ts';
 export * from './reglas.ts';
 export * from './schemas.ts';
 export * from './stream.ts';
+export * from './whatsapp.ts';
 export type { Database, Json, Tables } from './database.types.ts';
