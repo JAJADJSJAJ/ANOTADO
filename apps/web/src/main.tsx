@@ -17,11 +17,14 @@ import { Invitacion } from './routes/Invitacion.tsx';
 import { Login } from './routes/Login.tsx';
 import { Mostrador } from './routes/Mostrador.tsx';
 import { Operador } from './routes/Operador.tsx';
+import { Privacidad } from './routes/Privacidad.tsx';
 import { InicioNegocio, NegocioLayout } from './routes/NegocioLayout.tsx';
 import { Registro } from './routes/Registro.tsx';
 
 const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
+  // Pública: la pide Meta para publicar la app de WhatsApp y la leen los clientes de los locales.
+  { path: '/privacidad', element: <Privacidad /> },
   // Sin sesión obligatoria: quien llega con un código o una invitación todavía no tiene cuenta.
   { path: '/registro', element: <Registro /> },
   { path: '/invitacion/:token', element: <Invitacion /> },

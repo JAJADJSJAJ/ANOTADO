@@ -257,6 +257,42 @@ habilita como arriba. Para ver los códigos y si se usaron:
 select nota, vence_at, registros, usado_at, negocio_id from codigos_alta order by created_at desc;
 ```
 
+**Pedido de borrado de datos de un cliente** (Ley 18.331; lo promete `/privacidad#borrar`, en
+un máximo de 5 días hábiles). Antes de borrar, confirmá que el número es de quien lo pide (por
+ejemplo, que te escriba desde ese número). En el *SQL Editor*, poné el teléfono (solo dígitos, con
+el 598) y corré:
+
+```sql
+do $$
+declare
+  v_tel text := '598XXXXXXXX';  -- teléfono de quien pide el borrado
+  v_n int;
+begin
+  -- 1. Pedidos: el local conserva productos, cantidades, totales y fechas; sin dirección,
+  --    notas ni mensajes.
+  update public.pedidos p
+  set mensaje_original = null,
+      notas = null,
+      entrega = case when p.entrega ->> 'modo' = 'delivery'
+                  then jsonb_build_object('modo', 'delivery', 'direccion', '(borrada a pedido)')
+                  else p.entrega end
+  where p.cliente_id in (select id from public.clientes where telefono = v_tel);
+  get diagnostics v_n = row_count;
+  raise notice 'pedidos anonimizados: %', v_n;
+  -- 2. Conversaciones (sus mensajes se borran en cascada; los pedidos quedan sin conversación).
+  delete from public.conversaciones where cliente_id in (select id from public.clientes where telefono = v_tel);
+  get diagnostics v_n = row_count;
+  raise notice 'conversaciones borradas: %', v_n;
+  -- 3. El cliente, en todos los locales (los pedidos quedan sin cliente).
+  delete from public.clientes where telefono = v_tel;
+  get diagnostics v_n = row_count;
+  raise notice 'clientes borrados: %', v_n;
+end $$;
+```
+
+Si la persona pidió por una tarjeta en la que el cajero pegó los mensajes a mano, esos pedidos no
+tienen teléfono asociado: hay que buscarlos por la dirección o con el local.
+
 **Contraseñas olvidadas.** Las resuelve cada persona con *Me olvidé la contraseña* en la
 pantalla de entrar (necesita el SMTP del paso 1.6).
 

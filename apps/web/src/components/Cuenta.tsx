@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
+import { Link } from 'react-router';
 import { Logo } from './Marca.tsx';
 
 // Piezas de las pantallas sin local: entrar, registrarse y aceptar una invitación.
@@ -15,6 +16,9 @@ export function PantallaCuenta({ children }: { children: ReactNode }) {
       <div className="flex w-full max-w-sm flex-col gap-4 rounded-3xl bg-white p-6 shadow-xl shadow-indigo-900/5">
         {children}
       </div>
+      <Link to="/privacidad" className="text-stone-500 underline">
+        Política de privacidad
+      </Link>
     </main>
   );
 }
