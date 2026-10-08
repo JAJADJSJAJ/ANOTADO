@@ -1,13 +1,18 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, Navigate } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import './index.css';
+import { DialogosProvider } from './components/Dialogo.tsx';
 import { PantallaMensaje } from './components/Estado.tsx';
 import { RequiereSesion } from './components/RequiereSesion.tsx';
 import { SesionProvider } from './components/SesionProvider.tsx';
 import { SinDemo, SoloRoles } from './components/SoloRoles.tsx';
-import { AdminAjustes } from './routes/AdminAjustes.tsx';
+import { AdminCocina } from './routes/AdminCocina.tsx';
+import { AdminEnvios } from './routes/AdminEnvios.tsx';
+import { AdminHorarios } from './routes/AdminHorarios.tsx';
+import { AdminIA } from './routes/AdminIA.tsx';
+import { AdminLayout } from './routes/AdminLayout.tsx';
 import { AdminEquipo } from './routes/AdminEquipo.tsx';
 import { AdminMenu } from './routes/AdminMenu.tsx';
 import { Bienvenida } from './routes/Bienvenida.tsx';
@@ -22,6 +27,7 @@ import { Privacidad } from './routes/Privacidad.tsx';
 import { InicioNegocio, NegocioLayout } from './routes/NegocioLayout.tsx';
 import { Registro } from './routes/Registro.tsx';
 import { Simulador } from './routes/Simulador.tsx';
+import { instalarClicks } from './lib/sonido.ts';
 
 const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
@@ -71,32 +77,25 @@ const router = createBrowserRouter([
             ),
           },
           {
-            path: 'admin/menu',
+            // Administrar: lo que configura el dueño, aparte de las pantallas de trabajo.
+            path: 'admin',
             element: (
               <SoloRoles roles={['dueno']}>
-                <AdminMenu />
+                <AdminLayout />
               </SoloRoles>
             ),
-          },
-          {
-            path: 'admin/equipo',
-            element: (
-              <SoloRoles roles={['dueno']}>
-                <SinDemo>
-                  <AdminEquipo />
-                </SinDemo>
-              </SoloRoles>
-            ),
-          },
-          {
-            path: 'admin/ajustes',
-            element: (
-              <SoloRoles roles={['dueno']}>
-                <SinDemo>
-                  <AdminAjustes />
-                </SinDemo>
-              </SoloRoles>
-            ),
+            children: [
+              { index: true, element: <Navigate to="menu" replace /> },
+              { path: 'menu', element: <AdminMenu /> },
+              // En la demo el equipo y los ajustes están cerrados (lo frena también la base).
+              { path: 'equipo', element: <SinDemo><AdminEquipo /></SinDemo> },
+              { path: 'horarios', element: <SinDemo><AdminHorarios /></SinDemo> },
+              { path: 'envios', element: <SinDemo><AdminEnvios /></SinDemo> },
+              { path: 'cocina', element: <SinDemo><AdminCocina /></SinDemo> },
+              { path: 'ia', element: <SinDemo><AdminIA /></SinDemo> },
+              // Links viejos a la pantalla única de ajustes.
+              { path: 'ajustes', element: <Navigate to="../horarios" replace /> },
+            ],
           },
         ],
       },
@@ -105,13 +104,18 @@ const router = createBrowserRouter([
   { path: '*', element: <PantallaMensaje titulo="Página no encontrada" /> },
 ]);
 
+// Click de birome en los botones (se apaga con el interruptor de sonido de la barra).
+instalarClicks();
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Falta #root en index.html');
 
 createRoot(root).render(
   <StrictMode>
     <SesionProvider>
-      <RouterProvider router={router} />
+      <DialogosProvider>
+        <RouterProvider router={router} />
+      </DialogosProvider>
     </SesionProvider>
   </StrictMode>,
 );
