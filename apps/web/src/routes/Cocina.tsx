@@ -31,11 +31,14 @@ const RESALTADO_MS = 8000;
 /**
  * Pantalla de cocina, pensada para una tablet horizontal. Arranca con un toque (el
  * navegador exige un gesto para el sonido y la pantalla completa) y desde ahí se maneja sola.
+ * Incrustada (simulador de la demo): ocupa su caja, sin pantalla de inicio ni pantalla completa.
  */
-export function Cocina() {
+export function Cocina({ incrustada = false }: { incrustada?: boolean }) {
   const negocio = useNegocio();
+  // En la demo la base deja que el cajero también mueva la cocina: la pantalla lo sigue.
+  const rol = negocio.esDemo ? 'dueno' : negocio.rol;
   const config = useMemo(() => leerConfigCocina(negocio.config), [negocio.config]);
-  const [iniciada, setIniciada] = useState(false);
+  const [iniciada, setIniciada] = useState(incrustada);
   const [conSonido, setConSonido] = useState(false);
   const [ocupados, setOcupados] = useState<ReadonlySet<string>>(new Set());
   const [recientes, setRecientes] = useState<ReadonlySet<string>>(new Set());
@@ -65,7 +68,7 @@ export function Cocina() {
       if (conSonidoRef.current) sonarCancelado();
     },
   });
-  const wakeLock = useWakeLock(iniciada);
+  const wakeLock = useWakeLock(iniciada && !incrustada);
   const ahora = useAhora(desfase);
 
   const marcarOcupado = (id: string, si: boolean) =>
@@ -108,7 +111,7 @@ export function Cocina() {
   const listos = lista.filter((p) => p.estado === 'listo');
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-stone-950 text-white select-none">
+    <div className={`${incrustada ? 'relative h-full' : 'fixed inset-0 z-40'} flex flex-col bg-stone-950 text-white select-none`}>
       <header className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
         <Logo className="size-9 shrink-0" />
         <div className="min-w-0">
@@ -140,7 +143,7 @@ export function Cocina() {
               {conSonido ? '🔔 Sonido' : '🔕 Activar sonido'}
             </button>
           )}
-          {negocio.rol === 'cocina' ? (
+          {incrustada ? null : negocio.rol === 'cocina' ? (
             <BotonSalir className="text-stone-300" />
           ) : (
             <Link to="../mostrador" className="rounded-lg px-3 py-2 font-medium text-stone-300 underline">
@@ -159,7 +162,7 @@ export function Cocina() {
           </button>
         </div>
       )}
-      {iniciada && (wakeLock === 'no_soportado' || wakeLock === 'error') && (
+      {!incrustada && iniciada && (wakeLock === 'no_soportado' || wakeLock === 'error') && (
         <p className="bg-amber-400 px-4 py-2 font-bold text-stone-950">
           Esta tablet no permite mantener la pantalla encendida desde el navegador: configurala para que no se apague.
         </p>
@@ -200,7 +203,7 @@ export function Cocina() {
                   pedido={p}
                   minutos={minutos}
                   color={colorTemporizador(minutos, config)}
-                  puedeAvanzar={puedeAvanzar(negocio.rol, p.estado)}
+                  puedeAvanzar={puedeAvanzar(rol, p.estado)}
                   ocupado={ocupados.has(p.id)}
                   nuevo={recientes.has(p.id)}
                   onAvanzar={() => void mover(p, 'avanzar')}
@@ -220,8 +223,8 @@ export function Cocina() {
           ) : (
             <div className="flex gap-2 overflow-x-auto">
               {listos.map((p) => {
-                const puedeEntregar = puedeAvanzar(negocio.rol, p.estado);
-                const puedeVolver = puedeRetroceder(negocio.rol, p.estado);
+                const puedeEntregar = puedeAvanzar(rol, p.estado);
+                const puedeVolver = puedeRetroceder(rol, p.estado);
                 return (
                   <button
                     key={p.id}
@@ -244,8 +247,8 @@ export function Cocina() {
       {aConfirmar && (
         <ConfirmarListo
           pedido={aConfirmar}
-          puedeEntregar={puedeAvanzar(negocio.rol, aConfirmar.estado)}
-          puedeVolver={puedeRetroceder(negocio.rol, aConfirmar.estado)}
+          puedeEntregar={puedeAvanzar(rol, aConfirmar.estado)}
+          puedeVolver={puedeRetroceder(rol, aConfirmar.estado)}
           onCerrar={() => setAConfirmar(null)}
           onElegir={(accion) => {
             const p = aConfirmar;

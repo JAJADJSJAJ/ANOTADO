@@ -12,11 +12,12 @@
 
 Los locales de comida reciben pedidos por WhatsApp y los anotan en papel: se mezclan, se pierden, llegan tarde. Anotado convierte esos mensajes en pedidos ordenados que aparecen en la pantalla de cocina en tiempo real. **La IA propone el pedido, una persona lo confirma.** El cliente no cambia nada: sigue escribiendo por WhatsApp como siempre.
 
-**Demo en vivo:** [anotadoproject.vercel.app](https://anotadoproject.vercel.app). El acceso es con usuario, pedilo por mensaje. No hay usuario público para no dejar abierto el gasto de IA.
+**Demo en vivo, sin registrarte:** [anotadoproject.vercel.app/demo](https://anotadoproject.vercel.app/demo). Escribís como cliente en un WhatsApp simulado, el bot te contesta, confirmás en el mostrador y lo ves llegar a la cocina, todo en una pantalla. La demo es compartida y cerrada: se puede pedir, cocinar y agregar algún producto al menú, con topes de uso de IA, y se borra cada noche.
 
 ## Qué hace
 
 - **WhatsApp conectado:** el cliente escribe al número del local y la tarjeta aparece sola en el mostrador, con sus mensajes y el pedido que armó la IA. Varios mensajes seguidos se interpretan juntos; audios y fotos quedan marcados para el cajero.
+- **El bot responde:** le dice al cliente qué anotó, le pregunta lo que falta (tamaño, retiro o envío, dirección) y le avisa cuando se confirma el pedido (con el total), cuando está listo o cuando sale. Con plantillas, nunca con texto libre de la IA: no puede inventar precios ni promesas.
 - **Mostrador:** carga manual con botones grandes, o pegar el mensaje de WhatsApp y dejar que la IA arme el borrador. Lo dudoso aparece marcado, nunca inventado. Lo que corrige el cajero se guarda solo y la IA sigue sobre eso. Se confirma con un toque.
 - **Cocina:** una tablet con las tarjetas en orden de llegada (lo más viejo a la izquierda), número gigante, notas resaltadas y temporizador verde/amarillo/rojo. Suena cuando entra un pedido, mantiene la pantalla encendida y avisa si se corta internet. Al volver la conexión recarga todo: un corte no pierde pedidos.
 - **Entregas:** los listos para entregar con dirección y total, y cancelar con motivo.
@@ -61,7 +62,7 @@ Detalle de cada flujo en [`docs/arquitectura.md`](docs/arquitectura.md).
 
 - **El estado vive en la base, no en la IA.** La IA traduce texto a acciones; el borrador del pedido está en Postgres.
 - **La IA propone, el humano confirma.** Lo dudoso se marca, nunca se inventa.
-- **Aislamiento por negocio con RLS** en todas las tablas, verificado con 456 tests pgTAP que corren en cada PR.
+- **Aislamiento por negocio con RLS** en todas las tablas, verificado con 549 tests pgTAP que corren en cada PR.
 - **Los precios nunca salen de la IA.** El total se recalcula en el servidor.
 - **La cocina ve solo lo que cocina.** Lee por una RPC sin dirección ni teléfono, y Realtime avisa solo "cambió el pedido X": la lista siempre se recarga desde la base, así un aviso perdido no deja la pantalla mal.
 - **La IA se prende por local, con dos llaves:** la habilita el operador y la prende o apaga el dueño.
@@ -125,6 +126,6 @@ docs/               Arquitectura, decisiones y deploy
 
 ## Próximos pasos
 
-- **Fase 6, el bot responde:** aclaraciones y confirmación del pedido por WhatsApp.
+- **Mandar las respuestas del bot por WhatsApp real:** hoy se ven en la demo y en el mostrador; falta el envío por la Cloud API de Meta.
 - Escuchar audios y ver fotos desde la tarjeta (hoy quedan marcados).
 - Impresión de comandas en impresoras térmicas.

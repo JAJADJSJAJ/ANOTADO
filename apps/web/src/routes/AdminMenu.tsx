@@ -48,9 +48,15 @@ export function AdminMenu() {
           precio. Cuando tengas el menú, ya podés tomar pedidos en <strong>Mostrador</strong>.
         </p>
       )}
+      {negocio.esDemo && (
+        <p className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-amber-950">
+          En la demo, el menú base no se edita. Podés agregar hasta 3 productos tuyos para probar (se borran a la noche)
+          y marcar agotados.
+        </p>
+      )}
       {error && <MensajeError>{error}</MensajeError>}
 
-      <NuevaCategoria
+      {!negocio.esDemo && <NuevaCategoria
         onCrear={(nombre) =>
           guardar(
             supabase.from('categorias').insert({
@@ -60,7 +66,7 @@ export function AdminMenu() {
             }),
           )
         }
-      />
+      />}
 
       {grupos.map(({ categoria, productos }) =>
         !categoria && productos.length === 0 ? null : (

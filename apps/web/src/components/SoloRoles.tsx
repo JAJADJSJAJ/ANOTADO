@@ -13,3 +13,10 @@ export function SoloRoles({ roles, children }: { roles: Rol[]; children: ReactNo
   }
   return children;
 }
+
+/** Pantallas que en la demo están cerradas (equipo, ajustes). También lo frena la base. */
+export function SinDemo({ children }: { children: ReactNode }) {
+  const { esDemo } = useNegocio();
+  if (esDemo) return <p className="p-8 text-center text-lg text-stone-600">En la demo esta pantalla está cerrada.</p>;
+  return children;
+}

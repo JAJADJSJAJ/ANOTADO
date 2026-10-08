@@ -216,6 +216,55 @@ Signup* de Meta con App Review (acceso avanzado); no sale desde este asistente y
 WhatsApp Business muy nuevas no califican. Se conecta igual: el Phone number ID al local desde el
 panel; el webhook es el mismo.
 
+## 5. Demo pública y bot (Fase 6)
+
+La demo (`/demo`) no necesita Meta: el simulador mete los mensajes por el mismo camino que el
+webhook. El local "El Ceibo (demo)" lo crea la migración.
+
+1. **Base** (después de mergear):
+
+   ```bash
+   pnpm supabase db push
+   ```
+
+   La migración prende **pg_cron** y agenda la limpieza diaria (`limpiar-demo`, 8:00 UTC). Para
+   verla: *Integrations → Cron* (o `select jobname, schedule from cron.job;` en el SQL Editor).
+2. **Funciones** (de a una; `packages/shared` cambió, así que van todas):
+
+   ```bash
+   pnpm supabase functions deploy demo-entrar
+   pnpm supabase functions deploy demo-whatsapp
+   pnpm supabase functions deploy whatsapp-webhook
+   pnpm supabase functions deploy parse-order
+   pnpm supabase functions deploy registro
+   ```
+
+   En *Edge Functions → demo-entrar → Details*, **Enforce JWT verification** apagado (el
+   visitante todavía no tiene sesión; la función pide la publishable key y limita por IP). En
+   `demo-whatsapp`, prendido. Prueba rápida de `demo-entrar` sin key (no crea nada):
+
+   ```bash
+   curl -s -o /dev/null -w "%{http_code}
+" -X POST https://<ref>.supabase.co/functions/v1/demo-entrar
+   ```
+
+   Tiene que dar **401**.
+3. **Auth**: el registro público (*Allow new users to sign up*) **sigue apagado**: las cuentas de
+   demo las crea la función. No hace falta tocar nada más: la demo no puede hacer que Auth mande
+   mails (`docs/decisiones.md`, "Ningún mail desde la demo").
+4. **Probar**: abrí `https://<dominio>/demo` en una ventana privada → *Probar la demo* → mandá
+   "hola, 2 completas y una coca" desde el teléfono. En unos segundos contesta el bot y aparece la
+   tarjeta en el mostrador; confirmala y movela en la cocina: el teléfono recibe el aviso.
+
+**Cuánto gasta**: cada mensaje interpretado cuesta una fracción de centavo de dólar. La demo corta
+en 200 interpretaciones por día (25 por visitante), y la key de OpenRouter tiene su propio tope mensual.
+
+**Cambiar algo de la demo** (el menú base, el nombre): desde el *SQL Editor*. Desde la web nadie
+puede, ni siquiera el operador: los triggers de la demo cerrada frenan a cualquier usuario.
+
+**Apagar la demo** (*SQL Editor*): `update negocios set activo = false where es_demo;`. La página
+`/demo` deja de crear cuentas y el simulador deja de recibir. Para prenderla, `true`.
+
 ## Operación
 
 **IA por local** (*SQL Editor*). Solo el operador cambia `ia_permitida`; el dueño prende o
@@ -301,6 +350,6 @@ pantalla de entrar (necesita el SMTP del paso 1.6).
 | Cambió | Comando |
 |---|---|
 | `supabase/migrations/` | `pnpm supabase db push` |
-| `supabase/functions/` o `packages/shared/` (lo usan las funciones) | `pnpm supabase functions deploy parse-order`, `registro` y `whatsapp-webhook` (de a una) |
+| `supabase/functions/` o `packages/shared/` (lo usan las funciones) | `pnpm supabase functions deploy` de cada una: `parse-order`, `registro`, `whatsapp-webhook`, `demo-entrar` y `demo-whatsapp` |
 | Secrets de la IA o de WhatsApp | `pnpm supabase secrets set --env-file supabase/functions/.env.nube` |
 | `apps/web/` | Automático: Vercel deploya cada push a `main` |

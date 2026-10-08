@@ -450,3 +450,18 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/whatsapp-webhook/deno.json"
 entrypoint = "./functions/whatsapp-webhook/index.ts"
+
+# Demo pública: crea la cuenta del visitante. Sin sesión (todavía no tiene): pide la publishable
+# key y tiene límite por IP.
+[functions.demo-entrar]
+enabled = true
+verify_jwt = false
+import_map = "./functions/demo-entrar/deno.json"
+entrypoint = "./functions/demo-entrar/index.ts"
+
+# Simulador de WhatsApp de la demo: sesión del visitante, solo para locales de demo.
+[functions.demo-whatsapp]
+enabled = true
+verify_jwt = true
+import_map = "./functions/demo-whatsapp/deno.json"
+entrypoint = "./functions/demo-whatsapp/index.ts"

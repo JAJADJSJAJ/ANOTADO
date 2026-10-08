@@ -257,6 +257,52 @@ Los reintentos de Meta no cuentan: salen antes, por el dedupe. Dos entregas simu
 ### El operador conecta el número
 `negocios.wa_phone_number_id` ya existía y no está en el GRANT de update: lo carga el operador desde el panel (`operador_conectar_whatsapp`, con TOTP y registro). El phone number ID no es secreto; la firma del webhook es la que autentica.
 
+## Fase 6: el bot responde, y la demo pública
+
+### El bot contesta con plantillas, no con la IA
+Lo que le llega al cliente se arma con el borrador (`shared/bot.ts`), que ya está validado contra el menú: qué se anotó, la entrega y lo que falta. La IA nunca escribe texto libre para el cliente. Así no puede inventar precios, promociones ni prometer nada, aunque alguien intente manipularla desde el chat. La excepción son las preguntas de aclaración ("¿la coca es de 1,5 o de 2,25?"): pasan por un filtro estricto (cortas, terminan en "?", sin plata, links, pagos, pedidos de datos personales ni números largos) y si no lo pasan se reemplazan por una genérica. Lo que el bot cita del cliente (notas, dirección, lo que no quedó claro) pasa por el mismo filtro: si no lo pasa, no se repite (revisión). Las preguntas de la IA tampoco pueden pedir datos de contacto ni de ubicación (número, dirección, barrio, calle, dónde…): la dirección la pide la plantilla. Es una lista de palabras, de mejor esfuerzo. Tras cuatro vueltas de Codex, lo que puede escaparse es que la IA le pregunte un dato al **mismo** cliente en su chat, que puede no contestar. Se cerró ahí. El total lo manda la base al confirmar, nunca el bot.
+
+### Cuándo contesta
+- **Después de interpretar**, solo si cambió algo o hay algo que aclarar: un "gracias" no se contesta. La respuesta se guarda en la misma transacción que la interpretación: un reintento por versión no la duplica.
+- **Al confirmar**: número y total (con envío).
+- **Retiro**: cuando está listo. **Delivery**: cuando sale (entregado al cadete). **Cancelado**: sin el motivo, que es interno.
+Los avisos de estado salen una sola vez por pedido (`mensajes.clave`): deshacer y volver a avanzar no los repite. Las preguntas que ya hizo el bot no quedan como tarea del cajero ("Preguntale al cliente"); los dudosos sí, porque los resuelve el cajero.
+
+### Mandarlo por WhatsApp de verdad queda pendiente
+Las respuestas son mensajes con rol `asistente`. Falta el paso que las manda por la Cloud API de Meta (necesita el token de la app y la ventana de 24 h). Nunca se mandan las de un local de demo.
+
+### La demo: un local compartido, cuentas que crea el servidor
+`/demo` abre la pantalla del simulador (el teléfono del cliente, el mostrador y la cocina) sin registrarse. Decisión de Fran: un local compartido, no uno por visitante. Los visitantes ven lo de los demás; la pantalla lo avisa.
+- **No es login anónimo de Supabase**: con el registro público apagado, Auth también lo bloquea (probado), y prenderlo dejaría crear cuentas con cualquier mail. La Edge Function `demo-entrar` crea la cuenta con la API de administración (mail inventado en `.invalid`, `app_metadata.demo`), la suma al local y devuelve un token de un solo uso, sin mandar mails.
+- **Simulador**: el mensaje entra por `recibir_mensaje_wa` y el mismo intérprete que el webhook. No hay un camino aparte para la demo. Cada visitante es siempre el mismo cliente, con un teléfono de mentira que empieza con 00.
+- **Limpieza**: todas las noches (pg_cron, 5:00 de Uruguay) se borran los pedidos, chats, clientes y productos agregados de la demo, se vuelve a ofrecer lo agotado y se borran las cuentas de demo de más de un día (solo las marcadas por `demo-entrar`). Lo agotado además vuelve cada hora: si un visitante marca todo agotado, el siguiente no espera a la noche.
+
+### Demo cerrada (pedido de Fran)
+Que se vea de qué es capaz, sin libre albedrío. El visitante es **dueño** del local de demo, así prueba también el menú, pero triggers en la base (que miran `auth.uid()`: el servidor, la limpieza y el SQL Editor no tienen y no pasan por acá) dejan solo:
+- tomar, confirmar, cancelar y cocinar pedidos, y marcar agotados (vuelven cada hora);
+- agregar hasta **3 productos suyos** (40 entre todos), que puede editar o borrar. El **menú base** (los 17 productos de la migración) no se edita ni se borra, ni lo de otro visitante;
+- nada de ajustes, IA, horarios, zonas, categorías, equipo ni invitaciones. Las invitaciones además llevan al registro, que manda mails. En la web, Equipo y Ajustes ni aparecen.
+
+### Ningún mail desde la demo
+Auth manda el mail de cambio de email **antes** de escribir en la base (probado), así que un trigger no alcanza. Pero Auth no manda otro si el anterior es "de hace menos de un rato": las cuentas de demo nacen con el último envío de cambio de email, de reautenticación y de teléfono en el año 2999. Auth responde 429 y no manda nada (probado con Mailpit: 0 mails, contra 3 sin esto). No toca la configuración de Auth ni a los usuarios reales. Además, un trigger impide que el mail o el teléfono de una cuenta de demo cambien.
+
+### Cupos diarios de la demo
+Contadores por día en `demo_cupos`, atómicos (el upsert bloquea la fila; lo rechazado no cuenta). Además de los límites por minuto de siempre:
+
+| Qué | Por visitante | En total |
+|---|---|---|
+| Interpretaciones de IA | 25 por día | 200 por día y 20 por minuto |
+| Mensajes del simulador | 60 por día | 2000 por día |
+| Pedidos | 20 por día | 500 por día |
+| Clientes cargados a mano | 10 por día | |
+| Cuentas de demo | 10 por día por IP, 3 por minuto | 300 por día, 30 por minuto, 500 vivas |
+
+Encima, la key de OpenRouter tiene un tope de US$ 3 por mes.
+
+El cupo diario de IA se descuenta solo si el pedido pasó el límite por minuto: los rechazados no gastan el cupo de todos (revisión). **Aceptado:** alguien con varias cuentas (10 por IP por día) puede gastar las 200 del día. Ahí la demo sigue andando, pero sin IA hasta el otro día: los mensajes llegan sin interpretar y el bot no contesta. Es el precio de que la plata tenga techo.
+
+**Otros mails de Auth** (recuperar contraseña, magic link): van al mail de la cuenta, que en la demo es un `@demo.anotado.invalid` inventado, nunca a un tercero. Pedirlos para el mail de otra persona ya lo podía hacer cualquiera, con o sin demo: no es algo nuevo de la demo (revisión).
+
 ## Pendiente de decidir
 
 - **Clave de idempotencia para tarjetas nuevas de WhatsApp** (Fase 2). No bloquea.

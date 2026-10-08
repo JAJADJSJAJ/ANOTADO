@@ -88,6 +88,12 @@ export function Login() {
           Registrate
         </Link>
       </p>
+      <p className="text-center text-stone-600">
+        ¿Querés verlo andando?{' '}
+        <Link to="/demo" className="font-bold text-indigo-700 underline">
+          Probá la demo
+        </Link>
+      </p>
     </PantallaCuenta>
   );
 }

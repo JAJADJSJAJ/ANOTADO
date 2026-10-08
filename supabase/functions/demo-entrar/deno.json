@@ -1,0 +1,8 @@
+{
+  "imports": {
+    "@supabase/functions-js": "jsr:@supabase/functions-js@^2",
+    "@supabase/server": "npm:@supabase/server@^1",
+    "@anotado/shared": "../../../packages/shared/src/index.ts",
+    "zod": "npm:zod@^4.6.5"
+  }
+}

@@ -219,6 +219,60 @@ export type Database = {
           },
         ]
       }
+      demo_cupos: {
+        Row: {
+          clave: string
+          cuenta: number
+          dia: string
+        }
+        Insert: {
+          clave: string
+          cuenta: number
+          dia: string
+        }
+        Update: {
+          clave?: string
+          cuenta?: number
+          dia?: string
+        }
+        Relationships: []
+      }
+      demo_productos_agregados: {
+        Row: {
+          created_at: string
+          negocio_id: string
+          producto_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          negocio_id: string
+          producto_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          negocio_id?: string
+          producto_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_productos_agregados_negocio_id_fkey"
+            columns: ["negocio_id"]
+            isOneToOne: false
+            referencedRelation: "negocios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demo_productos_agregados_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: true
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitaciones: {
         Row: {
           creada_por: string | null
@@ -315,6 +369,7 @@ export type Database = {
       }
       mensajes: {
         Row: {
+          clave: string | null
           contenido: string
           conversacion_id: string
           created_at: string
@@ -327,6 +382,7 @@ export type Database = {
           wa_message_id: string | null
         }
         Insert: {
+          clave?: string | null
           contenido: string
           conversacion_id: string
           created_at?: string
@@ -339,6 +395,7 @@ export type Database = {
           wa_message_id?: string | null
         }
         Update: {
+          clave?: string | null
           contenido?: string
           conversacion_id?: string
           created_at?: string
@@ -398,6 +455,7 @@ export type Database = {
           activo: boolean
           config: Json
           created_at: string
+          es_demo: boolean
           hora_corte_jornada: string
           horarios: Json
           ia_activa: boolean
@@ -412,6 +470,7 @@ export type Database = {
           activo?: boolean
           config?: Json
           created_at?: string
+          es_demo?: boolean
           hora_corte_jornada?: string
           horarios?: Json
           ia_activa?: boolean
@@ -426,6 +485,7 @@ export type Database = {
           activo?: boolean
           config?: Json
           created_at?: string
+          es_demo?: boolean
           hora_corte_jornada?: string
           horarios?: Json
           ia_activa?: boolean
@@ -874,6 +934,15 @@ export type Database = {
         }
         Returns: Json
       }
+      consumir_cupo_demo: {
+        Args: { p_clave: string; p_max: number }
+        Returns: boolean
+      }
+      consumir_ia_demo: {
+        Args: { p_negocio_id: string; p_quien: string }
+        Returns: boolean
+      }
+      consumir_limite_demo: { Args: { p_ip_hash: string }; Returns: boolean }
       consumir_limite_ia: {
         Args: {
           p_max_negocio: number
@@ -896,6 +965,10 @@ export type Database = {
         Args: { p_ip_hash: string; p_max_ip: number; p_max_total: number }
         Returns: boolean
       }
+      consumir_mensaje_demo: {
+        Args: { p_negocio_id: string; p_user_id: string }
+        Returns: boolean
+      }
       crear_codigo_alta: {
         Args: { p_dias?: number; p_nota?: string }
         Returns: string
@@ -911,6 +984,8 @@ export type Database = {
         Args: { p_codigo: string; p_nombre: string }
         Returns: Json
       }
+      es_cuenta_demo: { Args: { p_user_id: string }; Returns: boolean }
+      es_demo: { Args: { p_negocio_id: string }; Returns: boolean }
       es_miembro: { Args: { n: string }; Returns: boolean }
       es_operador: { Args: never; Returns: boolean }
       es_ultimo_dueno: {
@@ -931,6 +1006,7 @@ export type Database = {
         Returns: undefined
       }
       existe_cuenta: { Args: { p_email_hash: string }; Returns: boolean }
+      formatear_pesos: { Args: { p_centavos: number }; Returns: string }
       guardar_borrador: {
         Args: {
           p_borrador: Json
@@ -966,6 +1042,7 @@ export type Database = {
           p_modelo: string
           p_negocio_id: string
           p_pendientes: Json
+          p_respuesta?: string
           p_tokens_entrada: number
           p_tokens_salida: number
           p_version: number
@@ -996,9 +1073,18 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      limpiar_demo: { Args: never; Returns: number }
       marcar_agotado: {
         Args: { p_agotado: boolean; p_producto_id: string }
         Returns: Json
+      }
+      mensaje_bot: {
+        Args: {
+          p_clave?: string
+          p_contenido: string
+          p_conversacion_id: string
+        }
+        Returns: undefined
       }
       mi_estado_operador: { Args: never; Returns: Json }
       miembros_negocio: {
@@ -1106,6 +1192,7 @@ export type Database = {
         }
         Returns: Json
       }
+      reponer_agotados_demo: { Args: never; Returns: number }
       reservar_registro: {
         Args: { p_codigo?: string; p_email: string; p_token?: string }
         Returns: string
@@ -1128,6 +1215,7 @@ export type Database = {
         Args: { p_conversacion_id: string; p_negocio_id: string }
         Returns: boolean
       }
+      sumar_visitante_demo: { Args: { p_user_id: string }; Returns: Json }
       tiene_rol: {
         Args: { n: string; roles: Database["public"]["Enums"]["rol_miembro"][] }
         Returns: boolean

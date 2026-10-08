@@ -12,6 +12,8 @@ export type TipoMensaje = 'texto' | 'audio' | 'imagen' | 'video' | 'documento' |
 
 export type MensajeConversacion = {
   id: string;
+  /** cliente = lo que escribió el cliente; asistente = lo que le contestó el bot. */
+  rol: 'cliente' | 'asistente' | 'sistema';
   contenido: string;
   tipo: TipoMensaje;
   interpretado: boolean;
@@ -69,7 +71,7 @@ export function useConversaciones(negocioId: string) {
         const { data: mensajes, error: errMensajes } = ids.length
           ? await supabase
               .from('mensajes')
-              .select('id, conversacion_id, contenido, tipo, interpretado, created_at')
+              .select('id, conversacion_id, rol, contenido, tipo, interpretado, created_at')
               .eq('negocio_id', negocioId)
               .in('conversacion_id', ids)
               // Los más nuevos primero: si se pasa del tope, se cortan los viejos, nunca los últimos.
