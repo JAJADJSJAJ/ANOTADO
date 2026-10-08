@@ -137,6 +137,11 @@ describe('preguntaSegura', () => {
     '¿Dónde vivís?',
     '¿Me pasás tu dirección?',
     '¿A nombre de quién?',
+    '¿En qué barrio estás?',
+    '¿Cuál es tu calle?',
+    '¿Dónde estás?',
+    '¿Cómo te llamás?',
+    '¿Me dejás un contacto?',
     `¿${'a'.repeat(200)}?`,
   ])('rechaza %j', (entrada) => {
     expect(preguntaSegura(entrada)).toBeNull();

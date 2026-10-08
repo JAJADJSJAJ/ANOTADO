@@ -39,7 +39,7 @@ const PROHIBIDO =
 
 // Solo para las preguntas de la IA (no para lo que se cita del cliente): ninguna pide datos de
 // contacto o de dónde vive. La dirección de envío la pide la plantilla, no la IA (revisión).
-const PIDE_DATOS = /n[uú]mero|direcci[oó]n|domicilio|ubicaci[oó]n|d[oó]nde viv|nombre|apellido/i;
+const PIDE_DATOS = /n[uú]mero|direcci[oó]n|domicilio|ubicaci[oó]n|d[oó]nde (viv|est)|barrio|calle|esquina|zona|nombre|apellido|llam[aá]s|contact/i;
 
 /** La pregunta de la IA si es segura para mandarle al cliente; si no, null. */
 export function preguntaSegura(pregunta: string): string | null {
