@@ -2,7 +2,7 @@
 -- anónimas, topes diarios, limpieza y slugs reservados.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(59);
+select plan(61);
 
 \set A '\'a0000000-0000-4000-8000-000000000001\''
 \set D '\'d0000000-0000-4000-8000-000000000001\''
@@ -225,6 +225,11 @@ select throws_ok(format($$update auth.users set email_change = 'alguien@ejemplo.
   '42501', null, 'una cuenta de demo no completa un cambio de mail');
 select throws_ok(format($$update auth.users set email = 'alguien@ejemplo.com' where id = %L$$, :visita1),
   '42501', null, 'ni cambia el mail directo');
+insert into auth.users (id, is_anonymous) values ('00000000-0000-4000-a000-0000000000e5', true);
+select throws_ok($$update auth.users set email_change = 'alguien@ejemplo.com' where id = '00000000-0000-4000-a000-0000000000e5'$$,
+  '42501', null, 'una cuenta anónima tampoco (revisión)');
+select lives_ok($$update auth.users set email_change = 'otra@ejemplo.com' where id = '00000000-0000-4000-a000-0000000000a1'$$,
+  'una cuenta normal sí puede pedir el cambio');
 select lives_ok(format($$update auth.users set last_sign_in_at = now() where id = %L$$, :visita1),
   'el resto de la cuenta se actualiza normal (entrar)');
 

@@ -37,10 +37,15 @@ const PREGUNTA_GENERICA = '¿Me aclarás qué querías pedir?';
 const PROHIBIDO =
   /[$<>@\n\r]|https?:|www\.|\.(com|uy|net|org)\b|precio|gratis|descuento|promo|oferta|pag[aáo]|transfer|tarjeta|cuenta|contraseñ|clave|c[oó]digo|tel[eé]fono|celular|whats|mail|correo|c[eé]dula|\bdni\b|documento|\d[\d .-]{4,}\d/i;
 
+// Solo para las preguntas de la IA (no para lo que se cita del cliente): ninguna pide datos de
+// contacto o de dónde vive. La dirección de envío la pide la plantilla, no la IA (revisión).
+const PIDE_DATOS = /n[uú]mero|direcci[oó]n|domicilio|ubicaci[oó]n|d[oó]nde viv|nombre|apellido/i;
+
 /** La pregunta de la IA si es segura para mandarle al cliente; si no, null. */
 export function preguntaSegura(pregunta: string): string | null {
   const p = pregunta.trim().replace(/\s+/g, ' ');
-  if (p.length < 3 || p.length > MAX_PREGUNTA || !p.endsWith('?') || PROHIBIDO.test(p)) return null;
+  // Tiene que ser una pregunta, aunque cierre con las opciones: "¿De qué tamaño? (600 ml o 1,5 L)".
+  if (p.length < 3 || p.length > MAX_PREGUNTA || !p.includes('?') || PROHIBIDO.test(p) || PIDE_DATOS.test(p)) return null;
   return p.startsWith('¿') ? p : `¿${p}`;
 }
 

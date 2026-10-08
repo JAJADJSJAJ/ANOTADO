@@ -117,12 +117,13 @@ describe('preguntaSegura', () => {
     ['  ¿Cuántas   empanadas? ', '¿Cuántas empanadas?'],
     ['La querés con papas?', '¿La querés con papas?'],
     ['¿Qué tamaño de Coca-Cola querés: 600 ml, 1,5 L o 2,25 L?', '¿Qué tamaño de Coca-Cola querés: 600 ml, 1,5 L o 2,25 L?'],
+    ['¿De qué tamaño? (600 ml, 1,5 L o 2,25 L)', '¿De qué tamaño? (600 ml, 1,5 L o 2,25 L)'],
   ])('acepta %j', (entrada, salida) => {
     expect(preguntaSegura(entrada)).toBe(salida);
   });
 
   it.each([
-    'La coca es de 1,5 o de 2,25',
+    'La coca es de 1,5 o de 2,25.',
     '¿Te sale $ 200, está bien?',
     '¿Querés ver el precio en https://x.com?',
     '¿Te hago un descuento?',
@@ -132,6 +133,10 @@ describe('preguntaSegura', () => {
     '¿Me escribís al 099123456?',
     '¿Me dejás tu mail?',
     '¿Cuál es tu cédula?',
+    '¿Cuál es tu número?',
+    '¿Dónde vivís?',
+    '¿Me pasás tu dirección?',
+    '¿A nombre de quién?',
     `¿${'a'.repeat(200)}?`,
   ])('rechaza %j', (entrada) => {
     expect(preguntaSegura(entrada)).toBeNull();

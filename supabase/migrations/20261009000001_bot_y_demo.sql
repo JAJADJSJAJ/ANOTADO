@@ -381,9 +381,11 @@ $$;
 
 revoke all on function public.exigir_cuenta_demo_fija() from public, anon, authenticated;
 
+-- La condición va en línea, igual que es_cuenta_demo: el WHEN lo evalúa el rol de Auth, que no
+-- puede ejecutar funciones de public (fallarían TODAS las actualizaciones de usuarios).
 create trigger usuarios_demo_fijos
   before update on auth.users
-  for each row when (coalesce(old.raw_app_meta_data ->> 'demo', '') = 'true')
+  for each row when (old.is_anonymous or coalesce(old.raw_app_meta_data ->> 'demo', '') = 'true')
   execute function public.exigir_cuenta_demo_fija();
 
 -- 7. Demo: topes diarios ---------------------------------------------------------------------
