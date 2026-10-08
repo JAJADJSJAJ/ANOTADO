@@ -1,9 +1,8 @@
 import { CodigoAltaSchema, NombreLocalSchema } from '@anotado/shared';
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { BotonSalir } from '../components/BotonSalir.tsx';
-import { BotonPrincipal, Campo, MailEnviado, PantallaCuenta } from '../components/Cuenta.tsx';
-import { Cargando, MensajeError } from '../components/Estado.tsx';
+import { BotonPrincipal, Campo, MailEnviado, PantallaCuenta, TituloCuenta } from '../components/Cuenta.tsx';
+import { Cargando, MensajeError, Nota } from '../components/Estado.tsx';
 import { useSesion } from '../hooks/useSesion.ts';
 import { pedirCuenta } from '../lib/funciones.ts';
 import { supabase } from '../lib/supabase.ts';
@@ -80,10 +79,7 @@ export function Registro() {
   return (
     <PantallaCuenta>
       <form onSubmit={enviar} className="flex flex-col gap-4">
-        <div>
-          <h2 className="text-xl font-black">Dar de alta tu local</h2>
-          <p className="text-stone-600">Necesitás el código que te dio Anotado.</p>
-        </div>
+        <TituloCuenta titulo="Dar de alta tu local">Necesitás el código que te dio Anotado.</TituloCuenta>
         <Campo
           etiqueta="Código"
           required
@@ -102,10 +98,12 @@ export function Registro() {
           onChange={(e) => setNombre(e.target.value)}
         />
         {sesion ? (
-          <p className="rounded-xl bg-stone-100 p-3 text-stone-700">
-            El local queda a nombre de <strong>{sesion.user.email}</strong>.{' '}
-            <BotonSalir className="ml-1 px-0 py-0 text-stone-600" />
-          </p>
+          <Nota>
+            El local queda a nombre de <strong className="font-semibold text-tinta">{sesion.user.email}</strong>.{' '}
+            <button type="button" onClick={() => void supabase.auth.signOut()} className="enlace">
+              Salir
+            </button>
+          </Nota>
         ) : (
           <Campo
             etiqueta="Tu email"
@@ -123,12 +121,12 @@ export function Registro() {
         </BotonPrincipal>
       </form>
       {!sesion && (
-        <p className="border-t border-stone-200 pt-4 text-center text-stone-600">
+        <p className="border-t border-linea pt-5 text-center text-sm text-tinta-2">
           ¿Ya tenés cuenta?{' '}
           <Link
             to="/login"
             state={{ desde: `/registro${codigo ? `?codigo=${encodeURIComponent(codigo)}` : ''}` }}
-            className="font-bold text-indigo-700 underline"
+            className="enlace"
           >
             Entrá
           </Link>{' '}

@@ -1,7 +1,8 @@
 import { type FormEvent, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router';
-import { BotonPrincipal, Campo, PantallaCuenta } from '../components/Cuenta.tsx';
-import { MensajeError } from '../components/Estado.tsx';
+import { BotonPrincipal, Campo, PantallaCuenta, Separador, TituloCuenta } from '../components/Cuenta.tsx';
+import { MensajeError, Nota } from '../components/Estado.tsx';
+import { efecto } from '../lib/sonido.ts';
 import { useSesion } from '../hooks/useSesion.ts';
 import { supabase } from '../lib/supabase.ts';
 
@@ -26,6 +27,7 @@ export function Login() {
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setEnviando(false);
     if (error) {
+      efecto('error');
       setError(error.message === 'Invalid login credentials' ? 'Email o contraseña incorrectos' : error.message);
       return;
     }
@@ -49,8 +51,8 @@ export function Login() {
 
   return (
     <PantallaCuenta>
+      <TituloCuenta titulo="Entrar">Con la cuenta de tu local.</TituloCuenta>
       <form onSubmit={entrar} className="flex flex-col gap-4">
-        <p className="font-semibold text-stone-700">Entrá con tu cuenta del local.</p>
         <Campo
           etiqueta="Email"
           type="email"
@@ -59,41 +61,39 @@ export function Login() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <Campo
-          etiqueta="Contraseña"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <div className="flex flex-col gap-1.5">
+          <Campo
+            etiqueta="Contraseña"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button type="button" onClick={() => void olvide()} className="self-end text-sm text-tinta-2 transition-colors hover:text-tinta">
+            Me olvidé la contraseña
+          </button>
+        </div>
         {error && <MensajeError>{error}</MensajeError>}
         {aviso && (
-          <p role="status" className="rounded-lg border-2 border-emerald-300 bg-emerald-50 p-3 font-medium text-emerald-900">
+          <Nota tono="ok" rol="status">
             {aviso}
-          </p>
+          </Nota>
         )}
         <BotonPrincipal disabled={enviando}>{enviando ? 'Entrando…' : 'Entrar'}</BotonPrincipal>
-        <button
-          type="button"
-          onClick={() => void olvide()}
-          className="self-center text-sm font-medium text-stone-600 underline"
-        >
-          Me olvidé la contraseña
-        </button>
       </form>
-      <p className="border-t border-stone-200 pt-4 text-center text-stone-600">
-        ¿Tenés un código para dar de alta tu local?{' '}
-        <Link to="/registro" className="font-bold text-indigo-700 underline">
-          Registrate
+      <Separador>o</Separador>
+      <div className="flex flex-col gap-2">
+        <Link to="/demo" className="btn btn-grande w-full">
+          Probar la demo sin cuenta
         </Link>
-      </p>
-      <p className="text-center text-stone-600">
-        ¿Querés verlo andando?{' '}
-        <Link to="/demo" className="font-bold text-indigo-700 underline">
-          Probá la demo
-        </Link>
-      </p>
+        <p className="mt-2 text-center text-sm text-tinta-2">
+          ¿Tenés un código para dar de alta tu local?{' '}
+          <Link to="/registro" className="enlace">
+            Registrate
+          </Link>
+        </p>
+      </div>
     </PantallaCuenta>
   );
 }

@@ -1,7 +1,7 @@
 import { MIN_PASSWORD, PasswordSchema, rutaInterna } from '@anotado/shared';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { BotonPrincipal, Campo, PantallaCuenta } from '../components/Cuenta.tsx';
+import { BotonPrincipal, Campo, PantallaCuenta, TituloCuenta } from '../components/Cuenta.tsx';
 import { Cargando, MensajeError } from '../components/Estado.tsx';
 import { useSesion } from '../hooks/useSesion.ts';
 import { supabase } from '../lib/supabase.ts';
@@ -45,7 +45,7 @@ export function Bienvenida() {
           {errorLink ? 'El link venció o ya se usó.' : 'Este link no es válido.'} Pedí uno nuevo desde donde te
           registraste, o desde "Entrar" si olvidaste tu contraseña.
         </MensajeError>
-        <Link to="/login" className="font-bold text-indigo-700 underline">
+        <Link to="/login" className="btn btn-grande w-full">
           Ir a Entrar
         </Link>
       </PantallaCuenta>
@@ -83,12 +83,9 @@ export function Bienvenida() {
   return (
     <PantallaCuenta>
       <form onSubmit={guardar} className="flex flex-col gap-4">
-        <div>
-          <h2 className="text-xl font-black">Elegí tu contraseña</h2>
-          <p className="text-stone-600">
-            Mail confirmado: <strong className="break-all">{sesion.user.email}</strong>
-          </p>
-        </div>
+        <TituloCuenta titulo="Elegí tu contraseña">
+          Mail confirmado: <strong className="font-semibold break-all text-tinta">{sesion.user.email}</strong>
+        </TituloCuenta>
         <Campo
           etiqueta="Contraseña"
           type="password"

@@ -1,8 +1,7 @@
 import { type RolMiembro, TokenInvitacionSchema } from '@anotado/shared';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { BotonSalir } from '../components/BotonSalir.tsx';
-import { BotonPrincipal, Campo, MailEnviado, PantallaCuenta } from '../components/Cuenta.tsx';
+import { BotonPrincipal, Campo, MailEnviado, PantallaCuenta, TituloCuenta } from '../components/Cuenta.tsx';
 import { Cargando, MensajeError } from '../components/Estado.tsx';
 import { useSesion } from '../hooks/useSesion.ts';
 import { NOMBRE_ROL } from '../lib/contextos.ts';
@@ -57,10 +56,7 @@ function CrearCuenta({ token }: { token: string }) {
   return (
     <>
       <form onSubmit={enviar} className="flex flex-col gap-4">
-        <div>
-          <h2 className="text-xl font-black">Te invitaron a un local</h2>
-          <p className="text-stone-600">Creá tu cuenta para sumarte.</p>
-        </div>
+        <TituloCuenta titulo="Te invitaron a un local">Creá tu cuenta para sumarte.</TituloCuenta>
         <Campo
           etiqueta="Tu email"
           type="email"
@@ -73,9 +69,9 @@ function CrearCuenta({ token }: { token: string }) {
         {error && <MensajeError>{error}</MensajeError>}
         <BotonPrincipal disabled={enviando}>{enviando ? 'Enviando…' : 'Seguir'}</BotonPrincipal>
       </form>
-      <p className="border-t border-stone-200 pt-4 text-center text-stone-600">
+      <p className="border-t border-linea pt-5 text-center text-sm text-tinta-2">
         ¿Ya tenés cuenta?{' '}
-        <Link to="/login" state={{ desde: `/invitacion/${token}` }} className="font-bold text-indigo-700 underline">
+        <Link to="/login" state={{ desde: `/invitacion/${token}` }} className="enlace">
           Entrá
         </Link>
       </p>
@@ -106,8 +102,11 @@ function Aceptar({ token, email }: { token: string; email: string }) {
   }
 
   const cuenta = (
-    <p className="text-sm text-stone-500">
-      Entraste como {email}. <BotonSalir className="px-0 py-0 text-stone-500" />
+    <p className="text-sm text-tinta-3">
+      Entraste como {email}.{' '}
+      <button type="button" onClick={() => void supabase.auth.signOut()} className="enlace">
+        Salir
+      </button>
     </p>
   );
 
@@ -115,7 +114,7 @@ function Aceptar({ token, email }: { token: string; email: string }) {
     return (
       <>
         <MensajeError>{error}</MensajeError>
-        <p className="text-stone-600">Si el link venció, pedile uno nuevo al dueño del local.</p>
+        <p className="text-tinta-2">Si el link venció, pedile uno nuevo al dueño del local.</p>
         {cuenta}
       </>
     );
@@ -124,10 +123,8 @@ function Aceptar({ token, email }: { token: string; email: string }) {
   if (datos.ya_es_miembro) {
     return (
       <>
-        <p className="text-lg">
-          Ya sos parte de <strong>{datos.negocio}</strong>.
-        </p>
-        <Link to="/" className="font-bold text-indigo-700 underline">
+        <TituloCuenta titulo={datos.negocio}>Ya sos parte de este local.</TituloCuenta>
+        <Link to="/" className="btn btn-tinta btn-grande w-full">
           Ir a mis locales
         </Link>
         {cuenta}
@@ -136,12 +133,9 @@ function Aceptar({ token, email }: { token: string; email: string }) {
   }
   return (
     <>
-      <div>
-        <h2 className="text-xl font-black">{datos.negocio}</h2>
-        <p className="text-lg text-stone-700">
-          Te invitaron como <strong>{NOMBRE_ROL[datos.rol]}</strong>.
-        </p>
-      </div>
+      <TituloCuenta titulo={datos.negocio}>
+        Te invitaron como <strong className="font-semibold text-tinta">{NOMBRE_ROL[datos.rol].toLowerCase()}</strong>.
+      </TituloCuenta>
       <BotonPrincipal type="button" disabled={enviando} onClick={() => void aceptar()}>
         {enviando ? 'Sumándote…' : 'Aceptar y entrar'}
       </BotonPrincipal>
