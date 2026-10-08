@@ -25,7 +25,7 @@ export function NegocioLayout() {
     if (!slug || !userId) return;
     void supabase
       .from('negocios')
-      .select('id, nombre, slug, ia_permitida, ia_activa, config, horarios, zona_horaria, miembros!inner(rol)')
+      .select('id, nombre, slug, ia_permitida, ia_activa, config, horarios, zona_horaria, es_demo, miembros!inner(rol)')
       .eq('slug', slug)
       .eq('miembros.user_id', userId)
       .maybeSingle()
@@ -44,6 +44,7 @@ export function NegocioLayout() {
                 config: data.config,
                 horarios: leerHorarios(data.horarios),
                 zonaHoraria: data.zona_horaria,
+                esDemo: data.es_demo,
                 recargar: () => setVersion((v) => v + 1),
               }
             : null,
@@ -80,6 +81,11 @@ export function NegocioLayout() {
             {negocio.nombre}
           </span>
           <nav className="flex flex-wrap gap-1">
+            {negocio.esDemo && negocio.rol !== 'cocina' && (
+              <NavLink to="simulador" className={tab}>
+                Demo
+              </NavLink>
+            )}
             {negocio.rol !== 'cocina' && (
               <NavLink to="mostrador" className={tab}>
                 Mostrador
@@ -112,8 +118,9 @@ export function NegocioLayout() {
   );
 }
 
-/** /:negocio a secas: cada rol a su pantalla principal. */
+/** /:negocio a secas: cada rol a su pantalla principal (en la demo, el simulador). */
 export function InicioNegocio() {
-  const { rol } = useNegocioActual();
+  const { rol, esDemo } = useNegocioActual();
+  if (esDemo && rol !== 'cocina') return <Navigate to="simulador" replace />;
   return <Navigate to={rol === 'cocina' ? 'cocina' : 'mostrador'} replace />;
 }

@@ -21,6 +21,8 @@ export type NegocioActual = {
   /** negocios.horarios, ya validado (mal formado = sin horarios). */
   horarios: Horarios;
   zonaHoraria: string;
+  /** Local de la demo pública: tiene el simulador y el cajero también maneja la cocina. */
+  esDemo: boolean;
   /** Vuelve a leer el negocio (después de guardar ajustes). */
   recargar: () => void;
 };

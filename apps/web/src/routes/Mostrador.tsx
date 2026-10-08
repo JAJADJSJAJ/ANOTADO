@@ -15,10 +15,10 @@ import { usePedidosCocina } from '../hooks/usePedidosCocina.ts';
 import { useZonas } from '../hooks/useZonas.ts';
 import { confirmarPedido, type DatosEntrega, ENTREGA_RETIRO, type PedidoConfirmado } from '../lib/pedidos.ts';
 
-type Pestana = 'manual' | 'whatsapp' | 'entregas' | 'agotados';
+export type Pestana = 'manual' | 'whatsapp' | 'entregas' | 'agotados';
 type Confirmado = PedidoConfirmado & { etiqueta?: string };
 
-export function Mostrador() {
+export function Mostrador({ pestanaInicial = 'manual' }: { pestanaInicial?: Pestana }) {
   const negocio = useNegocio();
   const menu = useMenu(negocio.id);
   const productos = useMemo(() => new Map(menu.productos.map((p) => [p.id, p])), [menu.productos]);
@@ -26,7 +26,7 @@ export function Mostrador() {
   const { zonas } = useZonas(negocio.id);
   const zonasActivas = useMemo(() => zonas.filter((z) => z.activa), [zonas]);
 
-  const [pestana, setPestana] = useState<Pestana>('manual');
+  const [pestana, setPestana] = useState<Pestana>(pestanaInicial);
   const [confirmado, setConfirmado] = useState<Confirmado | null>(null);
   const [version, setVersion] = useState(0);
   // Pedidos en curso en tiempo real: alimentan la pestaña Entregas y su contador.

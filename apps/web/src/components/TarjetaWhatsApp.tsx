@@ -400,22 +400,24 @@ const mapa = (m: MensajeConversacion) =>
 
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' });
 
-/** Lo que escribió el cliente, en orden. Lo que no es texto, en amarillo. */
+/** La charla en orden: el cliente a la izquierda, el bot a la derecha. Lo que no es texto, en amarillo. */
 function Mensajes({ mensajes }: { mensajes: MensajeConversacion[] }) {
   const final = useRef<HTMLLIElement>(null);
   useEffect(() => {
     final.current?.scrollIntoView({ block: 'nearest' });
   }, [mensajes.length]);
   return (
-    <ol aria-label="Mensajes del cliente" className="flex max-h-64 flex-col gap-2 overflow-y-auto rounded-xl bg-white p-2">
+    <ol aria-label="Conversación con el cliente" className="flex max-h-64 flex-col gap-2 overflow-y-auto rounded-xl bg-white p-2">
       {mensajes.map((m, i) => {
         const avisoTipo = AVISOS_TIPO[m.tipo];
+        const bot = m.rol === 'asistente';
         return (
           <li
             key={m.id}
             ref={i === mensajes.length - 1 ? final : undefined}
-            className={`rounded-lg px-3 py-2 ${avisoTipo ? 'border-2 border-amber-300 bg-amber-50' : 'bg-stone-100'}`}
+            className={`rounded-lg px-3 py-2 ${bot ? 'ml-8 bg-emerald-50' : avisoTipo ? 'mr-8 border-2 border-amber-300 bg-amber-50' : 'mr-8 bg-stone-100'}`}
           >
+            {bot && <p className="text-xs font-bold text-emerald-800">Respuesta automática</p>}
             {avisoTipo && <p className="font-bold text-amber-900">{avisoTipo}</p>}
             {(!avisoTipo || m.contenido.includes(' ')) && <p className="whitespace-pre-wrap break-words">{m.contenido}</p>}
             {mapa(m) && (

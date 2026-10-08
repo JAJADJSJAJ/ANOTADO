@@ -84,8 +84,9 @@ export function respuestaBot(d: DatosRespuesta): string | null {
   }
 
   const citables = dudosos.filter((t): t is string => t !== null);
-  if (citables.length === 1) lineas.push(`No encontré «${citables[0]}» en el menú, ¿cuál querías?`);
-  else if (citables.length > 1) lineas.push(`No encontré en el menú ${enumerar(citables.map((t) => `«${t}»`))}. ¿Cuáles querías?`);
+  // Dudoso es tanto lo que no está en el menú como lo ambiguo ("una coca" con tres tamaños).
+  if (citables.length === 1) lineas.push(`No me quedó claro «${citables[0]}»: ¿cuál querías?`);
+  else if (citables.length > 1) lineas.push(`No me quedaron claros ${enumerar(citables.map((t) => `«${t}»`))}: ¿cuáles querías?`);
   if (dudosos.length > citables.length && citables.length === 0) preguntas.push(PREGUNTA_GENERICA);
 
   lineas.push(...new Set(preguntas));

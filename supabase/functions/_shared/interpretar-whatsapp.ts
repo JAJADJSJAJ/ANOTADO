@@ -235,7 +235,9 @@ async function vueltas(
       p_version: conv.version,
       p_mensajes: nuevos.map((m) => m.id),
       p_borrador: aplicado.borrador,
-      p_pendientes: combinarPendientes(pendientesPrevios, aplicado, quitados),
+      // Si el bot contestó, las preguntas ya se las hizo él al cliente: no quedan como tarea del
+      // cajero ("Preguntale al cliente"). Los dudosos sí, los resuelve el cajero.
+      p_pendientes: combinarPendientes(pendientesPrevios, respuestaCliente ? { ...aplicado, preguntas: [] } : aplicado, quitados),
       p_modelo: respuesta.modelo,
       p_tokens_entrada: respuesta.tokensEntrada,
       p_tokens_salida: respuesta.tokensSalida,

@@ -62,14 +62,14 @@ describe('respuestaBot', () => {
     expect(r).not.toMatch(/\$|\d+,\d\d|total:/i);
   });
 
-  it('cita lo que no encontró y no cierra con "algo más"', () => {
+  it('cita lo que no quedó claro y no cierra con "algo más"', () => {
     const r = respuestaBot(datos({ dudosos: ['lo de siempre'], borrador: { items: [{ producto_id: COCA, cantidad: 1 }], entrega: null } }));
-    expect(r).toBe('Anoté: 1 Coca-Cola 1,5 L.\nNo encontré «lo de siempre» en el menú, ¿cuál querías?');
+    expect(r).toBe('Anoté: 1 Coca-Cola 1,5 L.\nNo me quedó claro «lo de siempre»: ¿cuál querías?');
   });
 
   it('varios dudosos van juntos', () => {
     expect(respuestaBot(datos({ dudosos: ['la de siempre', 'el combo'] }))).toBe(
-      'No encontré en el menú «la de siempre» y «el combo». ¿Cuáles querías?',
+      'No me quedaron claros «la de siempre» y «el combo»: ¿cuáles querías?',
     );
   });
 

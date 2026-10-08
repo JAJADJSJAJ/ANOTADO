@@ -7,6 +7,7 @@ import {
   RespuestaCocinaSchema,
 } from '@anotado/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { escucharCanal } from '../lib/canales.ts';
 import { supabase } from '../lib/supabase.ts';
 
 /** Red de seguridad: aunque Realtime muera callado (tablet dormida), cada 30 s se recarga. */
@@ -93,6 +94,7 @@ export function usePedidosCocina(negocioId: string, opciones: Opciones = {}) {
   }, []);
 
   // Realtime: canal privado del negocio. Solo sus miembros pueden suscribirse (policy en la base).
+  // Compartido: el simulador de la demo muestra el mostrador y la cocina en la misma página.
   useEffect(() => {
     let espera: ReturnType<typeof setTimeout> | undefined;
     const programar = () => {
@@ -100,9 +102,8 @@ export function usePedidosCocina(negocioId: string, opciones: Opciones = {}) {
       espera = setTimeout(() => void recargar(), ESPERA_AVISOS_MS);
     };
 
-    const canal = supabase.channel(`negocio:${negocioId}:pedidos`, { config: { private: true } });
-    canal
-      .on('broadcast', { event: 'pedido' }, ({ payload }) => {
+    const dejar = escucharCanal(`negocio:${negocioId}:pedidos`, 'pedido', {
+      onAviso: (payload) => {
         const aviso = AvisoPedidoSchema.safeParse(payload);
         const pedido = aviso.success ? pedidosRef.current?.find((p) => p.id === aviso.data.pedido_id) : undefined;
         if (aviso.success && pedido) {
@@ -112,8 +113,8 @@ export function usePedidosCocina(negocioId: string, opciones: Opciones = {}) {
           actualizarLocal(pedido.id, { estado: aviso.data.estado });
         }
         programar();
-      })
-      .subscribe((estado) => {
+      },
+      onEstado: (estado) => {
         // SUBSCRIBED llega también después de cada reconexión: ahí se recarga todo.
         if (estado === 'SUBSCRIBED') {
           setCanalOk(true);
@@ -121,13 +122,14 @@ export function usePedidosCocina(negocioId: string, opciones: Opciones = {}) {
         } else {
           setCanalOk(false);
         }
-      });
+      },
+    });
 
     void recargar();
 
     return () => {
       clearTimeout(espera);
-      void supabase.removeChannel(canal);
+      dejar();
     };
   }, [negocioId, recargar, actualizarLocal]);
 

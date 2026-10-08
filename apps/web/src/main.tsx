@@ -12,6 +12,7 @@ import { AdminEquipo } from './routes/AdminEquipo.tsx';
 import { AdminMenu } from './routes/AdminMenu.tsx';
 import { Bienvenida } from './routes/Bienvenida.tsx';
 import { Cocina } from './routes/Cocina.tsx';
+import { Demo } from './routes/Demo.tsx';
 import { Inicio } from './routes/Inicio.tsx';
 import { Invitacion } from './routes/Invitacion.tsx';
 import { Login } from './routes/Login.tsx';
@@ -20,11 +21,14 @@ import { Operador } from './routes/Operador.tsx';
 import { Privacidad } from './routes/Privacidad.tsx';
 import { InicioNegocio, NegocioLayout } from './routes/NegocioLayout.tsx';
 import { Registro } from './routes/Registro.tsx';
+import { Simulador } from './routes/Simulador.tsx';
 
 const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
   // Pública: la pide Meta para publicar la app de WhatsApp y la leen los clientes de los locales.
   { path: '/privacidad', element: <Privacidad /> },
+  // Pública: la demo para probar sin cuenta (crea una cuenta de demo que dura un día).
+  { path: '/demo', element: <Demo /> },
   // Sin sesión obligatoria: quien llega con un código o una invitación todavía no tiene cuenta.
   { path: '/registro', element: <Registro /> },
   { path: '/invitacion/:token', element: <Invitacion /> },
@@ -46,6 +50,15 @@ const router = createBrowserRouter([
             element: (
               <SoloRoles roles={['dueno', 'cajero']}>
                 <Mostrador />
+              </SoloRoles>
+            ),
+          },
+          {
+            // Solo en locales de demo: teléfono del cliente, mostrador y cocina juntos.
+            path: 'simulador',
+            element: (
+              <SoloRoles roles={['dueno', 'cajero']}>
+                <Simulador />
               </SoloRoles>
             ),
           },
