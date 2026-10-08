@@ -568,13 +568,16 @@ create trigger clientes_cupo_demo before insert on public.clientes
 -- 9. Demo: topes de IA -------------------------------------------------------------------------
 
 -- En la demo, además de los límites por minuto: como mucho 20 por minuto en el local, y por día 25
--- por visitante (o cliente del simulador) y 200 en total. Primero el del visitante, así uno que
--- ya llegó a su tope no gasta el del resto.
+-- por visitante (o cliente del simulador) y 200 en total. Se llama SOLO si ya pasó el límite por
+-- minuto (revisión: si no, los intentos rechazados gastaban el cupo de todos), y primero el del
+-- visitante: uno que ya llegó a su tope no gasta el del resto.
 create function public.consumir_ia_demo(p_negocio_id uuid, p_quien text) returns boolean
 language plpgsql security definer set search_path = '' as $$
 begin
-  return public.consumir_cupo_demo('ia:' || p_quien, 25)
-    and public.consumir_cupo_demo('ia:' || p_negocio_id, 200);
+  if not public.consumir_cupo_demo('ia:' || p_quien, 25) then
+    return false;
+  end if;
+  return public.consumir_cupo_demo('ia:' || p_negocio_id, 200);
 end;
 $$;
 
@@ -594,9 +597,6 @@ declare
   v_usuario int;
 begin
   if public.es_demo(p_negocio_id) then
-    if not public.consumir_ia_demo(p_negocio_id, p_user_id::text) then
-      return false;
-    end if;
     p_max_negocio := least(p_max_negocio, 20);
   end if;
   -- Limpieza de ventanas viejas del mismo negocio (usa la PK, es barato).
@@ -612,7 +612,14 @@ begin
   on conflict (negocio_id, clave, ventana) do update set cuenta = l.cuenta + 1
   returning cuenta into v_usuario;
 
-  return v_negocio <= p_max_negocio and v_usuario <= p_max_usuario;
+  if v_negocio > p_max_negocio or v_usuario > p_max_usuario then
+    return false;
+  end if;
+  -- Demo: el cupo diario, solo si pasó el de por minuto.
+  if public.es_demo(p_negocio_id) then
+    return public.consumir_ia_demo(p_negocio_id, p_user_id::text);
+  end if;
+  return true;
 end;
 $$;
 
@@ -629,9 +636,6 @@ declare
   v_cliente int;
 begin
   if public.es_demo(p_negocio_id) then
-    if not public.consumir_ia_demo(p_negocio_id, 'cliente:' || p_cliente_id) then
-      return false;
-    end if;
     p_max_negocio := least(p_max_negocio, 20);
   end if;
   delete from public.limites_ia where negocio_id = p_negocio_id and ventana < v_ventana - interval '10 minutes';
@@ -646,7 +650,14 @@ begin
   on conflict (negocio_id, clave, ventana) do update set cuenta = l.cuenta + 1
   returning cuenta into v_cliente;
 
-  return v_negocio <= p_max_negocio and v_cliente <= p_max_cliente;
+  if v_negocio > p_max_negocio or v_cliente > p_max_cliente then
+    return false;
+  end if;
+  -- Demo: el cupo diario, solo si pasó el de por minuto.
+  if public.es_demo(p_negocio_id) then
+    return public.consumir_ia_demo(p_negocio_id, 'cliente:' || p_cliente_id);
+  end if;
+  return true;
 end;
 $$;
 

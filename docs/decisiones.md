@@ -299,6 +299,10 @@ Contadores por día en `demo_cupos`, atómicos (el upsert bloquea la fila; lo re
 
 Encima, la key de OpenRouter tiene un tope de US$ 3 por mes.
 
+El cupo diario de IA se descuenta solo si el pedido pasó el límite por minuto: los rechazados no gastan el cupo de todos (revisión). **Aceptado:** alguien con varias cuentas (10 por IP por día) puede gastar las 200 del día. Ahí la demo sigue andando, pero sin IA hasta el otro día: los mensajes llegan sin interpretar y el bot no contesta. Es el precio de que la plata tenga techo.
+
+**Otros mails de Auth** (recuperar contraseña, magic link): van al mail de la cuenta, que en la demo es un `@demo.anotado.invalid` inventado, nunca a un tercero. Pedirlos para el mail de otra persona ya lo podía hacer cualquiera, con o sin demo: no es algo nuevo de la demo (revisión).
+
 ## Pendiente de decidir
 
 - **Clave de idempotencia para tarjetas nuevas de WhatsApp** (Fase 2). No bloquea.

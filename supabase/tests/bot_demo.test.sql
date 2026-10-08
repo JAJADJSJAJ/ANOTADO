@@ -2,7 +2,7 @@
 -- demo, demo cerrada, cupos diarios, limpieza y slugs reservados.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(87);
+select plan(88);
 
 \set A '\'a0000000-0000-4000-8000-000000000001\''
 \set D '\'d0000000-0000-4000-8000-000000000001\''
@@ -383,6 +383,8 @@ select is(array_agg(c order by n), array_fill(true, array[20]) || false, 'en la 
 from (select n, consumir_limite_ia_cliente(:D, gen_random_uuid(), 60, 10) as c from generate_series(1, 21) n) x;
 reset role;
 select pg_temp.nadie();
+select is((select cuenta from demo_cupos where clave = 'ia:' || :D), 20,
+  'el intento rechazado por minuto no gasta el cupo del día (revisión)');
 delete from limites_ia where negocio_id = :D;
 insert into demo_cupos (clave, dia, cuenta) values
   ('ia:cliente:00000000-0000-4000-a000-00000000c11e', (now() at time zone 'America/Montevideo')::date, 25),
