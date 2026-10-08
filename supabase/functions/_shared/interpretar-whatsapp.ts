@@ -9,8 +9,9 @@
 //      450"); esperar un poco las junta en una sola llamada a la IA.
 //   3. Lee los mensajes de texto sin interpretar, el borrador guardado (incluye lo que editó el
 //      cajero) y el contexto. Llama a la IA SIN escribir nada.
-//   4. guardar_interpretacion_wa marca como interpretados solo esos mensajes. Si el cajero
-//      editó en el medio (40001), vuelve a empezar sobre lo nuevo.
+//   4. guardar_interpretacion_wa marca como interpretados solo esos mensajes y guarda, en la
+//      misma transacción, lo que el bot le contesta al cliente (plantillas: shared/bot.ts). Si
+//      el cajero editó en el medio (40001), vuelve a empezar sobre lo nuevo.
 //   5. Al soltar el turno, si quedó algo pendiente (llegó justo), lo vuelve a tomar.
 // Si la IA está apagada, se pasó el límite o falla, los mensajes quedan sin interpretar y el
 // cajero los ve igual. Privacidad (Ley 18.331): nunca se loguean mensajes ni teléfonos.
@@ -29,6 +30,7 @@ import {
   type MensajeHistorial,
   type Pendientes,
   PendientesSchema,
+  respuestaBot,
 } from '@anotado/shared';
 import type { SupabaseContext } from '@supabase/server';
 
@@ -148,7 +150,7 @@ async function vueltas(
     // suspendido. Antes del límite y de la IA: con alguna apagada no se gasta nada.
     const { data: negocio, error: errNegocio } = await admin
       .from('negocios')
-      .select('activo, ia_permitida, ia_activa')
+      .select('nombre, activo, ia_permitida, ia_activa')
       .eq('id', negocioId)
       .maybeSingle();
     if (errNegocio || !negocio) return 'error';
@@ -204,6 +206,29 @@ async function vueltas(
     }
 
     const aplicado = aplicarAcciones(borradorInicial, respuesta.respuesta.acciones, menu);
+
+    // Respuesta al cliente: solo en conversaciones de WhatsApp (las pegadas a mano no tienen a
+    // quién contestarle). Saluda la primera vez que el bot le escribe en esta conversación.
+    let respuestaCliente: string | null = null;
+    if (conv.cliente_id) {
+      const { count, error: errPrevias } = await admin
+        .from('mensajes')
+        .select('id', { count: 'exact', head: true })
+        .eq('conversacion_id', conversacionId)
+        .eq('negocio_id', negocioId)
+        .eq('rol', 'asistente');
+      if (errPrevias) return 'error';
+      respuestaCliente = respuestaBot({
+        negocio: negocio.nombre,
+        borrador: aplicado.borrador,
+        menu,
+        preguntas: aplicado.preguntas,
+        dudosos: aplicado.dudosos,
+        errores: aplicado.errores.length,
+        cambio: JSON.stringify(aplicado.borrador) !== JSON.stringify(borradorInicial),
+        primera: (count ?? 0) === 0,
+      });
+    }
     const { error: errGuardar } = await admin.rpc('guardar_interpretacion_wa', {
       p_negocio_id: negocioId,
       p_conversacion_id: conversacionId,
@@ -214,6 +239,7 @@ async function vueltas(
       p_modelo: respuesta.modelo,
       p_tokens_entrada: respuesta.tokensEntrada,
       p_tokens_salida: respuesta.tokensSalida,
+      p_respuesta: respuestaCliente ?? undefined,
     });
     if (errGuardar) {
       // El cajero editó en el medio, o un producto se agotó: se vuelve a leer y a interpretar.

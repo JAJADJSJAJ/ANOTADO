@@ -880,6 +880,7 @@ export type Database = {
         }
         Returns: Json
       }
+      consumir_limite_demo: { Args: { p_ip_hash: string }; Returns: boolean }
       consumir_limite_ia: {
         Args: {
           p_max_negocio: number
@@ -919,6 +920,7 @@ export type Database = {
       }
       demo_puede_recibir: { Args: { p_negocio_id: string }; Returns: boolean }
       demo_sin_cupo_ia: { Args: { p_negocio_id: string }; Returns: boolean }
+      es_cuenta_demo: { Args: { p_user_id: string }; Returns: boolean }
       es_demo: { Args: { p_negocio_id: string }; Returns: boolean }
       es_miembro: { Args: { n: string }; Returns: boolean }
       es_operador: { Args: never; Returns: boolean }
@@ -1148,6 +1150,7 @@ export type Database = {
         Args: { p_conversacion_id: string; p_negocio_id: string }
         Returns: boolean
       }
+      sumar_visitante_demo: { Args: { p_user_id: string }; Returns: Json }
       tiene_rol: {
         Args: { n: string; roles: Database["public"]["Enums"]["rol_miembro"][] }
         Returns: boolean
@@ -1161,7 +1164,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      unirse_demo: { Args: never; Returns: Json }
       ver_invitacion: { Args: { p_token: string }; Returns: Json }
     }
     Enums: {

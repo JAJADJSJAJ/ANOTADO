@@ -2,26 +2,26 @@
 -- anónimas, topes diarios, limpieza y slugs reservados.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(51);
+select plan(57);
 
 \set A '\'a0000000-0000-4000-8000-000000000001\''
 \set D '\'d0000000-0000-4000-8000-000000000001\''
 \set dueno_a '\'00000000-0000-4000-a000-0000000000a1\''
 \set cajero_a '\'00000000-0000-4000-a000-0000000000a2\''
-\set anon1 '\'00000000-0000-4000-a000-0000000000e1\''
-\set anon2 '\'00000000-0000-4000-a000-0000000000e2\''
+\set visita1 '\'00000000-0000-4000-a000-0000000000e1\''
+\set visita2 '\'00000000-0000-4000-a000-0000000000e2\''
 \set viejo '\'00000000-0000-4000-a000-0000000000e3\''
 
-create function pg_temp.como(p_user uuid, p_anonimo boolean default false) returns void language plpgsql as $$
+create function pg_temp.como(p_user uuid) returns void language plpgsql as $$
 begin
   perform set_config('request.jwt.claims', json_build_object(
-    'sub', p_user, 'role', 'authenticated', 'aal', 'aal1', 'is_anonymous', p_anonimo,
+    'sub', p_user, 'role', 'authenticated', 'aal', 'aal1',
     'amr', '[{"method":"password"}]'::json
   )::text, true);
   set local role authenticated;
 end;
 $$;
-grant execute on function pg_temp.como(uuid, boolean) to authenticated;
+grant execute on function pg_temp.como(uuid) to authenticated;
 
 -- Las tablas temporales del test las leen también authenticated y service_role.
 create function pg_temp.compartir() returns void language plpgsql as $$
@@ -32,10 +32,11 @@ $$;
 
 delete from limites_ia;
 update negocios set wa_phone_number_id = '1111111111', ia_permitida = true, ia_activa = true where id = :A;
-insert into auth.users (id, is_anonymous, created_at) values
-  (:anon1, true, now()),
-  (:anon2, true, now()),
-  (:viejo, true, now() - interval '2 days');
+-- Cuentas de demo como las crea demo-entrar: app_metadata.demo = true.
+insert into auth.users (id, email, raw_app_meta_data, created_at) values
+  (:visita1, 'visitante-1@demo.anotado.invalid', '{"demo":true}', now()),
+  (:visita2, 'visitante-2@demo.anotado.invalid', '{"demo":true}', now()),
+  (:viejo, 'visitante-3@demo.anotado.invalid', '{"demo":true}', now() - interval '2 days');
 
 -- Plata ----------------------------------------------------------------------------------------
 select is(formatear_pesos(125000), '$ 1.250', 'pesos con separador de miles');
@@ -46,11 +47,12 @@ select is(formatear_pesos(100000000), '$ 1.000.000', 'millones');
 -- Permisos ------------------------------------------------------------------------------------
 select ok(not bool_or(has_function_privilege(r, f, 'execute')), 'funciones internas: ni anon ni authenticated')
 from unnest(array['public.mensaje_bot(uuid, text, text)', 'public.limpiar_demo()', 'public.es_demo(uuid)',
-                  'public.demo_sin_cupo_ia(uuid)', 'public.formatear_pesos(int)']::regprocedure[]) f,
+                  'public.demo_sin_cupo_ia(uuid)', 'public.formatear_pesos(int)', 'public.es_cuenta_demo(uuid)',
+                  'public.consumir_limite_demo(text)', 'public.sumar_visitante_demo(uuid)']::regprocedure[]) f,
      unnest(array['anon', 'authenticated']) r;
-select ok(has_function_privilege('authenticated', 'public.unirse_demo()', 'execute')
-          and not has_function_privilege('anon', 'public.unirse_demo()', 'execute'),
-  'unirse_demo: authenticated sí, anon no');
+select ok(has_function_privilege('service_role', 'public.sumar_visitante_demo(uuid)', 'execute')
+          and has_function_privilege('service_role', 'public.consumir_limite_demo(text)', 'execute'),
+  'las cuentas de demo las crea solo el servidor');
 select ok(has_function_privilege('service_role', 'public.demo_puede_recibir(uuid)', 'execute')
           and not has_function_privilege('authenticated', 'public.demo_puede_recibir(uuid)', 'execute'),
   'demo_puede_recibir: solo service_role');
@@ -208,20 +210,31 @@ select unalike((select contenido from mensajes where clave = 'cancelado:' || (se
 
 -- Entrar a la demo -----------------------------------------------------------------------------
 select pg_temp.compartir();
-select pg_temp.como(:cajero_a);
-select throws_ok($$select unirse_demo()$$, '42501', null, 'una cuenta con mail no entra a la demo');
+set local role service_role;
+select throws_ok(format($$select sumar_visitante_demo(%L)$$, :cajero_a), '42501', null, 'una cuenta normal no se suma a la demo');
+select is(sumar_visitante_demo(:visita1) ->> 'slug', 'el-ceibo-demo', 'una cuenta de demo se suma a la demo');
+select lives_ok(format($$select sumar_visitante_demo(%L)$$, :visita1), 'sumarla dos veces no falla');
 reset role;
-select pg_temp.compartir();
-select pg_temp.como(:anon1, true);
-select is(unirse_demo() ->> 'slug', 'el-ceibo-demo', 'un visitante anónimo entra a la demo');
-select lives_ok($$select unirse_demo()$$, 'entrar dos veces no falla');
-reset role;
-select is((select rol::text from miembros where user_id = :anon1 and negocio_id = :D), 'cajero', 'queda como cajero');
-select is((select count(*) from miembros where user_id = :anon1), 1::bigint, 'de un solo local');
-select throws_ok(format($$insert into miembros (negocio_id, user_id, rol) values (%L, %L, 'cajero')$$, :A, :anon1),
-  '42501', null, 'una cuenta anónima no se suma a un local que no es de demo');
-select throws_ok(format($$update miembros set negocio_id = %L where user_id = %L$$, :A, :anon1),
+select is((select rol::text from miembros where user_id = :visita1 and negocio_id = :D), 'cajero', 'queda como cajero');
+select is((select count(*) from miembros where user_id = :visita1), 1::bigint, 'de un solo local');
+select throws_ok(format($$insert into miembros (negocio_id, user_id, rol) values (%L, %L, 'cajero')$$, :A, :visita1),
+  '42501', null, 'una cuenta de demo no se suma a un local que no es de demo');
+select throws_ok(format($$update miembros set negocio_id = %L where user_id = %L$$, :A, :visita1),
   '42501', null, 'ni moviendo su membresía');
+select throws_ok(format($$update auth.users set email_change = 'alguien@ejemplo.com' where id = %L$$, :visita1),
+  '42501', null, 'una cuenta de demo no completa un cambio de mail');
+select throws_ok(format($$update auth.users set email = 'alguien@ejemplo.com' where id = %L$$, :visita1),
+  '42501', null, 'ni cambia el mail directo');
+select lives_ok(format($$update auth.users set last_sign_in_at = now() where id = %L$$, :visita1),
+  'el resto de la cuenta se actualiza normal (entrar)');
+
+-- Límite para crear cuentas de demo.
+set local role service_role;
+select is(array_agg(c order by n), array[true, true, true, false], 'hasta 3 cuentas por minuto por IP')
+from (select n, consumir_limite_demo(repeat('a', 64)) as c from generate_series(1, 4) n) x;
+select is(consumir_limite_demo(repeat('b', 64)), true, 'otra IP tiene su cupo');
+select throws_ok($$select consumir_limite_demo('no-es-un-hash')$$, '22023', null, 'el hash de la IP se valida');
+reset role;
 
 -- En la demo el cajero también cocina; en un local normal, no.
 select pg_temp.compartir();
@@ -233,7 +246,7 @@ create temp table item_d as
   select jsonb_build_array(jsonb_build_object('producto_id', id, 'cantidad', 1)) as items
   from productos where negocio_id = :D and nombre = 'Pizza muzzarella';
 select pg_temp.compartir();
-select pg_temp.como(:anon1, true);
+select pg_temp.como(:visita1);
 create temp table confd as select confirmar_conversacion(:D, :convd, (select version from conversaciones where id = :convd),
   (select id from mensajes where wa_message_id = 'demo:1'), (select items from item_d), '{"modo":"retiro"}') as r;
 select is(avanzar_estado((select (r ->> 'id')::uuid from confd), 'pendiente') ->> 'estado', 'en_cocina',
@@ -267,14 +280,11 @@ select is(demo_puede_recibir(:D), false, 'con 3000 mensajes en el día, la demo 
 
 -- Limpieza -----------------------------------------------------------------------------------
 update productos set activo = false where negocio_id = :D and nombre = 'Papas fritas';
-select pg_temp.compartir();
-select pg_temp.como(:anon2, true);
-select unirse_demo();
-reset role;
+select sumar_visitante_demo(:visita2);
 insert into miembros (negocio_id, user_id, rol) values (:D, :viejo, 'cajero');
 create temp table pedidos_a as select count(*) as n from pedidos where negocio_id = :A;
-select is(limpiar_demo(), 1, 'borra solo el usuario anónimo de más de un día');
-select is((select count(*) from auth.users where id in (:anon1, :anon2)), 2::bigint, 'los de hoy siguen');
+select is(limpiar_demo(), 1, 'borra solo la cuenta de demo de más de un día');
+select is((select count(*) from auth.users where id in (:visita1, :visita2)), 2::bigint, 'las de hoy siguen');
 select is((select count(*) from miembros where user_id = :viejo), 0::bigint, 'su membresía se va con él');
 select is((select count(*) from pedidos where negocio_id = :D)
         + (select count(*) from conversaciones where negocio_id = :D)

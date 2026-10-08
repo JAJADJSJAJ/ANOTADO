@@ -10,11 +10,12 @@
 --    locales de demo nunca se mandan.
 -- 2. confirmar_conversacion: una respuesta del bot no frena la confirmación (antes cualquier
 --    mensaje nuevo la frenaba; ahora solo los del cliente).
--- 3. Demo pública (/demo): un local compartido (negocios.es_demo). Cada visitante entra con un
---    usuario anónimo de Supabase y se suma como cajero (unirse_demo). En la demo el cajero
---    también mueve los pedidos de la cocina, para que una persona haga todo el recorrido.
--- 4. Las cuentas anónimas solo pueden ser miembros de locales de demo: no aceptan
---    invitaciones ni crean locales (la limpieza las borra a las 24 h).
+-- 3. Demo pública (/demo): un local compartido (negocios.es_demo). Cada visitante es una cuenta
+--    de demo que crea la Edge Function demo-entrar (con límite por IP) y se suma como cajero
+--    (sumar_visitante_demo). En la demo el cajero también mueve los pedidos de la cocina, para
+--    que una persona haga todo el recorrido.
+-- 4. Las cuentas de demo solo pueden ser miembros de locales de demo (no aceptan invitaciones
+--    ni crean locales: la limpieza las borra a las 24 h) y no cambian su mail ni su teléfono.
 -- 5. Tope diario de IA y de mensajes para los locales de demo (además de los por minuto).
 -- 6. Limpieza diaria de la demo (pg_cron): pedidos, chats, clientes, agotados y usuarios anónimos.
 -- 7. Slugs reservados: se suman /demo y /privacidad.
@@ -271,16 +272,56 @@ $$;
 
 -- 6. Demo: entrar ------------------------------------------------------------------------------
 
--- El visitante (usuario anónimo) se suma como cajero del local de demo. Devuelve el slug.
-create function public.unirse_demo() returns jsonb
+-- Cada visitante es una cuenta de demo que crea la Edge Function demo-entrar con la API de
+-- administración (el registro público está apagado, y con él el login anónimo de Supabase):
+-- mail inventado en .invalid y app_metadata.demo = true, que solo puede poner el servidor.
+create function public.es_cuenta_demo(p_user_id uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select coalesce((select u.is_anonymous or coalesce(u.raw_app_meta_data ->> 'demo', '') = 'true'
+                   from auth.users u where u.id = p_user_id), false);
+$$;
+
+revoke all on function public.es_cuenta_demo(uuid) from public, anon, authenticated;
+
+-- Límite para crear cuentas de demo: 3 por minuto por IP (hasheada), 30 por minuto en total y
+-- hasta 500 cuentas de demo vivas (la limpieza borra las de más de un día). Claves propias en
+-- limites_registro: no comparte el cupo de registro.
+create function public.consumir_limite_demo(p_ip_hash text) returns boolean
 language plpgsql security definer set search_path = '' as $$
 declare
-  v_user uuid := auth.uid();
+  v_ventana timestamptz := date_trunc('minute', now());
+  v_ip int;
+  v_total int;
+begin
+  if p_ip_hash is null or p_ip_hash !~ '^[0-9a-f]{64}$' then
+    raise exception 'Hash de IP inválido' using errcode = '22023';
+  end if;
+  if (select count(*) from auth.users u where coalesce(u.raw_app_meta_data ->> 'demo', '') = 'true') >= 500 then
+    return false;
+  end if;
+  delete from public.limites_registro where ventana < v_ventana - interval '10 minutes';
+
+  insert into public.limites_registro as l (clave, ventana, cuenta) values ('demo:total', v_ventana, 1)
+  on conflict (clave, ventana) do update set cuenta = l.cuenta + 1
+  returning cuenta into v_total;
+
+  insert into public.limites_registro as l (clave, ventana, cuenta) values ('demo:' || p_ip_hash, v_ventana, 1)
+  on conflict (clave, ventana) do update set cuenta = l.cuenta + 1
+  returning cuenta into v_ip;
+
+  return v_ip <= 3 and v_total <= 30;
+end;
+$$;
+
+-- Suma la cuenta de demo recién creada como cajero del local de demo. Devuelve el slug.
+create function public.sumar_visitante_demo(p_user_id uuid) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
   v_negocio_id uuid;
   v_slug text;
 begin
-  if v_user is null or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) is not true then
-    raise exception 'La demo es solo para visitantes sin cuenta' using errcode = '42501';
+  if not public.es_cuenta_demo(p_user_id) then
+    raise exception 'No es una cuenta de demo' using errcode = '42501';
   end if;
   select ng.id, ng.slug into v_negocio_id, v_slug
   from public.negocios ng
@@ -290,23 +331,24 @@ begin
   if v_negocio_id is null then
     raise exception 'La demo no está disponible' using errcode = 'P0002';
   end if;
-  insert into public.miembros (negocio_id, user_id, rol) values (v_negocio_id, v_user, 'cajero')
+  insert into public.miembros (negocio_id, user_id, rol) values (v_negocio_id, p_user_id, 'cajero')
   on conflict (negocio_id, user_id) do nothing;
   return jsonb_build_object('slug', v_slug, 'negocio_id', v_negocio_id);
 end;
 $$;
 
-revoke all on function public.unirse_demo() from public, anon, authenticated;
-grant execute on function public.unirse_demo() to authenticated;
+revoke all on function public.consumir_limite_demo(text) from public, anon, authenticated;
+revoke all on function public.sumar_visitante_demo(uuid) from public, anon, authenticated;
+grant execute on function public.consumir_limite_demo(text) to service_role;
+grant execute on function public.sumar_visitante_demo(uuid) to service_role;
 
--- Una cuenta anónima solo puede ser miembro de un local de demo: si no, alguien que probó la
+-- Una cuenta de demo solo puede ser miembro de un local de demo: si no, alguien que probó la
 -- demo y después acepta una invitación (o crea su local) en el mismo navegador quedaría con
 -- una cuenta que la limpieza borra al otro día.
-create function public.exigir_miembro_no_anonimo() returns trigger
+create function public.exigir_miembro_no_demo() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
-  if exists (select 1 from auth.users u where u.id = new.user_id and u.is_anonymous)
-     and not public.es_demo(new.negocio_id) then
+  if public.es_cuenta_demo(new.user_id) and not public.es_demo(new.negocio_id) then
     raise exception 'Con la cuenta de la demo no podés sumarte a un local. Salí y entrá con tu mail.'
       using errcode = '42501';
   end if;
@@ -314,11 +356,35 @@ begin
 end;
 $$;
 
-revoke all on function public.exigir_miembro_no_anonimo() from public, anon, authenticated;
+revoke all on function public.exigir_miembro_no_demo() from public, anon, authenticated;
 
-create trigger miembros_no_anonimos
+create trigger miembros_no_demo
   before insert or update of negocio_id, user_id on public.miembros
-  for each row execute function public.exigir_miembro_no_anonimo();
+  for each row execute function public.exigir_miembro_no_demo();
+
+-- Una cuenta de demo no cambia su mail ni su teléfono: no se convierte en una cuenta real que
+-- sobreviva a la limpieza. OJO: no frena el MAIL de confirmación del cambio, que Auth manda antes
+-- de escribir acá (probado). Ese mail lo acotan el límite de Auth (uno por minuto por cuenta), el
+-- tope de mails por hora del proyecto y el límite de cuentas de demo (docs/decisiones.md).
+create function public.exigir_cuenta_demo_fija() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.email is distinct from old.email
+     or coalesce(new.email_change, '') <> coalesce(old.email_change, '') and coalesce(new.email_change, '') <> ''
+     or new.phone is distinct from old.phone
+     or coalesce(new.phone_change, '') <> coalesce(old.phone_change, '') and coalesce(new.phone_change, '') <> '' then
+    raise exception 'La cuenta de la demo no se puede cambiar' using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.exigir_cuenta_demo_fija() from public, anon, authenticated;
+
+create trigger usuarios_demo_fijos
+  before update on auth.users
+  for each row when (coalesce(old.raw_app_meta_data ->> 'demo', '') = 'true')
+  execute function public.exigir_cuenta_demo_fija();
 
 -- 7. Demo: topes diarios ---------------------------------------------------------------------
 
@@ -412,7 +478,7 @@ $$;
 -- 8. Demo: limpieza diaria ---------------------------------------------------------------------
 
 -- Deja los locales de demo como recién creados (menú intacto, nada agotado, sin pedidos ni
--- chats) y borra los usuarios anónimos de más de un día (sus membresías se van en cascada).
+-- chats) y borra las cuentas de demo de más de un día (sus membresías se van en cascada).
 -- Devuelve cuántos usuarios borró.
 create function public.limpiar_demo() returns int
 language plpgsql security definer set search_path = '' as $$
@@ -428,7 +494,9 @@ begin
   update public.productos p set activo = true from public.negocios ng
   where ng.id = p.negocio_id and ng.es_demo and not p.activo;
 
-  delete from auth.users u where u.is_anonymous and u.created_at < now() - interval '1 day';
+  delete from auth.users u
+  where (u.is_anonymous or coalesce(u.raw_app_meta_data ->> 'demo', '') = 'true')
+    and u.created_at < now() - interval '1 day';
   get diagnostics v_borrados = row_count;
   return v_borrados;
 end;
