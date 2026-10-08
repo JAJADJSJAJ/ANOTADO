@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Aviso } from '../components/Avisos.tsx';
 
-const DURACION: Record<Aviso['tipo'], number> = { info: 5000, error: 8000, cancelado: 20000, deshacer: 10000 };
+const DURACION: Record<Aviso['tipo'], number> = { info: 5000, ok: 5000, error: 8000, cancelado: 20000, deshacer: 10000 };
+/** Lo que dura la animación de salida antes de sacarlo de la lista. */
+const SALIDA_MS = 200;
 
 let siguienteId = 0;
 
@@ -12,8 +14,14 @@ export function useAvisos() {
 
   const quitar = useCallback((id: number) => {
     clearTimeout(timers.current.get(id));
-    timers.current.delete(id);
-    setAvisos((as) => as.filter((a) => a.id !== id));
+    setAvisos((as) => as.map((a) => (a.id === id ? { ...a, saliendo: true } : a)));
+    timers.current.set(
+      id,
+      setTimeout(() => {
+        timers.current.delete(id);
+        setAvisos((as) => as.filter((a) => a.id !== id));
+      }, SALIDA_MS),
+    );
   }, []);
 
   const avisar = useCallback(

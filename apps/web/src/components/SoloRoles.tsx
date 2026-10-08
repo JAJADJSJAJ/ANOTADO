@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useNegocio } from '../hooks/useNegocio.ts';
 import type { Rol } from '../lib/contextos.ts';
+import { Vacio } from './Estado.tsx';
 
 /**
  * Oculta una pantalla a los roles que no la usan. Es solo UX: los permisos reales los
@@ -9,7 +10,7 @@ import type { Rol } from '../lib/contextos.ts';
 export function SoloRoles({ roles, children }: { roles: Rol[]; children: ReactNode }) {
   const { rol } = useNegocio();
   if (!roles.includes(rol)) {
-    return <p className="p-8 text-center text-lg text-stone-600">Esta pantalla no está disponible para tu rol.</p>;
+    return <Vacio icono="llave" titulo="Esta pantalla no está disponible para tu rol" className="py-16" />;
   }
   return children;
 }
@@ -17,6 +18,6 @@ export function SoloRoles({ roles, children }: { roles: Rol[]; children: ReactNo
 /** Pantallas que en la demo están cerradas (equipo, ajustes). También lo frena la base. */
 export function SinDemo({ children }: { children: ReactNode }) {
   const { esDemo } = useNegocio();
-  if (esDemo) return <p className="p-8 text-center text-lg text-stone-600">En la demo esta pantalla está cerrada.</p>;
+  if (esDemo) return <Vacio icono="llave" titulo="En la demo esta pantalla está cerrada" className="py-16" />;
   return children;
 }
