@@ -257,6 +257,31 @@ Los reintentos de Meta no cuentan: salen antes, por el dedupe. Dos entregas simu
 ### El operador conecta el número
 `negocios.wa_phone_number_id` ya existía y no está en el GRANT de update: lo carga el operador desde el panel (`operador_conectar_whatsapp`, con TOTP y registro). El phone number ID no es secreto; la firma del webhook es la que autentica.
 
+## Fase 6: el bot responde, y la demo pública
+
+### El bot contesta con plantillas, no con la IA
+Lo que le llega al cliente se arma con el borrador (`shared/bot.ts`), que ya está validado contra el menú: qué se anotó, la entrega y lo que falta. La IA nunca escribe texto libre para el cliente. Así no puede inventar precios, promociones ni prometer nada, aunque alguien intente manipularla desde el chat. La excepción son las preguntas de aclaración ("¿la coca es de 1,5 o de 2,25?"): pasan por un filtro estricto (cortas, terminan en "?", sin plata, links ni pagos) y si no lo pasan se reemplazan por una genérica. El total lo manda la base al confirmar, nunca el bot.
+
+### Cuándo contesta
+- **Después de interpretar**, solo si cambió algo o hay algo que aclarar: un "gracias" no se contesta. La respuesta se guarda en la misma transacción que la interpretación: un reintento por versión no la duplica.
+- **Al confirmar**: número y total (con envío).
+- **Retiro**: cuando está listo. **Delivery**: cuando sale (entregado al cadete). **Cancelado**: sin el motivo, que es interno.
+Los avisos de estado salen una sola vez por pedido (`mensajes.clave`): deshacer y volver a avanzar no los repite. Las preguntas que ya hizo el bot no quedan como tarea del cajero ("Preguntale al cliente"); los dudosos sí, porque los resuelve el cajero.
+
+### Mandarlo por WhatsApp de verdad queda pendiente
+Las respuestas son mensajes con rol `asistente`. Falta el paso que las manda por la Cloud API de Meta (necesita el token de la app y la ventana de 24 h). Nunca se mandan las de un local de demo.
+
+### La demo: un local compartido, cuentas que crea el servidor
+`/demo` abre la pantalla del simulador (el teléfono del cliente, el mostrador y la cocina) sin registrarse. Decisión de Fran: un local compartido, no uno por visitante. Los visitantes ven lo de los demás; la pantalla lo avisa.
+- **No es login anónimo de Supabase**: con el registro público apagado, Auth también lo bloquea (probado), y prenderlo dejaría crear cuentas con cualquier mail. La Edge Function `demo-entrar` crea la cuenta con la API de administración (mail inventado en `.invalid`, `app_metadata.demo`), la suma como cajero y devuelve un token de un solo uso, sin mandar mails.
+- **Límites**: 3 cuentas por minuto por IP, 30 en total y hasta 500 vivas. 300 interpretaciones de IA y 3000 mensajes por día en la demo, más los límites por minuto de siempre. Encima, la key de OpenRouter tiene un tope de US$ 3 por mes.
+- **Encierro**: una cuenta de demo solo puede ser miembro de locales de demo (no acepta invitaciones ni crea locales) y no cambia su mail. En la demo, el cajero también mueve la cocina: si no, una sola persona no puede hacer todo el recorrido.
+- **Limpieza**: todas las noches (pg_cron, 5:00 de Uruguay) se borran los pedidos, chats y clientes de la demo, se vuelve a ofrecer lo agotado y se borran las cuentas de demo de más de un día.
+- **Simulador**: el mensaje entra por `recibir_mensaje_wa` y el mismo intérprete que el webhook. No hay un camino aparte para la demo. Cada visitante es siempre el mismo cliente, con un teléfono de mentira que empieza con 00.
+
+### Riesgo aceptado: el mail de cambio de mail
+Una cuenta de demo puede pedir cambiar su mail. La base no deja que el cambio se complete, pero Auth manda el mail de confirmación **antes** de escribir en la base (probado). Alguien podría usar la demo para que el SMTP del proyecto le mande ese mail a terceros. Lo acotan: Auth deja un pedido por minuto por cuenta, el límite de cuentas de demo y el tope de mails por hora del proyecto. La solución de fondo es un *Send Email Hook* que filtre las cuentas de demo, pero obliga a mandar todos los mails desde una función propia. Queda para si alguna vez pasa.
+
 ## Pendiente de decidir
 
 - **Clave de idempotencia para tarjetas nuevas de WhatsApp** (Fase 2). No bloquea.
