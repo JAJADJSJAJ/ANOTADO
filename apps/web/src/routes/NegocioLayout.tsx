@@ -1,6 +1,6 @@
 import { leerHorarios } from '@anotado/shared';
 import { useEffect, useState } from 'react';
-import { Link, Navigate, NavLink, Outlet, useParams } from 'react-router';
+import { Link, Navigate, NavLink, Outlet, useMatch, useParams } from 'react-router';
 import { BotonSalir } from '../components/BotonSalir.tsx';
 import { BotonSonido } from '../components/BotonSonido.tsx';
 import { Cargando, MensajeError, PantallaMensaje } from '../components/Estado.tsx';
@@ -97,6 +97,8 @@ const pestana =
  */
 function Barra({ negocio, email }: { negocio: NegocioActual; email: string }) {
   const { rol, esDemo } = negocio;
+  // En la demo guiada la barra queda limpia: el resto del local aparece al terminar.
+  const guiada = useMatch('/:negocio/simulador') !== null && esDemo;
   return (
     <header className="sticky top-0 z-30 border-b border-linea bg-hoja/95 backdrop-blur-[2px]">
       <div className="flex h-14 items-center gap-3 px-3 sm:gap-5 sm:px-5">
@@ -106,12 +108,16 @@ function Barra({ negocio, email }: { negocio: NegocioActual; email: string }) {
           {esDemo && <span className="chip chip-alerta hidden sm:inline-flex">Demo</span>}
         </Link>
 
-        <nav aria-label="Pantallas de trabajo" className="hidden h-full items-stretch sm:flex">
-          <PestanasTrabajo rol={rol} esDemo={esDemo} />
-        </nav>
+        {guiada ? (
+          <span className="hidden text-sm text-tinta-3 sm:inline">Probalo en tres pasos</span>
+        ) : (
+          <nav aria-label="Pantallas de trabajo" className="hidden h-full items-stretch sm:flex">
+            <PestanasTrabajo rol={rol} esDemo={esDemo} />
+          </nav>
+        )}
 
         <div className="ml-auto flex items-center gap-1">
-          {rol === 'dueno' && (
+          {rol === 'dueno' && !guiada && (
             <NavLink to="admin" className={({ isActive }) => `btn btn-chico ${isActive ? 'btn-tinta' : 'btn-fantasma'} max-sm:w-9 max-sm:px-0`}>
               <Icono nombre="ajustes" />
               <span className="max-sm:sr-only">Administrar</span>
@@ -122,9 +128,11 @@ function Barra({ negocio, email }: { negocio: NegocioActual; email: string }) {
         </div>
       </div>
       {/* En el celular las pantallas de trabajo van en una segunda fila. */}
-      <nav aria-label="Pantallas de trabajo" className="flex h-11 items-stretch overflow-x-auto sin-barra border-t border-linea px-1 sm:hidden">
-        <PestanasTrabajo rol={rol} esDemo={esDemo} />
-      </nav>
+      {!guiada && (
+        <nav aria-label="Pantallas de trabajo" className="flex h-11 items-stretch overflow-x-auto sin-barra border-t border-linea px-1 sm:hidden">
+          <PestanasTrabajo rol={rol} esDemo={esDemo} />
+        </nav>
+      )}
     </header>
   );
 }

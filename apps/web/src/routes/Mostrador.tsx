@@ -24,9 +24,9 @@ export type Pestana = 'whatsapp' | 'manual' | 'entregas';
 
 /**
  * El mostrador: los pedidos que llegan por WhatsApp, cargar uno a mano y lo que hay que
- * entregar. `compacto` = metido en una columna (la demo): menos márgenes.
+ * entregar.
  */
-export function Mostrador({ pestanaInicial, compacto = false }: { pestanaInicial?: Pestana; compacto?: boolean }) {
+export function Mostrador() {
   const negocio = useNegocio();
   const menu = useMenu(negocio.id);
   const productos = useMemo(() => new Map(menu.productos.map((p) => [p.id, p])), [menu.productos]);
@@ -36,7 +36,7 @@ export function Mostrador({ pestanaInicial, compacto = false }: { pestanaInicial
   const { avisos, avisar, quitar } = useAvisos();
 
   // Con IA, lo normal es que los pedidos lleguen por WhatsApp; sin IA, se cargan a mano.
-  const [pestana, setPestana] = useState<Pestana>(pestanaInicial ?? (negocio.iaPermitida ? 'whatsapp' : 'manual'));
+  const [pestana, setPestana] = useState<Pestana>(negocio.iaPermitida ? 'whatsapp' : 'manual');
   const [verAgotados, setVerAgotados] = useState(false);
   const [version, setVersion] = useState(0);
   // Pedidos en curso en tiempo real: alimentan la pestaña Entregas y su contador.
@@ -104,10 +104,10 @@ export function Mostrador({ pestanaInicial, compacto = false }: { pestanaInicial
     );
   }
 
-  const borde = compacto ? '' : 'px-3 sm:px-5';
+  const borde = 'px-4 sm:px-8';
 
   return (
-    <main className={`@container flex min-h-0 flex-1 flex-col gap-4 ${compacto ? '' : 'py-4 sm:py-5'}`}>
+    <main className="@container flex min-h-0 flex-1 flex-col gap-6 py-6 sm:py-8">
       <div className={`flex items-center gap-2 @2xl:gap-3 ${borde}`}>
         <Segmentado
           pestanas

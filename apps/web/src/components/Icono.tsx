@@ -122,7 +122,9 @@ const TRAZOS = {
 
 export type NombreIcono = keyof typeof TRAZOS;
 
-export function Icono({ nombre, className = 'size-[18px]', ...svg }: { nombre: NombreIcono } & SVGProps<SVGSVGElement>) {
+export function Icono({ nombre, className = '', ...svg }: { nombre: NombreIcono } & SVGProps<SVGSVGElement>) {
+  // Sin un tamaño en la clase, el de siempre (18 px): un ícono nunca sale gigante.
+  const tamano = /(^|\s)size-/.test(className) ? '' : 'size-[18px] ';
   return (
     <svg
       viewBox="0 0 24 24"
@@ -133,7 +135,7 @@ export function Icono({ nombre, className = 'size-[18px]', ...svg }: { nombre: N
       strokeLinejoin="round"
       aria-hidden
       focusable="false"
-      className={`shrink-0 ${className}`}
+      className={`shrink-0 ${tamano}${className}`}
       {...svg}
     >
       {TRAZOS[nombre]}

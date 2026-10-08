@@ -42,7 +42,8 @@ const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * Incrustada (simulador de la demo): ocupa su caja, sin pantalla de inicio ni pantalla completa,
  * y los tickets van uno abajo del otro.
  */
-export function Cocina({ incrustada = false }: { incrustada?: boolean }) {
+/** `apilada` = tickets uno abajo del otro (columna angosta); si no, en fila como en la tablet. */
+export function Cocina({ incrustada = false, apilada = incrustada }: { incrustada?: boolean; apilada?: boolean }) {
   const negocio = useNegocio();
   // En la demo la base deja que el cajero también mueva la cocina: la pantalla lo sigue.
   const rol = negocio.esDemo ? 'dueno' : negocio.rol;
@@ -237,7 +238,7 @@ export function Cocina({ incrustada = false }: { incrustada?: boolean }) {
         ) : (
           <section
             aria-label="Pedidos en curso"
-            className={`flex min-h-0 flex-1 gap-4 px-4 pb-4 ${incrustada ? 'flex-col overflow-y-auto' : 'items-start overflow-x-auto sm:px-5'}`}
+            className={`flex min-h-0 flex-1 gap-4 px-4 pb-4 ${apilada ? 'flex-col overflow-y-auto' : 'items-start overflow-x-auto sm:px-5'}`}
           >
             {enCurso.map((p) => {
               const minutos = minutosDesde(p.created_at, ahora);
@@ -252,7 +253,7 @@ export function Cocina({ incrustada = false }: { incrustada?: boolean }) {
                   nuevo={recientes.has(p.id)}
                   sellado={sellados.has(p.id)}
                   saliendo={saliendo.has(p.id)}
-                  ancho={!incrustada}
+                  ancho={!apilada}
                   onAvanzar={() => void mover(p, 'avanzar')}
                 />
               );
@@ -263,7 +264,7 @@ export function Cocina({ incrustada = false }: { incrustada?: boolean }) {
 
       <footer
         className={`flex gap-3 border-t border-noche-linea bg-noche-2 ${
-          incrustada ? 'min-h-20 flex-col px-3.5 py-3' : 'min-h-24 items-center gap-4 px-4 py-3 sm:px-5'
+          apilada ? 'min-h-20 flex-col px-3.5 py-3' : 'min-h-24 items-center gap-4 px-4 py-3 sm:px-5'
         }`}
       >
         <section aria-label="Listos para entregar" className="min-w-0 flex-1">

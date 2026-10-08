@@ -150,7 +150,7 @@ export function SimuladorWhatsApp() {
       <div ref={charla} className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-4">
         {mensajes.length === 0 && !saliendo && (
           <p className="m-auto max-w-60 rounded-lg bg-[#fff8dc] px-3 py-2.5 text-center text-[0.8125rem] leading-snug text-tinta-2 shadow-[0_1px_0_rgb(0_0_0/0.06)]">
-            Sos el cliente: escribile al local como por WhatsApp. Abajo tenés ejemplos para empezar.
+            Escribí tu pedido o tocá un ejemplo de abajo.
           </p>
         )}
         {mensajes.map((m) => (

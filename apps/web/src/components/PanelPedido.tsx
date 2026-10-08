@@ -60,6 +60,9 @@ export function PanelPedido(p: Props) {
   const total = totalEstimado(p.borrador, precios) + (zona?.costo_centavos ?? 0);
   const vacio = p.borrador.items.length === 0;
   const unidades = p.borrador.items.reduce((s, it) => s + it.cantidad, 0);
+  // Origen y notas se usan poco: quedan plegados (abiertos si ya hay algo distinto de lo normal).
+  const [masAbierto, setMasAbierto] = useState(false);
+  const mas = masAbierto || p.notas.trim() !== '' || (p.origen !== undefined && p.origen !== 'mostrador');
 
   return (
     <section aria-label={p.titulo ?? 'Pedido'} className="flex h-full min-h-0 flex-col">
@@ -96,11 +99,6 @@ export function PanelPedido(p: Props) {
 
         {p.extra}
 
-        {p.origen && p.onOrigen && (
-          <Grupo titulo="Origen">
-            <Segmentado etiqueta="Origen" opciones={ORIGENES} valor={p.origen} onCambio={p.onOrigen} />
-          </Grupo>
-        )}
         <Grupo titulo="Entrega">
           <Segmentado
             etiqueta="Entrega"
@@ -148,7 +146,21 @@ export function PanelPedido(p: Props) {
             inputMode="numeric"
           />
         )}
-        <CampoTexto etiqueta="Notas del pedido" opcional valor={p.notas} onCambio={p.onNotas} />
+        {mas ? (
+          <div className="flex animate-entra flex-col gap-4">
+            {p.origen && p.onOrigen && (
+              <Grupo titulo="Origen">
+                <Segmentado etiqueta="Origen" opciones={ORIGENES} valor={p.origen} onCambio={p.onOrigen} />
+              </Grupo>
+            )}
+            <CampoTexto etiqueta="Notas del pedido" opcional valor={p.notas} onCambio={p.onNotas} />
+          </div>
+        ) : (
+          <button type="button" onClick={() => setMasAbierto(true)} className="btn btn-fantasma btn-chico -ml-2 self-start">
+            <Icono nombre="mas" className="size-4" />
+            {p.origen ? 'Origen y notas' : 'Agregar una nota'}
+          </button>
+        )}
       </div>
 
       <footer className="flex flex-col gap-3 border-t border-linea px-4 pt-3 pb-4">
