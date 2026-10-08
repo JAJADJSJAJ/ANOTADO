@@ -27,7 +27,7 @@ export function Simulador() {
           <SimuladorWhatsApp />
         </Columna>
         <Columna paso="02" titulo="El mostrador revisa y confirma">
-          <Mostrador compacto />
+          <Mostrador pestanaInicial="whatsapp" compacto />
         </Columna>
         <Columna paso="03" titulo="La cocina lo prepara" fija>
           <div className="h-[34rem] overflow-hidden rounded-[14px] xl:h-full">

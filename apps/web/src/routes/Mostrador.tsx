@@ -26,7 +26,7 @@ export type Pestana = 'whatsapp' | 'manual' | 'entregas';
  * El mostrador: los pedidos que llegan por WhatsApp, cargar uno a mano y lo que hay que
  * entregar. `compacto` = metido en una columna (la demo): menos márgenes.
  */
-export function Mostrador({ pestanaInicial = 'whatsapp', compacto = false }: { pestanaInicial?: Pestana; compacto?: boolean }) {
+export function Mostrador({ pestanaInicial, compacto = false }: { pestanaInicial?: Pestana; compacto?: boolean }) {
   const negocio = useNegocio();
   const menu = useMenu(negocio.id);
   const productos = useMemo(() => new Map(menu.productos.map((p) => [p.id, p])), [menu.productos]);
@@ -35,7 +35,8 @@ export function Mostrador({ pestanaInicial = 'whatsapp', compacto = false }: { p
   const zonasActivas = useMemo(() => zonas.filter((z) => z.activa), [zonas]);
   const { avisos, avisar, quitar } = useAvisos();
 
-  const [pestana, setPestana] = useState<Pestana>(pestanaInicial);
+  // Con IA, lo normal es que los pedidos lleguen por WhatsApp; sin IA, se cargan a mano.
+  const [pestana, setPestana] = useState<Pestana>(pestanaInicial ?? (negocio.iaPermitida ? 'whatsapp' : 'manual'));
   const [verAgotados, setVerAgotados] = useState(false);
   const [version, setVersion] = useState(0);
   // Pedidos en curso en tiempo real: alimentan la pestaña Entregas y su contador.
