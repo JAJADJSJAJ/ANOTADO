@@ -11,13 +11,13 @@
 -- 2. confirmar_conversacion: una respuesta del bot no frena la confirmación (antes cualquier
 --    mensaje nuevo la frenaba; ahora solo los del cliente).
 -- 3. Demo pública (/demo): un local compartido (negocios.es_demo). Cada visitante es una cuenta
---    de demo que crea la Edge Function demo-entrar (con límite por IP) y se suma como cajero
---    (sumar_visitante_demo). En la demo el cajero también mueve los pedidos de la cocina, para
---    que una persona haga todo el recorrido.
--- 4. Las cuentas de demo solo pueden ser miembros de locales de demo (no aceptan invitaciones
---    ni crean locales: la limpieza las borra a las 24 h) y no cambian su mail ni su teléfono.
--- 5. Tope diario de IA y de mensajes para los locales de demo (además de los por minuto).
--- 6. Limpieza diaria de la demo (pg_cron): pedidos, chats, clientes, agotados y usuarios anónimos.
+--    de demo que crea la Edge Function demo-entrar (con límite por IP) y se suma como dueña
+--    (sumar_visitante_demo), con la demo CERRADA por triggers: pedidos, cocina, agotados y hasta 3
+--    productos propios; el menú base, ajustes, IA, zonas, categorías y equipo no se tocan.
+-- 4. Las cuentas de demo solo pueden ser miembros de locales de demo, no cambian su mail y Auth no
+--    les manda mails (ni de cambio de email ni de reautenticación).
+-- 5. Cupos diarios atómicos (demo_cupos): IA, mensajes del simulador, cuentas, pedidos y clientes.
+-- 6. Limpieza de la demo (pg_cron): todo cada noche, los agotados cada hora.
 -- 7. Slugs reservados: se suman /demo y /privacidad.
 
 -- 1. Columnas -------------------------------------------------------------------------------
@@ -270,7 +270,36 @@ language sql stable security definer set search_path = '' as $$
   end;
 $$;
 
--- 6. Demo: entrar ------------------------------------------------------------------------------
+-- 6. Demo: cupos diarios ----------------------------------------------------------------------
+
+-- Contadores por día (hora de Uruguay), atómicos: el upsert bloquea la fila, así que dos pedidos
+-- simultáneos no pasan el tope (revisión: antes se contaba y se registraba por separado).
+create table public.demo_cupos (
+  clave text not null check (char_length(clave) <= 120),
+  dia date not null,
+  cuenta int not null,
+  primary key (clave, dia)
+);
+alter table public.demo_cupos enable row level security;  -- sin policies: solo el servidor
+
+-- Suma uno al cupo de hoy y dice si todavía está dentro del máximo. Si la transacción que la llama
+-- falla, la suma se deshace: lo rechazado no cuenta.
+create function public.consumir_cupo_demo(p_clave text, p_max int) returns boolean
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_cuenta int;
+begin
+  insert into public.demo_cupos as c (clave, dia, cuenta)
+  values (p_clave, (now() at time zone 'America/Montevideo')::date, 1)
+  on conflict (clave, dia) do update set cuenta = c.cuenta + 1
+  returning cuenta into v_cuenta;
+  return v_cuenta <= p_max;
+end;
+$$;
+
+revoke all on function public.consumir_cupo_demo(text, int) from public, anon, authenticated;
+
+-- 7. Demo: entrar ------------------------------------------------------------------------------
 
 -- Cada visitante es una cuenta de demo que crea la Edge Function demo-entrar con la API de
 -- administración (el registro público está apagado, y con él el login anónimo de Supabase):
@@ -283,9 +312,9 @@ $$;
 
 revoke all on function public.es_cuenta_demo(uuid) from public, anon, authenticated;
 
--- Límite para crear cuentas de demo: 3 por minuto por IP (hasheada), 30 por minuto en total y
--- hasta 500 cuentas de demo vivas (la limpieza borra las de más de un día). Claves propias en
--- limites_registro: no comparte el cupo de registro.
+-- Límite para crear cuentas de demo: por minuto, 3 por IP (hasheada) y 30 en total; por día, 10 por
+-- IP y 300 en total; y hasta 500 cuentas de demo vivas (la limpieza borra las de más de un día).
+-- Los de por minuto usan claves propias en limites_registro: no comparten el cupo de registro.
 create function public.consumir_limite_demo(p_ip_hash text) returns boolean
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -309,11 +338,17 @@ begin
   on conflict (clave, ventana) do update set cuenta = l.cuenta + 1
   returning cuenta into v_ip;
 
-  return v_ip <= 3 and v_total <= 30;
+  return v_ip <= 3 and v_total <= 30
+    and public.consumir_cupo_demo('cuentas:' || p_ip_hash, 10)
+    and public.consumir_cupo_demo('cuentas', 300);
 end;
 $$;
 
--- Suma la cuenta de demo recién creada como cajero del local de demo. Devuelve el slug.
+-- Suma la cuenta de demo recién creada como DUEÑA del local de demo (así prueba también el menú;
+-- lo que no puede tocar lo frenan los triggers de abajo). Y le cierra el envío de mails: Auth no
+-- manda un mail de cambio de email ni de reautenticación si el anterior es de hace menos de un
+-- rato, y acá "el anterior" queda en el año 2999 (probado: responde 429 sin mandar nada). Así
+-- nadie puede usar la demo para que el SMTP del proyecto le escriba a un tercero.
 create function public.sumar_visitante_demo(p_user_id uuid) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -331,16 +366,32 @@ begin
   if v_negocio_id is null then
     raise exception 'La demo no está disponible' using errcode = 'P0002';
   end if;
-  insert into public.miembros (negocio_id, user_id, rol) values (v_negocio_id, p_user_id, 'cajero')
+  update auth.users
+  set email_change_sent_at = '2999-01-01', reauthentication_sent_at = '2999-01-01', phone_change_sent_at = '2999-01-01'
+  where id = p_user_id;
+  insert into public.miembros (negocio_id, user_id, rol) values (v_negocio_id, p_user_id, 'dueno')
   on conflict (negocio_id, user_id) do nothing;
   return jsonb_build_object('slug', v_slug, 'negocio_id', v_negocio_id);
 end;
 $$;
 
+-- Cupo de mensajes del simulador: 60 por visitante y 2000 en total por día (cada uno es una fila).
+-- false si no es un local de demo.
+create function public.consumir_mensaje_demo(p_negocio_id uuid, p_user_id uuid) returns boolean
+language plpgsql security definer set search_path = '' as $$
+begin
+  return public.es_demo(p_negocio_id)
+    and public.consumir_cupo_demo('mensajes:' || p_user_id, 60)
+    and public.consumir_cupo_demo('mensajes:' || p_negocio_id, 2000);
+end;
+$$;
+
 revoke all on function public.consumir_limite_demo(text) from public, anon, authenticated;
 revoke all on function public.sumar_visitante_demo(uuid) from public, anon, authenticated;
+revoke all on function public.consumir_mensaje_demo(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.consumir_limite_demo(text) to service_role;
 grant execute on function public.sumar_visitante_demo(uuid) to service_role;
+grant execute on function public.consumir_mensaje_demo(uuid, uuid) to service_role;
 
 -- Una cuenta de demo solo puede ser miembro de un local de demo: si no, alguien que probó la
 -- demo y después acepta una invitación (o crea su local) en el mismo navegador quedaría con
@@ -363,9 +414,7 @@ create trigger miembros_no_demo
   for each row execute function public.exigir_miembro_no_demo();
 
 -- Una cuenta de demo no cambia su mail ni su teléfono: no se convierte en una cuenta real que
--- sobreviva a la limpieza. OJO: no frena el MAIL de confirmación del cambio, que Auth manda antes
--- de escribir acá (probado). Ese mail lo acotan el límite de Auth (uno por minuto por cuenta), el
--- tope de mails por hora del proyecto y el límite de cuentas de demo (docs/decisiones.md).
+-- sobreviva a la limpieza. (Los mails de confirmación ni salen: ver sumar_visitante_demo.)
 create function public.exigir_cuenta_demo_fija() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
@@ -388,32 +437,150 @@ create trigger usuarios_demo_fijos
   for each row when (old.is_anonymous or coalesce(old.raw_app_meta_data ->> 'demo', '') = 'true')
   execute function public.exigir_cuenta_demo_fija();
 
--- 7. Demo: topes diarios ---------------------------------------------------------------------
+-- 8. Demo cerrada: qué puede tocar un visitante ------------------------------------------------
+--
+-- Los visitantes son dueños del local de demo, pero desde la web (auth.uid() no nulo) solo
+-- pueden: tomar y confirmar pedidos, mover la cocina, marcar agotados (vuelven cada hora) y agregar
+-- hasta 3 productos suyos (40 entre todos), que pueden editar o borrar. El menú base no se toca. Ni
+-- ajustes, IA, horarios, zonas, categorías, equipo ni invitaciones (las invitaciones llevan al
+-- registro, que manda mails). El servidor (service_role, la limpieza, el SQL Editor) no tiene auth.uid()
+-- y no pasa por acá.
 
--- Locales de demo: hasta 300 interpretaciones de IA por día (unos centavos de dólar). Los
--- límites por minuto siguen igual. Se usa en los dos consumir_limite_*.
-create function public.demo_sin_cupo_ia(p_negocio_id uuid) returns boolean
-language sql stable security definer set search_path = '' as $$
-  select public.es_demo(p_negocio_id)
-    and (select count(*) from public.uso_ia u
-         where u.negocio_id = p_negocio_id and u.created_at > now() - interval '1 day') >= 300;
+create function public.exigir_demo_sin_cambios() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_fila jsonb := to_jsonb(case when tg_op = 'DELETE' then old else new end);
+  v_negocio_id uuid := (v_fila ->> (case when tg_table_name = 'negocios' then 'id' else 'negocio_id' end))::uuid;
+begin
+  if auth.uid() is not null and public.es_demo(v_negocio_id) then
+    raise exception 'En la demo esto no se puede cambiar.' using errcode = '42501';
+  end if;
+  return case when tg_op = 'DELETE' then old else new end;
+end;
 $$;
 
-revoke all on function public.demo_sin_cupo_ia(uuid) from public, anon, authenticated;
+revoke all on function public.exigir_demo_sin_cambios() from public, anon, authenticated;
 
--- Mensajes del simulador: hasta 3000 por día entre todos los visitantes (cada uno es una fila).
-create function public.demo_puede_recibir(p_negocio_id uuid) returns boolean
-language sql stable security definer set search_path = '' as $$
-  select public.es_demo(p_negocio_id)
-    and (select count(*) from public.mensajes m
-         where m.negocio_id = p_negocio_id and m.rol = 'cliente'
-           and m.created_at > now() - interval '1 day') < 3000;
+create trigger negocios_demo_fija before update or delete on public.negocios
+  for each row execute function public.exigir_demo_sin_cambios();
+create trigger categorias_demo_fijas before insert or update or delete on public.categorias
+  for each row execute function public.exigir_demo_sin_cambios();
+create trigger zonas_demo_fijas before insert or update or delete on public.zonas_envio
+  for each row execute function public.exigir_demo_sin_cambios();
+create trigger invitaciones_demo_no before insert or update or delete on public.invitaciones
+  for each row execute function public.exigir_demo_sin_cambios();
+create trigger miembros_demo_fijos before insert or update or delete on public.miembros
+  for each row execute function public.exigir_demo_sin_cambios();
+
+-- Productos que agregaron los visitantes (los demás son el menú base, que no se toca).
+create table public.demo_productos_agregados (
+  producto_id uuid primary key references public.productos on delete cascade,
+  negocio_id uuid not null references public.negocios on delete cascade,
+  user_id uuid not null,
+  created_at timestamptz not null default now()
+);
+alter table public.demo_productos_agregados enable row level security;  -- sin policies
+
+create function public.exigir_producto_demo() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_uid uuid := auth.uid();
+  v_negocio_id uuid := case when tg_op = 'DELETE' then old.negocio_id else new.negocio_id end;
+  v_duenio uuid;
+begin
+  if v_uid is null or not public.es_demo(v_negocio_id) then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+
+  if tg_op = 'INSERT' then
+    -- De a uno por local: dos altas simultáneas no pasan el tope.
+    perform pg_advisory_xact_lock(hashtextextended('demo-productos:' || v_negocio_id, 0));
+    if (select count(*) from public.demo_productos_agregados a where a.user_id = v_uid) >= 3 then
+      raise exception 'En la demo podés agregar hasta 3 productos.' using errcode = '42501';
+    end if;
+    if (select count(*) from public.demo_productos_agregados a where a.negocio_id = v_negocio_id) >= 40 then
+      raise exception 'La demo ya tiene muchos productos agregados. Probá mañana.' using errcode = '42501';
+    end if;
+    return new;
+  end if;
+
+  select a.user_id into v_duenio from public.demo_productos_agregados a where a.producto_id = old.id;
+  if v_duenio is distinct from v_uid then
+    -- Menú base o producto de otro visitante: solo agotado / disponible.
+    if tg_op = 'DELETE' or new.negocio_id is distinct from old.negocio_id
+       or to_jsonb(new) - 'activo' is distinct from to_jsonb(old) - 'activo' then
+      raise exception 'Los productos de la demo no se editan: agregá uno tuyo para probar.' using errcode = '42501';
+    end if;
+  elsif tg_op = 'UPDATE' and new.negocio_id is distinct from old.negocio_id then
+    raise exception 'En la demo esto no se puede cambiar.' using errcode = '42501';
+  end if;
+  return case when tg_op = 'DELETE' then old else new end;
+end;
 $$;
 
-revoke all on function public.demo_puede_recibir(uuid) from public, anon, authenticated;
-grant execute on function public.demo_puede_recibir(uuid) to service_role;
+create function public.anotar_producto_demo() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if auth.uid() is not null and public.es_demo(new.negocio_id) then
+    insert into public.demo_productos_agregados (producto_id, negocio_id, user_id) values (new.id, new.negocio_id, auth.uid());
+  end if;
+  return null;
+end;
+$$;
 
--- Igual que antes, más el tope diario de la demo.
+revoke all on function public.exigir_producto_demo() from public, anon, authenticated;
+revoke all on function public.anotar_producto_demo() from public, anon, authenticated;
+
+create trigger productos_demo before insert or update or delete on public.productos
+  for each row execute function public.exigir_producto_demo();
+create trigger productos_demo_anotar after insert on public.productos
+  for each row execute function public.anotar_producto_demo();
+
+-- Pedidos y clientes cargados a mano: 20 pedidos por visitante y 500 en total por día; 10 clientes
+-- por visitante. (Los clientes del simulador los crea el servidor, sin auth.uid().)
+create function public.exigir_cupo_demo() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null or not public.es_demo(new.negocio_id) then
+    return new;
+  end if;
+  if tg_table_name = 'pedidos' then
+    if not public.consumir_cupo_demo('pedidos:' || v_uid, 20)
+       or not public.consumir_cupo_demo('pedidos:' || new.negocio_id, 500) then
+      raise exception 'La demo llegó al límite de pedidos de hoy. Volvé mañana.' using errcode = '42501';
+    end if;
+  elsif not public.consumir_cupo_demo('clientes:' || v_uid, 10) then
+    raise exception 'En la demo podés cargar hasta 10 clientes por día.' using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.exigir_cupo_demo() from public, anon, authenticated;
+
+create trigger pedidos_cupo_demo before insert on public.pedidos
+  for each row execute function public.exigir_cupo_demo();
+create trigger clientes_cupo_demo before insert on public.clientes
+  for each row execute function public.exigir_cupo_demo();
+
+-- 9. Demo: topes de IA -------------------------------------------------------------------------
+
+-- En la demo, además de los límites por minuto: como mucho 20 por minuto en el local, y por día 25
+-- por visitante (o cliente del simulador) y 200 en total. Primero el del visitante, así uno que
+-- ya llegó a su tope no gasta el del resto.
+create function public.consumir_ia_demo(p_negocio_id uuid, p_quien text) returns boolean
+language plpgsql security definer set search_path = '' as $$
+begin
+  return public.consumir_cupo_demo('ia:' || p_quien, 25)
+    and public.consumir_cupo_demo('ia:' || p_negocio_id, 200);
+end;
+$$;
+
+revoke all on function public.consumir_ia_demo(uuid, text) from public, anon, authenticated;
+
+-- Igual que antes, más los topes de la demo.
 create or replace function public.consumir_limite_ia(
   p_negocio_id uuid,
   p_user_id uuid,
@@ -426,8 +593,11 @@ declare
   v_negocio int;
   v_usuario int;
 begin
-  if public.demo_sin_cupo_ia(p_negocio_id) then
-    return false;
+  if public.es_demo(p_negocio_id) then
+    if not public.consumir_ia_demo(p_negocio_id, p_user_id::text) then
+      return false;
+    end if;
+    p_max_negocio := least(p_max_negocio, 20);
   end if;
   -- Limpieza de ventanas viejas del mismo negocio (usa la PK, es barato).
   delete from public.limites_ia where negocio_id = p_negocio_id and ventana < v_ventana - interval '10 minutes';
@@ -458,8 +628,11 @@ declare
   v_negocio int;
   v_cliente int;
 begin
-  if public.demo_sin_cupo_ia(p_negocio_id) then
-    return false;
+  if public.es_demo(p_negocio_id) then
+    if not public.consumir_ia_demo(p_negocio_id, 'cliente:' || p_cliente_id) then
+      return false;
+    end if;
+    p_max_negocio := least(p_max_negocio, 20);
   end if;
   delete from public.limites_ia where negocio_id = p_negocio_id and ventana < v_ventana - interval '10 minutes';
 
@@ -477,7 +650,7 @@ begin
 end;
 $$;
 
--- 8. Demo: limpieza diaria ---------------------------------------------------------------------
+-- 10. Demo: limpieza ---------------------------------------------------------------------------
 
 -- Lo agotado en la demo vuelve a ofrecerse cada hora: si un visitante marca todo agotado, el
 -- siguiente no tiene que esperar a la noche para probarla.
@@ -495,7 +668,7 @@ $$;
 
 revoke all on function public.reponer_agotados_demo() from public, anon, authenticated;
 
--- Deja los locales de demo como recién creados (menú intacto, nada agotado, sin pedidos ni
+-- Deja los locales de demo como recién creados (solo el menú base, nada agotado, sin pedidos ni
 -- chats) y borra las cuentas de demo de más de un día (sus membresías se van en cascada).
 -- Devuelve cuántos usuarios borró.
 create function public.limpiar_demo() returns int
@@ -509,7 +682,10 @@ begin
   delete from public.clientes c using public.negocios ng where ng.id = c.negocio_id and ng.es_demo;
   delete from public.limites_ia l using public.negocios ng where ng.id = l.negocio_id and ng.es_demo;
   delete from public.contadores_pedidos cp using public.negocios ng where ng.id = cp.negocio_id and ng.es_demo;
+  -- Lo que agregaron los visitantes (después de los pedidos, que lo referencian).
+  delete from public.productos p using public.demo_productos_agregados a where a.producto_id = p.id;
   perform public.reponer_agotados_demo();
+  delete from public.demo_cupos where dia < (now() at time zone 'America/Montevideo')::date - 1;
 
   -- Solo las marcadas por demo-entrar (revisión: no cualquier anónima).
   delete from auth.users u
@@ -528,7 +704,7 @@ create extension if not exists pg_cron with schema pg_catalog;
 select cron.schedule('limpiar-demo', '0 8 * * *', 'select public.limpiar_demo()');
 select cron.schedule('reponer-agotados-demo', '30 * * * *', 'select public.reponer_agotados_demo()');
 
--- 9. Slugs reservados: /demo y /privacidad -----------------------------------------------------
+-- 11. Slugs reservados: /demo y /privacidad -----------------------------------------------------
 
 create or replace function public.crear_negocio(p_codigo text, p_nombre text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
@@ -590,7 +766,7 @@ begin
 end;
 $$;
 
--- 10. El local de demo ------------------------------------------------------------------------
+-- 12. El local de demo ------------------------------------------------------------------------
 
 -- Datos de referencia (no de prueba): tiene que existir también en la nube. El
 -- phone_number_id empieza con 0 (los de Meta nunca), así ningún número real cae acá.

@@ -5,7 +5,8 @@
 // intérprete compartido, que además deja la respuesta del bot. No pasa por Meta.
 //   1. Sesión de usuario (el visitante es un usuario anónimo) y miembro de un local de demo.
 //      Solo locales de demo: nadie puede inyectar mensajes en un local real.
-//   2. Tope diario de mensajes de la demo (demo_puede_recibir), además de los por minuto.
+//   2. Cupo diario de mensajes de la demo (consumir_mensaje_demo: por visitante y en total),
+//      además de los límites por minuto de recibir_mensaje_wa.
 //   3. El cliente es un teléfono de mentira derivado del usuario (telefonoDemo): cada
 //      visitante es siempre el mismo cliente, y ninguno es un número real.
 //   4. 200 enseguida; la IA corre después (EdgeRuntime.waitUntil), igual que el webhook.
@@ -57,10 +58,10 @@ export default {
     if (errNegocio) return error(500, 'No se pudo verificar la demo');
     if (!negocio?.wa_phone_number_id) return error(403, 'El simulador es solo para la demo');
 
-    // 2. Tope diario.
-    const { data: puede, error: errCupo } = await admin.rpc('demo_puede_recibir', { p_negocio_id: negocio.id });
+    // 2. Cupo diario.
+    const { data: puede, error: errCupo } = await admin.rpc('consumir_mensaje_demo', { p_negocio_id: negocio.id, p_user_id: userId });
     if (errCupo) return error(500, 'No se pudo verificar el límite');
-    if (!puede) return error(429, 'La demo llegó al límite de mensajes de hoy. Volvé mañana.');
+    if (!puede) return error(429, 'Llegaste al límite de mensajes de la demo por hoy. Volvé mañana.');
 
     // 3. Mismo camino que un mensaje de WhatsApp.
     const telefono = telefonoDemo(userId);

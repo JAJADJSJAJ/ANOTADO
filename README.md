@@ -12,7 +12,7 @@
 
 Los locales de comida reciben pedidos por WhatsApp y los anotan en papel: se mezclan, se pierden, llegan tarde. Anotado convierte esos mensajes en pedidos ordenados que aparecen en la pantalla de cocina en tiempo real. **La IA propone el pedido, una persona lo confirma.** El cliente no cambia nada: sigue escribiendo por WhatsApp como siempre.
 
-**Demo en vivo, sin registrarte:** [anotadoproject.vercel.app/demo](https://anotadoproject.vercel.app/demo). Escribís como cliente en un WhatsApp simulado, el bot te contesta, confirmás en el mostrador y lo ves llegar a la cocina, todo en una pantalla. La demo es compartida, tiene topes de uso de IA y se borra cada noche.
+**Demo en vivo, sin registrarte:** [anotadoproject.vercel.app/demo](https://anotadoproject.vercel.app/demo). Escribís como cliente en un WhatsApp simulado, el bot te contesta, confirmás en el mostrador y lo ves llegar a la cocina, todo en una pantalla. La demo es compartida y cerrada: se puede pedir, cocinar y agregar algún producto al menú, con topes de uso de IA, y se borra cada noche.
 
 ## Qué hace
 
@@ -62,7 +62,7 @@ Detalle de cada flujo en [`docs/arquitectura.md`](docs/arquitectura.md).
 
 - **El estado vive en la base, no en la IA.** La IA traduce texto a acciones; el borrador del pedido está en Postgres.
 - **La IA propone, el humano confirma.** Lo dudoso se marca, nunca se inventa.
-- **Aislamiento por negocio con RLS** en todas las tablas, verificado con 522 tests pgTAP que corren en cada PR.
+- **Aislamiento por negocio con RLS** en todas las tablas, verificado con 548 tests pgTAP que corren en cada PR.
 - **Los precios nunca salen de la IA.** El total se recalcula en el servidor.
 - **La cocina ve solo lo que cocina.** Lee por una RPC sin dirección ni teléfono, y Realtime avisa solo "cambió el pedido X": la lista siempre se recarga desde la base, así un aviso perdido no deja la pantalla mal.
 - **La IA se prende por local, con dos llaves:** la habilita el operador y la prende o apaga el dueño.

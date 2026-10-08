@@ -219,6 +219,60 @@ export type Database = {
           },
         ]
       }
+      demo_cupos: {
+        Row: {
+          clave: string
+          cuenta: number
+          dia: string
+        }
+        Insert: {
+          clave: string
+          cuenta: number
+          dia: string
+        }
+        Update: {
+          clave?: string
+          cuenta?: number
+          dia?: string
+        }
+        Relationships: []
+      }
+      demo_productos_agregados: {
+        Row: {
+          created_at: string
+          negocio_id: string
+          producto_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          negocio_id: string
+          producto_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          negocio_id?: string
+          producto_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_productos_agregados_negocio_id_fkey"
+            columns: ["negocio_id"]
+            isOneToOne: false
+            referencedRelation: "negocios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demo_productos_agregados_producto_id_fkey"
+            columns: ["producto_id"]
+            isOneToOne: true
+            referencedRelation: "productos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitaciones: {
         Row: {
           creada_por: string | null
@@ -880,6 +934,14 @@ export type Database = {
         }
         Returns: Json
       }
+      consumir_cupo_demo: {
+        Args: { p_clave: string; p_max: number }
+        Returns: boolean
+      }
+      consumir_ia_demo: {
+        Args: { p_negocio_id: string; p_quien: string }
+        Returns: boolean
+      }
       consumir_limite_demo: { Args: { p_ip_hash: string }; Returns: boolean }
       consumir_limite_ia: {
         Args: {
@@ -903,6 +965,10 @@ export type Database = {
         Args: { p_ip_hash: string; p_max_ip: number; p_max_total: number }
         Returns: boolean
       }
+      consumir_mensaje_demo: {
+        Args: { p_negocio_id: string; p_user_id: string }
+        Returns: boolean
+      }
       crear_codigo_alta: {
         Args: { p_dias?: number; p_nota?: string }
         Returns: string
@@ -918,8 +984,6 @@ export type Database = {
         Args: { p_codigo: string; p_nombre: string }
         Returns: Json
       }
-      demo_puede_recibir: { Args: { p_negocio_id: string }; Returns: boolean }
-      demo_sin_cupo_ia: { Args: { p_negocio_id: string }; Returns: boolean }
       es_cuenta_demo: { Args: { p_user_id: string }; Returns: boolean }
       es_demo: { Args: { p_negocio_id: string }; Returns: boolean }
       es_miembro: { Args: { n: string }; Returns: boolean }
@@ -1128,6 +1192,7 @@ export type Database = {
         }
         Returns: Json
       }
+      reponer_agotados_demo: { Args: never; Returns: number }
       reservar_registro: {
         Args: { p_codigo?: string; p_email: string; p_token?: string }
         Returns: string

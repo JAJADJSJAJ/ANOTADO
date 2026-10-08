@@ -97,10 +97,13 @@ export function NegocioLayout() {
               </NavLink>
             )}
             {negocio.rol === 'dueno' && (
+              <NavLink to="admin/menu" className={tab}>
+                Menú
+              </NavLink>
+            )}
+            {/* En la demo el equipo y los ajustes están cerrados (lo frena también la base). */}
+            {negocio.rol === 'dueno' && !negocio.esDemo && (
               <>
-                <NavLink to="admin/menu" className={tab}>
-                  Menú
-                </NavLink>
                 <NavLink to="admin/equipo" className={tab}>
                   Equipo
                 </NavLink>

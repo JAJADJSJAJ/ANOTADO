@@ -15,7 +15,8 @@ export function Simulador() {
   return (
     <div className="flex flex-1 flex-col">
       <p className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-950">
-        Demo compartida: otros visitantes ven lo mismo que vos. No escribas datos reales. Se borra todo cada noche.
+        Demo compartida: otros visitantes ven lo mismo que vos. No escribas datos reales. Podés pedir, confirmar, cocinar
+        y agregar hasta 3 productos al menú. Se borra todo cada noche.
       </p>
       <div className="grid flex-1 gap-4 p-4 xl:grid-cols-[22rem_minmax(0,1fr)_26rem]">
         <aside className="flex flex-col gap-2 xl:sticky xl:top-4 xl:h-[calc(100vh-7rem)]">

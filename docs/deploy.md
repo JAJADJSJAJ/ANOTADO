@@ -250,15 +250,17 @@ webhook. El local "El Ceibo (demo)" lo crea la migración.
 
    Tiene que dar **401**.
 3. **Auth**: el registro público (*Allow new users to sign up*) **sigue apagado**: las cuentas de
-   demo las crea la función. En *Authentication → Rate Limits*, bajá *Rate limit for sending
-   emails* a lo que de verdad se usa (por ejemplo, 10 por hora): acota un abuso posible desde la
-   demo (`docs/decisiones.md`, "Riesgo aceptado: el mail de cambio de mail").
+   demo las crea la función. No hace falta tocar nada más: la demo no puede hacer que Auth mande
+   mails (`docs/decisiones.md`, "Ningún mail desde la demo").
 4. **Probar**: abrí `https://<dominio>/demo` en una ventana privada → *Probar la demo* → mandá
    "hola, 2 completas y una coca" desde el teléfono. En unos segundos contesta el bot y aparece la
    tarjeta en el mostrador; confirmala y movela en la cocina: el teléfono recibe el aviso.
 
 **Cuánto gasta**: cada mensaje interpretado cuesta una fracción de centavo de dólar. La demo corta
-en 300 interpretaciones por día, y la key de OpenRouter tiene su propio tope mensual.
+en 200 interpretaciones por día (25 por visitante), y la key de OpenRouter tiene su propio tope mensual.
+
+**Cambiar algo de la demo** (el menú base, el nombre): desde el *SQL Editor*. Desde la web nadie
+puede, ni siquiera el operador: los triggers de la demo cerrada frenan a cualquier usuario.
 
 **Apagar la demo** (*SQL Editor*): `update negocios set activo = false where es_demo;`. La página
 `/demo` deja de crear cuentas y el simulador deja de recibir. Para prenderla, `true`.

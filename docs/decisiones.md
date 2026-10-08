@@ -273,15 +273,31 @@ Las respuestas son mensajes con rol `asistente`. Falta el paso que las manda por
 
 ### La demo: un local compartido, cuentas que crea el servidor
 `/demo` abre la pantalla del simulador (el teléfono del cliente, el mostrador y la cocina) sin registrarse. Decisión de Fran: un local compartido, no uno por visitante. Los visitantes ven lo de los demás; la pantalla lo avisa.
-- **No es login anónimo de Supabase**: con el registro público apagado, Auth también lo bloquea (probado), y prenderlo dejaría crear cuentas con cualquier mail. La Edge Function `demo-entrar` crea la cuenta con la API de administración (mail inventado en `.invalid`, `app_metadata.demo`), la suma como cajero y devuelve un token de un solo uso, sin mandar mails.
-- **Límites**: 3 cuentas por minuto por IP, 30 en total y hasta 500 vivas. 300 interpretaciones de IA y 3000 mensajes por día en la demo, más los límites por minuto de siempre. Encima, la key de OpenRouter tiene un tope de US$ 3 por mes.
-- **Encierro**: una cuenta de demo solo puede ser miembro de locales de demo (no acepta invitaciones ni crea locales) y no cambia su mail. En la demo, el cajero también mueve la cocina: si no, una sola persona no puede hacer todo el recorrido.
-- **Limpieza**: todas las noches (pg_cron, 5:00 de Uruguay) se borran los pedidos, chats y clientes de la demo, se vuelve a ofrecer lo agotado y se borran las cuentas de demo de más de un día (solo las marcadas por `demo-entrar`). Lo agotado además vuelve cada hora: si un visitante marca todo agotado, el siguiente no espera a la noche.
-- **Topes diarios no atómicos (aceptado, revisión)**: se cuenta y después se registra el uso, en transacciones distintas. Varios pedidos simultáneos justo en el límite lo pueden pasar por unos pocos. Lo acotan los límites por minuto (60 interpretaciones por minuto por local) y el tope de la key.
+- **No es login anónimo de Supabase**: con el registro público apagado, Auth también lo bloquea (probado), y prenderlo dejaría crear cuentas con cualquier mail. La Edge Function `demo-entrar` crea la cuenta con la API de administración (mail inventado en `.invalid`, `app_metadata.demo`), la suma al local y devuelve un token de un solo uso, sin mandar mails.
 - **Simulador**: el mensaje entra por `recibir_mensaje_wa` y el mismo intérprete que el webhook. No hay un camino aparte para la demo. Cada visitante es siempre el mismo cliente, con un teléfono de mentira que empieza con 00.
+- **Limpieza**: todas las noches (pg_cron, 5:00 de Uruguay) se borran los pedidos, chats, clientes y productos agregados de la demo, se vuelve a ofrecer lo agotado y se borran las cuentas de demo de más de un día (solo las marcadas por `demo-entrar`). Lo agotado además vuelve cada hora: si un visitante marca todo agotado, el siguiente no espera a la noche.
 
-### Riesgo aceptado: el mail de cambio de mail
-Una cuenta de demo puede pedir cambiar su mail. La base no deja que el cambio se complete, pero Auth manda el mail de confirmación **antes** de escribir en la base (probado). Alguien podría usar la demo para que el SMTP del proyecto le mande ese mail a terceros. Lo acotan: Auth deja un pedido por minuto por cuenta, el límite de cuentas de demo y el tope de mails por hora del proyecto. La solución de fondo es un *Send Email Hook* que filtre las cuentas de demo, pero obliga a mandar todos los mails desde una función propia. Queda para si alguna vez pasa.
+### Demo cerrada (pedido de Fran)
+Que se vea de qué es capaz, sin libre albedrío. El visitante es **dueño** del local de demo, así prueba también el menú, pero triggers en la base (que miran `auth.uid()`: el servidor, la limpieza y el SQL Editor no tienen y no pasan por acá) dejan solo:
+- tomar, confirmar, cancelar y cocinar pedidos, y marcar agotados (vuelven cada hora);
+- agregar hasta **3 productos suyos** (40 entre todos), que puede editar o borrar. El **menú base** (los 17 productos de la migración) no se edita ni se borra, ni lo de otro visitante;
+- nada de ajustes, IA, horarios, zonas, categorías, equipo ni invitaciones. Las invitaciones además llevan al registro, que manda mails. En la web, Equipo y Ajustes ni aparecen.
+
+### Ningún mail desde la demo
+Auth manda el mail de cambio de email **antes** de escribir en la base (probado), así que un trigger no alcanza. Pero Auth no manda otro si el anterior es "de hace menos de un rato": las cuentas de demo nacen con el último envío de cambio de email, de reautenticación y de teléfono en el año 2999. Auth responde 429 y no manda nada (probado con Mailpit: 0 mails, contra 3 sin esto). No toca la configuración de Auth ni a los usuarios reales. Además, un trigger impide que el mail o el teléfono de una cuenta de demo cambien.
+
+### Cupos diarios de la demo
+Contadores por día en `demo_cupos`, atómicos (el upsert bloquea la fila; lo rechazado no cuenta). Además de los límites por minuto de siempre:
+
+| Qué | Por visitante | En total |
+|---|---|---|
+| Interpretaciones de IA | 25 por día | 200 por día y 20 por minuto |
+| Mensajes del simulador | 60 por día | 2000 por día |
+| Pedidos | 20 por día | 500 por día |
+| Clientes cargados a mano | 10 por día | |
+| Cuentas de demo | 10 por día por IP, 3 por minuto | 300 por día, 30 por minuto, 500 vivas |
+
+Encima, la key de OpenRouter tiene un tope de US$ 3 por mes.
 
 ## Pendiente de decidir
 
