@@ -108,21 +108,23 @@ export function Mostrador({ pestanaInicial, compacto = false }: { pestanaInicial
 
   return (
     <main className={`@container flex min-h-0 flex-1 flex-col gap-4 ${compacto ? '' : 'py-4 sm:py-5'}`}>
-      <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${borde}`}>
+      <div className={`flex items-center gap-2 @2xl:gap-3 ${borde}`}>
         <Segmentado
           pestanas
           etiqueta="Mostrador"
           valor={pestana}
           onCambio={setPestana}
-          className="w-full @2xl:w-auto"
+          className="min-w-0 flex-1 @3xl:flex-none"
           opciones={[
             { valor: 'whatsapp', texto: <>WhatsApp{enCurso > 0 && <Contador n={enCurso} />}</> },
             { valor: 'manual', texto: 'Nuevo pedido' },
             { valor: 'entregas', texto: <>Entregas{listos > 0 && <Contador n={listos} />}</> },
           ]}
         />
-        <div className="ml-auto flex items-center gap-2">
-          <EstadoLocal horarios={negocio.horarios} zonaHoraria={negocio.zonaHoraria} />
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <span className="hidden @2xl:contents">
+            <EstadoLocal horarios={negocio.horarios} zonaHoraria={negocio.zonaHoraria} />
+          </span>
           <button
             type="button"
             className="btn btn-chico"
@@ -157,7 +159,7 @@ export function Mostrador({ pestanaInicial, compacto = false }: { pestanaInicial
         />
       </div>
 
-      <div hidden={pestana !== 'manual'} className={`grid items-start gap-4 @4xl:grid-cols-[minmax(0,1fr)_22rem] ${borde}`}>
+      <div hidden={pestana !== 'manual'} className={`grid grid-cols-[minmax(0,1fr)] items-start gap-4 @4xl:grid-cols-[minmax(0,1fr)_22rem] ${borde}`}>
         <Catalogo
           categorias={menu.categorias}
           productos={menu.productos}

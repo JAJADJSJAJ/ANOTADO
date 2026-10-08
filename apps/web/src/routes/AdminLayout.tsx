@@ -38,7 +38,7 @@ export function AdminLayout() {
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-3 py-5 sm:px-5 md:flex-row md:gap-10 md:py-8">
       <nav aria-label="Administrar" className="md:sticky md:top-22 md:w-52 md:shrink-0 md:self-start">
         <p className="rotulo mb-3 hidden px-2.5 md:block">Administrar</p>
-        <div className="-mx-3 flex gap-1 overflow-x-auto px-3 md:mx-0 md:flex-col md:gap-5 md:overflow-visible md:px-0">
+        <div className="-mx-3 flex gap-1 overflow-x-auto sin-barra px-3 md:mx-0 md:flex-col md:gap-5 md:overflow-visible md:px-0">
           {secciones.map((s) => (
             <div key={s.grupo} className="flex gap-1 md:flex-col md:gap-0.5">
               <p className="mb-1 hidden px-2.5 text-xs font-semibold text-tinta-3 md:block">{s.grupo}</p>

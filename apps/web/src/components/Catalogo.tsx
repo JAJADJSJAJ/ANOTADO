@@ -32,7 +32,7 @@ export function Catalogo({
 
   return (
     <section aria-label="Productos" className="flex flex-col gap-3">
-      <div role="tablist" aria-label="Categorías" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 @2xl:flex-wrap">
+      <div role="tablist" aria-label="Categorías" className="-mx-1 flex gap-1.5 overflow-x-auto sin-barra px-1 pb-1 @2xl:flex-wrap">
         {pestanas.map((c) => {
           const activa = c.id === elegida;
           return (

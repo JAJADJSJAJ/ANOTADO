@@ -78,6 +78,7 @@ export function AdminMenu() {
             <section key={categoria?.id ?? 'sin'} className="tarjeta animate-entra">
               <EncabezadoCategoria
                 categoria={categoria}
+                editable={!negocio.esDemo}
                 cantidad={productos.length}
                 onRenombrar={(nombre) => guardar(supabase.from('categorias').update({ nombre }).eq('id', categoria!.id))}
                 onBorrar={async () => {
@@ -97,6 +98,8 @@ export function AdminMenu() {
                     producto={p}
                     categorias={menu.categorias}
                     onGuardar={(datos) => guardar(supabase.from('productos').update(datos).eq('id', p.id))}
+                    // Disponible/agotado va por la misma función que Agotados: vale también en la demo.
+                    onDisponible={(v) => guardar(supabase.rpc('marcar_agotado', { p_producto_id: p.id, p_agotado: !v }))}
                     onBorrar={async () => {
                       const ok = await preguntar({ titulo: `¿Borrar "${p.nombre}"?`, aceptar: 'Borrar', peligro: true });
                       if (ok !== null) void guardar(supabase.from('productos').delete().eq('id', p.id));
@@ -149,6 +152,7 @@ function NuevaCategoria({ onCrear }: { onCrear: (nombre: string) => Promise<bool
 function EncabezadoCategoria(p: {
   categoria: Categoria | null;
   cantidad: number;
+  editable: boolean;
   onRenombrar: (nombre: string) => Promise<boolean>;
   onBorrar: () => void;
 }) {
@@ -193,14 +197,16 @@ function EncabezadoCategoria(p: {
     <header className="group flex items-center gap-2 border-b border-linea px-5 py-3">
       <h2 className="font-bold">{p.categoria.nombre}</h2>
       <span className="num text-sm text-tinta-3">{p.cantidad}</span>
-      <div className="ml-auto flex gap-0.5">
-        <button type="button" className="btn btn-fantasma btn-icono" aria-label="Renombrar categoría" title="Renombrar" onClick={() => setEditando(true)}>
-          <Icono nombre="lapiz" className="size-4" />
-        </button>
-        <button type="button" className="btn btn-quitar btn-icono" aria-label="Borrar categoría" title="Borrar" onClick={p.onBorrar}>
-          <Icono nombre="cerrar" className="size-4" />
-        </button>
-      </div>
+      {p.editable && (
+        <div className="ml-auto flex gap-0.5">
+          <button type="button" className="btn btn-fantasma btn-icono" aria-label="Renombrar categoría" title="Renombrar" onClick={() => setEditando(true)}>
+            <Icono nombre="lapiz" className="size-4" />
+          </button>
+          <button type="button" className="btn btn-quitar btn-icono" aria-label="Borrar categoría" title="Borrar" onClick={p.onBorrar}>
+            <Icono nombre="cerrar" className="size-4" />
+          </button>
+        </div>
+      )}
     </header>
   );
 }
@@ -210,7 +216,8 @@ type DatosProducto = { nombre: string; precio_centavos: number; alias: string[];
 function FilaProducto(p: {
   producto: Producto;
   categorias: Categoria[];
-  onGuardar: (datos: Partial<DatosProducto> & { activo?: boolean }) => Promise<boolean>;
+  onGuardar: (datos: Partial<DatosProducto>) => Promise<boolean>;
+  onDisponible: (disponible: boolean) => void;
   onBorrar: () => void;
 }) {
   const [editando, setEditando] = useState(false);
@@ -241,7 +248,7 @@ function FilaProducto(p: {
         {prod.alias.length > 0 && <p className="truncate text-sm text-tinta-3">También: {prod.alias.join(', ')}</p>}
       </div>
       <span className={`num font-semibold ${prod.activo ? '' : 'text-tinta-3'}`}>{formatearPrecio(prod.precio_centavos)}</span>
-      <Interruptor prendido={prod.activo} onCambio={(v) => void p.onGuardar({ activo: v })} etiqueta={`${prod.nombre} disponible`} />
+      <Interruptor prendido={prod.activo} onCambio={p.onDisponible} etiqueta={`${prod.nombre} disponible`} />
       <div className="flex gap-0.5">
         <button type="button" className="btn btn-fantasma btn-icono" aria-label={`Editar ${prod.nombre}`} title="Editar" onClick={() => setEditando(true)}>
           <Icono nombre="lapiz" className="size-4" />

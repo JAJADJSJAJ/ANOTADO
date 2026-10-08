@@ -166,7 +166,7 @@ export function SimuladorWhatsApp() {
         )}
       </div>
 
-      <div className="flex gap-1.5 overflow-x-auto px-2.5 pb-2 [scrollbar-width:none]">
+      <div className="flex gap-1.5 overflow-x-auto px-2.5 pb-2 sin-barra">
         {SUGERENCIAS.map((s) => (
           <button
             key={s}

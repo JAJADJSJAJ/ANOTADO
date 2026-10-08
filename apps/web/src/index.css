@@ -475,3 +475,11 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Filas que se desplazan de costado (pestañas, categorías): sin la barra gris del sistema. */
+@utility sin-barra {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

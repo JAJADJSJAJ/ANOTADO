@@ -94,7 +94,7 @@ export function PedidosWhatsApp({
         </button>
         {error && <MensajeError>{error}</MensajeError>}
         {claves.length > 0 && (
-          <ul aria-label="Conversaciones" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 @3xl:mx-0 @3xl:flex-col @3xl:overflow-visible @3xl:px-0">
+          <ul aria-label="Conversaciones" className="-mx-1 flex gap-1.5 overflow-x-auto sin-barra px-1 pb-1 @3xl:mx-0 @3xl:flex-col @3xl:overflow-visible @3xl:px-0">
             {visibles.map((c) => (
               <ItemBandeja key={c.id} conversacion={c} elegida={actual === c.id} onElegir={() => setElegida(c.id)} />
             ))}

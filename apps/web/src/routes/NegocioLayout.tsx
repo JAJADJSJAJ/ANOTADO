@@ -122,7 +122,7 @@ function Barra({ negocio, email }: { negocio: NegocioActual; email: string }) {
         </div>
       </div>
       {/* En el celular las pantallas de trabajo van en una segunda fila. */}
-      <nav aria-label="Pantallas de trabajo" className="flex h-11 items-stretch overflow-x-auto border-t border-linea px-1 sm:hidden">
+      <nav aria-label="Pantallas de trabajo" className="flex h-11 items-stretch overflow-x-auto sin-barra border-t border-linea px-1 sm:hidden">
         <PestanasTrabajo rol={rol} esDemo={esDemo} />
       </nav>
     </header>

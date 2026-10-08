@@ -137,8 +137,13 @@ export function Cocina({ incrustada = false }: { incrustada?: boolean }) {
   }
 
   const lista = pedidos ?? [];
-  const enCurso = lista.filter((p) => p.estado === 'pendiente' || p.estado === 'en_cocina');
-  const listos = lista.filter((p) => p.estado === 'listo');
+  // Un ticket sellado sigue en el riel hasta que termina de irse, aunque la recarga en tiempo
+  // real ya lo traiga como listo.
+  const enMano = (p: PedidoCocina) => sellados.has(p.id) || saliendo.has(p.id);
+  const enCurso = lista
+    .filter((p) => p.estado === 'pendiente' || p.estado === 'en_cocina' || enMano(p))
+    .map((p) => (enMano(p) ? { ...p, estado: 'en_cocina' as const } : p));
+  const listos = lista.filter((p) => p.estado === 'listo' && !enMano(p));
 
   return (
     <div className={`${incrustada ? 'relative h-full' : 'fixed inset-0 z-40'} flex flex-col bg-noche text-noche-tinta select-none`}>
@@ -256,13 +261,17 @@ export function Cocina({ incrustada = false }: { incrustada?: boolean }) {
         )}
       </main>
 
-      <footer className={`flex items-center gap-4 border-t border-noche-linea bg-noche-2 ${incrustada ? 'min-h-20 px-3.5 py-3' : 'min-h-24 px-4 py-3 sm:px-5'}`}>
+      <footer
+        className={`flex gap-3 border-t border-noche-linea bg-noche-2 ${
+          incrustada ? 'min-h-20 flex-col px-3.5 py-3' : 'min-h-24 items-center gap-4 px-4 py-3 sm:px-5'
+        }`}
+      >
         <section aria-label="Listos para entregar" className="min-w-0 flex-1">
           <p className="rotulo mb-2 text-noche-ok">Listos para entregar</p>
           {listos.length === 0 ? (
             <p className="text-sm text-noche-tinta-2">Nada por ahora.</p>
           ) : (
-            <div className="flex gap-2 overflow-x-auto">
+            <div className="flex gap-2 overflow-x-auto sin-barra">
               {listos.map((p) => {
                 const puedeEntregar = puedeAvanzar(rol, p.estado);
                 const puedeVolver = puedeRetroceder(rol, p.estado);

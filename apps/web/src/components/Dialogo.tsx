@@ -32,6 +32,8 @@ export function Dialogo({
     const d = ref.current;
     if (!d) return;
     d.showModal();
+    // React no escribe el atributo autofocus: el elemento a enfocar se marca con data-foco.
+    d.querySelector<HTMLElement>('[data-foco="true"]')?.focus();
     efecto('abrir');
     const alCancelar = (e: Event) => {
       e.preventDefault();
@@ -124,7 +126,7 @@ function Confirmacion({ pregunta, onResponder }: { pregunta: Pregunta; onRespond
           <label className="block">
             <span className="etiqueta">{pregunta.campo.etiqueta}</span>
             <input
-              autoFocus
+              data-foco="true"
               value={valor}
               onChange={(e) => setValor(e.target.value)}
               placeholder={pregunta.campo.placeholder}
@@ -135,12 +137,13 @@ function Confirmacion({ pregunta, onResponder }: { pregunta: Pregunta; onRespond
           </label>
         )}
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={() => onResponder(null)} className="btn">
+          {/* En una acción que no se deshace, el foco arranca en Volver: un Enter sin querer no borra. */}
+          <button type="button" data-foco={!pregunta.campo && !!pregunta.peligro} onClick={() => onResponder(null)} className="btn">
             Volver
           </button>
           <button
             type="submit"
-            autoFocus={!pregunta.campo}
+            data-foco={!pregunta.campo && !pregunta.peligro}
             data-sonido={pregunta.peligro ? 'no' : undefined}
             className={`btn ${pregunta.peligro ? 'btn-peligro' : 'btn-tinta'}`}
           >
