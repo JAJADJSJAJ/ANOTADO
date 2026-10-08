@@ -1,17 +1,21 @@
 import { formatearPrecio } from '@anotado/shared';
 import { useState } from 'react';
 import type { Categoria, Producto } from '../hooks/useMenu.ts';
+import { Vacio } from './Estado.tsx';
 
 const SIN_CATEGORIA = 'sin-categoria';
 
-/** Botones grandes por categoría para cargar productos a mano. */
+/** Productos por categoría para cargar un pedido a mano: un toque suma uno. */
 export function Catalogo({
   categorias,
   productos,
+  enPedido,
   onElegir,
 }: {
   categorias: Categoria[];
   productos: Producto[];
+  /** Cuántos de cada producto hay ya en el pedido (se marca en la tarjeta). */
+  enPedido?: ReadonlyMap<string, number>;
   onElegir: (producto: Producto) => void;
 }) {
   const hayHuerfanos = productos.some((p) => !p.categoria_id);
@@ -23,38 +27,56 @@ export function Catalogo({
   const visibles = productos.filter((p) => (p.categoria_id ?? SIN_CATEGORIA) === elegida);
 
   if (productos.length === 0) {
-    return <p className="p-4 text-lg text-stone-600">Todavía no hay productos en el menú.</p>;
+    return <Vacio icono="menu" titulo="Todavía no hay productos en el menú" />;
   }
 
   return (
     <section aria-label="Productos" className="flex flex-col gap-3">
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap">
-        {pestanas.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => setElegida(c.id)}
-            className={`shrink-0 rounded-xl border-2 px-4 py-3 text-lg font-bold ${
-              c.id === elegida ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-300 bg-white'
-            }`}
-          >
-            {c.nombre}
-          </button>
-        ))}
+      <div role="tablist" aria-label="Categorías" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 @2xl:flex-wrap">
+        {pestanas.map((c) => {
+          const activa = c.id === elegida;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              role="tab"
+              aria-selected={activa}
+              data-sonido="llave"
+              onClick={() => setElegida(c.id)}
+              className={`h-9 shrink-0 rounded-full border px-4 text-sm font-semibold transition-colors ${
+                activa ? 'border-tinta bg-tinta text-white' : 'border-linea-fuerte bg-hoja text-tinta-2 hover:border-tinta-3 hover:text-tinta'
+              }`}
+            >
+              {c.nombre}
+            </button>
+          );
+        })}
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-        {visibles.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            disabled={!p.activo}
-            onClick={() => onElegir(p)}
-            className="flex min-h-24 flex-col justify-between rounded-xl border-2 border-stone-200 bg-white p-3 text-left shadow-sm transition hover:border-indigo-300 active:scale-95 disabled:border-dashed disabled:bg-stone-100 disabled:text-stone-400 disabled:shadow-none"
-          >
-            <span className="text-lg leading-tight font-bold">{p.nombre}</span>
-            <span className="text-base font-medium">{p.activo ? formatearPrecio(p.precio_centavos) : 'Agotado'}</span>
-          </button>
-        ))}
+      <div key={elegida} className="grid animate-aparece grid-cols-2 gap-2 @xl:grid-cols-3 @4xl:grid-cols-4">
+        {visibles.map((p) => {
+          const cuantos = enPedido?.get(p.id) ?? 0;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              disabled={!p.activo}
+              onClick={() => onElegir(p)}
+              className={`group relative flex min-h-[5.5rem] flex-col justify-between gap-2 rounded-xl border bg-hoja p-3 text-left shadow-papel transition-[border-color,transform,box-shadow] duration-150 ease-salida hover:border-tinta-3 active:scale-[0.97] active:shadow-none disabled:border-dashed disabled:bg-transparent disabled:shadow-none ${
+                cuantos > 0 ? 'border-tinta' : 'border-linea'
+              }`}
+            >
+              <span className="pr-6 leading-tight font-semibold group-disabled:text-tinta-3">{p.nombre}</span>
+              <span className="num text-sm text-tinta-2 group-disabled:text-tinta-3">
+                {p.activo ? formatearPrecio(p.precio_centavos) : 'Agotado'}
+              </span>
+              {cuantos > 0 && (
+                <span key={cuantos} className="contador absolute top-2.5 right-2.5 animate-pop">
+                  {cuantos}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
     </section>
   );

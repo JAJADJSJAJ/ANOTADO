@@ -4,7 +4,9 @@ import { useAhora } from '../hooks/useAhora.ts';
 import { useNegocio } from '../hooks/useNegocio.ts';
 import { useSesion } from '../hooks/useSesion.ts';
 import { mensajeDeFuncion } from '../lib/funciones.ts';
+import { efecto } from '../lib/sonido.ts';
 import { supabase } from '../lib/supabase.ts';
+import { Icono } from './Icono.tsx';
 
 /** Sin Realtime propio: el canal de conversaciones ya lo usa el mostrador de al lado. */
 const REFRESCO_MS = 4_000;
@@ -50,7 +52,7 @@ async function leerMensajes(negocioId: string, userId: string): Promise<Mensaje[
   return error ? null : [...data].reverse();
 }
 
-const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' });
+const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
 /**
  * El teléfono del cliente en la demo: el visitante escribe como si le escribiera al local por
@@ -63,42 +65,64 @@ export function SimuladorWhatsApp() {
   const userId = sesion?.user.id;
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [texto, setTexto] = useState('');
-  const [enviando, setEnviando] = useState(false);
+  // Lo que se está mandando: se ve enseguida, con el relojito, hasta que llega de la base.
+  const [saliendo, setSaliendo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const final = useRef<HTMLDivElement>(null);
+  const charla = useRef<HTMLDivElement>(null);
   const ahora = useAhora(0, 1_000);
 
-  const cargar = useCallback(() => {
-    if (!userId) return;
-    void leerMensajes(negocio.id, userId).then((m) => {
-      if (m) setMensajes(m);
-    });
-  }, [negocio.id, userId]);
+  const cargar = useCallback(
+    () =>
+      userId
+        ? leerMensajes(negocio.id, userId).then((m) => {
+            if (m) setMensajes(m);
+          })
+        : Promise.resolve(),
+    [negocio.id, userId],
+  );
 
   // El bot todavía no contestó lo último que escribió el cliente (hasta 30 s): se mira seguido.
   const ultimo = mensajes.at(-1);
   const esperando = ultimo?.rol === 'cliente' && ahora - new Date(ultimo.created_at).getTime() < ESPERA_RESPUESTA_MS;
 
   useEffect(() => {
-    cargar();
-    const intervalo = setInterval(cargar, esperando ? REFRESCO_RAPIDO_MS : REFRESCO_MS);
+    void cargar();
+    const intervalo = setInterval(() => void cargar(), esperando ? REFRESCO_RAPIDO_MS : REFRESCO_MS);
     return () => clearInterval(intervalo);
   }, [cargar, esperando]);
 
+  // Respuesta nueva del bot: suena como un mensaje que llega (no al abrir la pantalla).
+  const ultimaRespuesta = mensajes.filter((m) => m.rol !== 'cliente').at(-1)?.id;
+  const vista = useRef<string | undefined>(undefined);
+  const cargado = useRef(false);
   useEffect(() => {
-    final.current?.scrollIntoView({ block: 'nearest' });
-  }, [mensajes.length, esperando]);
+    if (cargado.current && ultimaRespuesta && ultimaRespuesta !== vista.current) efecto('recibir');
+    vista.current = ultimaRespuesta;
+    if (mensajes.length > 0) cargado.current = true;
+  }, [ultimaRespuesta, mensajes.length]);
+
+  useEffect(() => {
+    const el = charla.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, [mensajes.length, esperando, saliendo]);
 
   async function mandar(contenido: string) {
     const limpio = contenido.trim();
-    if (!limpio || enviando) return;
-    setEnviando(true);
-    setError(null);
-    const { error: errFuncion } = await supabase.functions.invoke('demo-whatsapp', { body: { texto: limpio } });
-    setEnviando(false);
-    if (errFuncion) return setError(await mensajeDeFuncion(errFuncion, 'No se pudo mandar. Probá de nuevo.'));
+    if (!limpio || saliendo) return;
+    setSaliendo(limpio);
     setTexto('');
-    cargar();
+    setError(null);
+    efecto('enviar');
+    cargado.current = true;
+    const { error: errFuncion } = await supabase.functions.invoke('demo-whatsapp', { body: { texto: limpio } });
+    if (errFuncion) {
+      setSaliendo(null);
+      setTexto(limpio);
+      efecto('error');
+      return setError(await mensajeDeFuncion(errFuncion, 'No se pudo mandar. Probá de nuevo.'));
+    }
+    await cargar();
+    setSaliendo(null);
   }
 
   function enviar(e: FormEvent) {
@@ -107,70 +131,99 @@ export function SimuladorWhatsApp() {
   }
 
   return (
-    <section aria-label="WhatsApp del cliente" className="flex h-full min-h-[32rem] flex-col overflow-hidden rounded-3xl border-8 border-stone-900 bg-[#efe7dd] shadow-xl">
-      <header className="flex items-center gap-3 bg-[#075e54] px-4 py-3 text-white">
-        <span aria-hidden className="flex size-9 items-center justify-center rounded-full bg-white/20 font-black">
+    <section
+      aria-label="WhatsApp del cliente"
+      className="flex h-full min-h-[34rem] flex-col overflow-hidden rounded-[22px] border border-linea-fuerte bg-wa-fondo shadow-papel"
+    >
+      <header className="flex items-center gap-3 bg-wa px-4 py-3 text-white">
+        <span aria-hidden className="grid size-9 place-items-center rounded-full bg-white/90 font-bold text-wa">
           {negocio.nombre.charAt(0)}
         </span>
-        <div className="min-w-0">
-          <p className="truncate font-bold">{negocio.nombre}</p>
-          <p className="text-xs text-white/80">{esperando ? 'escribiendo…' : 'Cuenta de empresa'}</p>
+        <div className="min-w-0 leading-tight">
+          <p className="truncate font-semibold">{negocio.nombre}</p>
+          <p key={String(esperando)} className="animate-aparece text-xs text-white/75">
+            {esperando ? 'escribiendo…' : 'Cuenta de empresa'}
+          </p>
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
-        {mensajes.length === 0 && (
-          <p className="m-auto max-w-56 rounded-xl bg-amber-50 p-3 text-center text-sm text-stone-700">
-            Sos el cliente: escribile al local como por WhatsApp. Abajo tenés ejemplos.
+      <div ref={charla} className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-4">
+        {mensajes.length === 0 && !saliendo && (
+          <p className="m-auto max-w-60 rounded-lg bg-[#fff8dc] px-3 py-2.5 text-center text-[0.8125rem] leading-snug text-tinta-2 shadow-[0_1px_0_rgb(0_0_0/0.06)]">
+            Sos el cliente: escribile al local como por WhatsApp. Abajo tenés ejemplos para empezar.
           </p>
         )}
-        {mensajes.map((m) => {
-          const propio = m.rol === 'cliente';
-          return (
-            <div
-              key={m.id}
-              className={`max-w-[85%] rounded-xl px-3 py-2 shadow-sm ${propio ? 'self-end bg-[#dcf8c6]' : 'self-start bg-white'}`}
-            >
-              <p className="text-[15px] whitespace-pre-wrap break-words text-stone-900">{m.contenido}</p>
-              <p className="text-right text-[11px] text-stone-500">{hora(m.created_at)}</p>
-            </div>
-          );
-        })}
-        {esperando && <p className="self-start rounded-xl bg-white px-3 py-2 text-stone-500 shadow-sm">…</p>}
-        <div ref={final} />
+        {mensajes.map((m) => (
+          <Burbuja key={m.id} propia={m.rol === 'cliente'} texto={m.contenido} hora={hora(m.created_at)} />
+        ))}
+        {saliendo && <Burbuja propia texto={saliendo} hora={null} />}
+        {esperando && !saliendo && (
+          <div aria-label="El local está escribiendo" className="flex animate-burbuja gap-1 self-start rounded-[10px] rounded-tl-[3px] bg-white px-3 py-3 shadow-[0_1px_0_rgb(0_0_0/0.08)]">
+            {[0, 150, 300].map((d) => (
+              <span key={d} className="size-1.5 animate-latido rounded-full bg-[#9aa39b]" style={{ animationDelay: `${d}ms` }} />
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="flex gap-2 overflow-x-auto px-3 pb-2">
+      <div className="flex gap-1.5 overflow-x-auto px-2.5 pb-2 [scrollbar-width:none]">
         {SUGERENCIAS.map((s) => (
           <button
             key={s}
             type="button"
-            disabled={enviando}
+            disabled={!!saliendo}
+            data-sonido="no"
             onClick={() => void mandar(s)}
-            className="shrink-0 rounded-full border border-[#075e54]/30 bg-white px-3 py-1 text-sm text-[#075e54] disabled:opacity-50"
+            className="shrink-0 rounded-full border border-wa/25 bg-white px-3 py-1.5 text-[0.8125rem] font-medium text-wa transition-[background-color,transform] duration-150 hover:bg-[#f4faf7] active:scale-95 disabled:opacity-50"
           >
             {s}
           </button>
         ))}
       </div>
-      {error && <p role="alert" className="bg-red-50 px-3 py-2 text-sm font-medium text-red-800">{error}</p>}
-      <form onSubmit={enviar} className="flex gap-2 bg-[#f0f0f0] p-2">
+      {error && (
+        <p role="alert" className="mx-2.5 mb-2 rounded-lg bg-peligro-suave px-3 py-2 text-[0.8125rem] font-medium text-peligro">
+          {error}
+        </p>
+      )}
+      <form onSubmit={enviar} className="flex gap-2 bg-[#f3f1ed] p-2">
         <input
           aria-label="Mensaje"
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           maxLength={500}
           placeholder="Escribí un mensaje"
-          className="min-w-0 flex-1 rounded-full bg-white px-4 py-2"
+          className="h-10 min-w-0 flex-1 rounded-full bg-white px-4 text-[0.9375rem] outline-none focus:shadow-[0_0_0_2px_var(--color-wa)]"
         />
         <button
           type="submit"
-          disabled={enviando || !texto.trim()}
-          className="rounded-full bg-[#075e54] px-4 font-bold text-white disabled:opacity-50"
+          aria-label="Enviar"
+          disabled={!!saliendo || !texto.trim()}
+          data-sonido="no"
+          className="grid size-10 shrink-0 place-items-center rounded-full bg-wa text-white transition-[transform,opacity] duration-150 active:scale-90 disabled:opacity-40"
         >
-          Enviar
+          <Icono nombre="enviar" />
         </button>
       </form>
     </section>
+  );
+}
+
+function Burbuja({ propia, texto, hora: h }: { propia: boolean; texto: string; hora: string | null }) {
+  return (
+    <div
+      className={`max-w-[84%] animate-burbuja rounded-[10px] px-2.5 pt-1.5 pb-1 text-[0.9375rem] leading-snug text-tinta shadow-[0_1px_0_rgb(0_0_0/0.08)] ${
+        propia ? 'origin-bottom-right self-end rounded-tr-[3px] bg-wa-propio' : 'origin-bottom-left self-start rounded-tl-[3px] bg-white'
+      }`}
+    >
+      <p className="break-words whitespace-pre-wrap">{texto}</p>
+      <p className="num mt-0.5 flex items-center justify-end gap-1 text-[0.6875rem] text-[#6f7a70]">
+        {h ?? (
+          <>
+            <Icono nombre="reloj" className="size-3" />
+            enviando
+          </>
+        )}
+      </p>
+    </div>
   );
 }

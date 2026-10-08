@@ -1,33 +1,42 @@
 import { agregarItem, type Borrador, borradorVacio, formatearPrecio, type Origen } from '@anotado/shared';
 import { useMemo, useState } from 'react';
 import { Agotados } from '../components/Agotados.tsx';
+import { ListaAvisos } from '../components/Avisos.tsx';
 import { Catalogo } from '../components/Catalogo.tsx';
+import { Dialogo } from '../components/Dialogo.tsx';
 import { Entregas } from '../components/Entregas.tsx';
+import { Cargando, MensajeError, Nota } from '../components/Estado.tsx';
 import { EstadoLocal } from '../components/EstadoLocal.tsx';
-import { Cargando, MensajeError } from '../components/Estado.tsx';
 import { PanelPedido } from '../components/PanelPedido.tsx';
 import { PedidosWhatsApp } from '../components/PedidosWhatsApp.tsx';
+import { Segmentado } from '../components/Segmentado.tsx';
 import { UltimosPedidos } from '../components/UltimosPedidos.tsx';
+import { useAvisos } from '../hooks/useAvisos.ts';
 import { useConversaciones } from '../hooks/useConversaciones.ts';
 import { useMenu } from '../hooks/useMenu.ts';
 import { useNegocio } from '../hooks/useNegocio.ts';
 import { usePedidosCocina } from '../hooks/usePedidosCocina.ts';
 import { useZonas } from '../hooks/useZonas.ts';
 import { confirmarPedido, type DatosEntrega, ENTREGA_RETIRO, type PedidoConfirmado } from '../lib/pedidos.ts';
+import { efecto } from '../lib/sonido.ts';
 
-export type Pestana = 'manual' | 'whatsapp' | 'entregas' | 'agotados';
-type Confirmado = PedidoConfirmado & { etiqueta?: string };
+export type Pestana = 'whatsapp' | 'manual' | 'entregas';
 
-export function Mostrador({ pestanaInicial = 'manual' }: { pestanaInicial?: Pestana }) {
+/**
+ * El mostrador: los pedidos que llegan por WhatsApp, cargar uno a mano y lo que hay que
+ * entregar. `compacto` = metido en una columna (la demo): menos márgenes.
+ */
+export function Mostrador({ pestanaInicial = 'whatsapp', compacto = false }: { pestanaInicial?: Pestana; compacto?: boolean }) {
   const negocio = useNegocio();
   const menu = useMenu(negocio.id);
   const productos = useMemo(() => new Map(menu.productos.map((p) => [p.id, p])), [menu.productos]);
   const activos = useMemo(() => menu.productos.filter((p) => p.activo), [menu.productos]);
   const { zonas } = useZonas(negocio.id);
   const zonasActivas = useMemo(() => zonas.filter((z) => z.activa), [zonas]);
+  const { avisos, avisar, quitar } = useAvisos();
 
   const [pestana, setPestana] = useState<Pestana>(pestanaInicial);
-  const [confirmado, setConfirmado] = useState<Confirmado | null>(null);
+  const [verAgotados, setVerAgotados] = useState(false);
   const [version, setVersion] = useState(0);
   // Pedidos en curso en tiempo real: alimentan la pestaña Entregas y su contador.
   const cocina = usePedidosCocina(negocio.id);
@@ -43,9 +52,20 @@ export function Mostrador({ pestanaInicial = 'manual' }: { pestanaInicial?: Pest
   const [notas, setNotas] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const enPedido = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const it of borrador.items) m.set(it.producto_id, (m.get(it.producto_id) ?? 0) + it.cantidad);
+    return m;
+  }, [borrador]);
 
   function avisarConfirmado(pedido: PedidoConfirmado, etiqueta?: string) {
-    setConfirmado({ ...pedido, etiqueta });
+    efecto('imprimir');
+    avisar({
+      tipo: 'ok',
+      texto: `Pedido #${pedido.numero}${etiqueta ? ` de ${etiqueta}` : ''} confirmado · ${formatearPrecio(pedido.total_centavos)}${
+        pedido.envio_centavos > 0 ? ' con envío' : ''
+      }`,
+    });
     setVersion((v) => v + 1);
   }
 
@@ -57,11 +77,11 @@ export function Mostrador({ pestanaInicial = 'manual' }: { pestanaInicial?: Pest
 
   async function confirmarManual() {
     setError(null);
-    setConfirmado(null);
     setEnviando(true);
     const r = await confirmarPedido({ negocioId: negocio.id, origen, borrador, entrega, notas });
     setEnviando(false);
     if (!r.ok) {
+      efecto('error');
       setError(r.error);
       // Si un producto se agotó mientras se armaba, refrescar el menú.
       void menu.recargar();
@@ -75,57 +95,77 @@ export function Mostrador({ pestanaInicial = 'manual' }: { pestanaInicial?: Pest
   }
 
   if (menu.cargando) return <Cargando />;
-  if (menu.error) return <div className="p-4"><MensajeError>{menu.error}</MensajeError></div>;
+  if (menu.error) {
+    return (
+      <div className="p-5">
+        <MensajeError>{menu.error}</MensajeError>
+      </div>
+    );
+  }
 
-  const pestanaClase = (p: Pestana) =>
-    `flex-1 rounded-xl px-1 py-3 text-base font-bold shadow-sm sm:text-lg transition ${pestana === p ? 'bg-stone-900 text-white' : 'bg-white text-stone-700 hover:bg-stone-50'}`;
+  const borde = compacto ? '' : 'px-3 sm:px-5';
 
   return (
-    <main className="flex flex-1 flex-col gap-4 p-4">
-      <div role="tablist" className="flex gap-2">
-        <button type="button" role="tab" aria-selected={pestana === 'manual'} className={pestanaClase('manual')} onClick={() => setPestana('manual')}>
-          Carga manual
-        </button>
-        <button type="button" role="tab" aria-selected={pestana === 'whatsapp'} className={pestanaClase('whatsapp')} onClick={() => setPestana('whatsapp')}>
-          WhatsApp
-          {enCurso > 0 && <span className="ml-2 rounded-full bg-emerald-500 px-2 py-0.5 text-sm text-white">{enCurso}</span>}
-        </button>
-        <button type="button" role="tab" aria-selected={pestana === 'entregas'} className={pestanaClase('entregas')} onClick={() => setPestana('entregas')}>
-          Entregas
-          {listos > 0 && (
-            <span className="ml-2 rounded-full bg-emerald-500 px-2 py-0.5 text-sm text-white">{listos}</span>
-          )}
-        </button>
-        <button type="button" role="tab" aria-selected={pestana === 'agotados'} className={pestanaClase('agotados')} onClick={() => setPestana('agotados')}>
-          Agotados
-        </button>
+    <main className={`@container flex min-h-0 flex-1 flex-col gap-4 ${compacto ? '' : 'py-4 sm:py-5'}`}>
+      <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${borde}`}>
+        <Segmentado
+          pestanas
+          etiqueta="Mostrador"
+          valor={pestana}
+          onCambio={setPestana}
+          className="w-full @2xl:w-auto"
+          opciones={[
+            { valor: 'whatsapp', texto: <>WhatsApp{enCurso > 0 && <Contador n={enCurso} />}</> },
+            { valor: 'manual', texto: 'Nuevo pedido' },
+            { valor: 'entregas', texto: <>Entregas{listos > 0 && <Contador n={listos} />}</> },
+          ]}
+        />
+        <div className="ml-auto flex items-center gap-2">
+          <EstadoLocal horarios={negocio.horarios} zonaHoraria={negocio.zonaHoraria} />
+          <button
+            type="button"
+            className="btn btn-chico"
+            onClick={() => {
+              void menu.recargar();
+              setVerAgotados(true);
+            }}
+          >
+            Agotados
+          </button>
+        </div>
       </div>
 
-      <EstadoLocal horarios={negocio.horarios} zonaHoraria={negocio.zonaHoraria} />
+      {/* Las pestañas quedan montadas: cambiar de pestaña no pierde lo que se estaba armando. */}
+      <div hidden={pestana !== 'whatsapp'} className={`flex min-h-0 flex-1 flex-col gap-3 ${borde}`}>
+        {!(negocio.iaPermitida && negocio.iaActiva) && (
+          <Nota tono="alerta">
+            {negocio.iaPermitida
+              ? 'La IA está apagada: los mensajes llegan, pero el pedido se arma a mano. El dueño la puede prender en Administrar.'
+              : 'La IA no está habilitada para este local. Podés cargar los pedidos en "Nuevo pedido".'}
+          </Nota>
+        )}
+        <PedidosWhatsApp
+          negocioId={negocio.id}
+          conversaciones={whatsapp.conversaciones}
+          error={whatsapp.error}
+          onRecargar={() => void whatsapp.recargar()}
+          productos={productos}
+          activos={activos}
+          zonas={zonasActivas}
+          onConfirmado={(pedido, etiqueta) => avisarConfirmado(pedido, etiqueta || undefined)}
+        />
+      </div>
 
-      {confirmado && (
-        <p role="status" className="rounded-xl border-2 border-emerald-400 bg-emerald-50 p-4 text-xl font-bold text-emerald-900">
-          Pedido #{confirmado.numero}
-          {confirmado.etiqueta ? ` de ${confirmado.etiqueta}` : ''} confirmado · {formatearPrecio(confirmado.total_centavos)}
-          {confirmado.envio_centavos > 0 && ` (envío incluido)`}
-        </p>
-      )}
-
-      {/* Las dos pestañas quedan montadas: cambiar de pestaña no pierde lo que se estaba armando. */}
-      <div hidden={pestana !== 'manual'} className="grid gap-4 lg:grid-cols-[1fr_24rem]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <Catalogo
-            categorias={menu.categorias}
-            productos={menu.productos}
-            onElegir={(p) => {
-              setConfirmado(null);
-              setBorrador((b) => agregarItem(b, p.id));
-            }}
-          />
-          <UltimosPedidos negocioId={negocio.id} version={version} />
-        </div>
-        <div className="lg:sticky lg:top-4 lg:self-start">
+      <div hidden={pestana !== 'manual'} className={`grid items-start gap-4 @4xl:grid-cols-[minmax(0,1fr)_22rem] ${borde}`}>
+        <Catalogo
+          categorias={menu.categorias}
+          productos={menu.productos}
+          enPedido={enPedido}
+          onElegir={(p) => setBorrador((b) => agregarItem(b, p.id))}
+        />
+        <div className="tarjeta @4xl:sticky @4xl:top-[4.5rem] @4xl:max-h-[calc(100dvh-6rem)] @4xl:overflow-hidden">
           <PanelPedido
+            titulo="Pedido nuevo"
             borrador={borrador}
             onBorrador={setBorrador}
             productos={productos}
@@ -143,36 +183,38 @@ export function Mostrador({ pestanaInicial = 'manual' }: { pestanaInicial?: Pest
         </div>
       </div>
 
-      <div hidden={pestana !== 'entregas'}>
+      <div hidden={pestana !== 'entregas'} className={`flex flex-col gap-6 ${borde}`}>
         <Entregas cocina={cocina} />
+        <UltimosPedidos negocioId={negocio.id} version={version} />
       </div>
 
-      {pestana === 'agotados' && (
-        <section className="rounded-xl bg-white p-4">
-          <p className="mb-4 text-stone-600">Tocá un producto para marcarlo agotado o volver a ofrecerlo.</p>
-          <Agotados categorias={menu.categorias} productos={menu.productos} onCambio={() => void menu.recargar()} />
-        </section>
+      {verAgotados && (
+        <Dialogo
+          titulo="Agotados"
+          descripcion="Tocá lo que se terminó. Desde ese momento no se puede confirmar en ningún pedido."
+          onCerrar={() => setVerAgotados(false)}
+          ancho="max-w-3xl"
+        >
+          <div className="max-h-[60dvh] overflow-y-auto">
+            <Agotados categorias={menu.categorias} productos={menu.productos} onCambio={() => void menu.recargar()} />
+          </div>
+          <div className="flex justify-end">
+            <button type="button" className="btn btn-tinta" onClick={() => setVerAgotados(false)}>
+              Listo
+            </button>
+          </div>
+        </Dialogo>
       )}
-
-      <div hidden={pestana !== 'whatsapp'} className="flex flex-col gap-4">
-        {!(negocio.iaPermitida && negocio.iaActiva) && (
-          <p className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-lg font-medium text-amber-950">
-            {negocio.iaPermitida
-              ? 'La IA está apagada: los mensajes llegan, pero no se interpretan. El dueño la puede prender en Ajustes.'
-              : 'La IA no está habilitada para este local. Podés cargar los pedidos en "Carga manual".'}
-          </p>
-        )}
-        <PedidosWhatsApp
-          negocioId={negocio.id}
-          conversaciones={whatsapp.conversaciones}
-          error={whatsapp.error}
-          onRecargar={() => void whatsapp.recargar()}
-          productos={productos}
-          activos={activos}
-          zonas={zonasActivas}
-          onConfirmado={(pedido, etiqueta) => avisarConfirmado(pedido, etiqueta || undefined)}
-        />
-      </div>
+      <ListaAvisos avisos={avisos} onCerrar={quitar} />
     </main>
   );
 }
+
+function Contador({ n }: { n: number }) {
+  return (
+    <span key={n} className="contador animate-pop">
+      {n}
+    </span>
+  );
+}
+

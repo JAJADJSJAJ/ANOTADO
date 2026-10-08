@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Navigate } from 'react-router';
 import { SimuladorWhatsApp } from '../components/SimuladorWhatsApp.tsx';
 import { useNegocio } from '../hooks/useNegocio.ts';
@@ -6,7 +7,7 @@ import { Mostrador } from './Mostrador.tsx';
 
 /**
  * La demo en una pantalla: el teléfono del cliente, el mostrador y la cocina, uno al lado del
- * otro. Solo en locales de demo. El diseño es provisorio (se rehace con el CSS nuevo).
+ * otro. Solo en locales de demo. En pantallas angostas van uno abajo del otro.
  */
 export function Simulador() {
   const negocio = useNegocio();
@@ -14,26 +15,42 @@ export function Simulador() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <p className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-950">
-        Demo compartida: otros visitantes ven lo mismo que vos. No escribas datos reales. Podés pedir, confirmar, cocinar
-        y agregar hasta 3 productos al menú. Se borra todo cada noche.
+      <p className="flex items-center gap-2.5 border-b border-linea bg-hoja px-3 py-2 text-[0.8125rem] text-tinta-2 sm:px-5">
+        <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-alerta" />
+        <span>
+          <span className="font-semibold text-tinta">Demo compartida.</span> Otros visitantes ven lo mismo que vos. No escribas
+          datos reales: se borra todo cada noche.
+        </span>
       </p>
-      <div className="grid flex-1 gap-4 p-4 xl:grid-cols-[22rem_minmax(0,1fr)_26rem]">
-        <aside className="flex flex-col gap-2 xl:sticky xl:top-4 xl:h-[calc(100vh-7rem)]">
-          <h2 className="text-sm font-bold tracking-widest text-stone-500 uppercase">1 · El cliente escribe</h2>
+      <div className="grid flex-1 gap-5 p-3 sm:p-5 xl:grid-cols-[21rem_minmax(0,1fr)_23rem] xl:gap-6">
+        <Columna paso="01" titulo="El cliente escribe" fija>
           <SimuladorWhatsApp />
-        </aside>
-        <section className="flex min-w-0 flex-col gap-2">
-          <h2 className="px-4 text-sm font-bold tracking-widest text-stone-500 uppercase">2 · El mostrador revisa y confirma</h2>
-          <Mostrador pestanaInicial="whatsapp" />
-        </section>
-        <section className="flex flex-col gap-2 xl:sticky xl:top-4 xl:h-[calc(100vh-7rem)]">
-          <h2 className="text-sm font-bold tracking-widest text-stone-500 uppercase">3 · La cocina lo prepara</h2>
-          <div className="h-[32rem] overflow-hidden rounded-3xl xl:h-full">
+        </Columna>
+        <Columna paso="02" titulo="El mostrador revisa y confirma">
+          <Mostrador compacto />
+        </Columna>
+        <Columna paso="03" titulo="La cocina lo prepara" fija>
+          <div className="h-[34rem] overflow-hidden rounded-[14px] xl:h-full">
             <Cocina incrustada />
           </div>
-        </section>
+        </Columna>
       </div>
     </div>
+  );
+}
+
+/** Una columna de la demo con su paso. Las fijas acompañan el scroll en pantallas anchas. */
+function Columna({ paso, titulo, fija = false, children }: { paso: string; titulo: string; fija?: boolean; children: ReactNode }) {
+  return (
+    <section
+      aria-label={titulo}
+      className={`flex min-w-0 animate-entra flex-col gap-3 ${fija ? 'xl:sticky xl:top-[4.75rem] xl:h-[calc(100dvh-8.25rem)]' : ''}`}
+    >
+      <h2 className="flex items-baseline gap-2.5 px-0.5">
+        <span className="num text-[0.6875rem] font-extrabold text-birome">{paso}</span>
+        <span className="text-sm font-bold tracking-[-0.01em]">{titulo}</span>
+      </h2>
+      {children}
+    </section>
   );
 }

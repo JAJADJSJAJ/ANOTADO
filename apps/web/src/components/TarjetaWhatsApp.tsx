@@ -1,5 +1,5 @@
 import { agregarItem, type Borrador, borradorVacio, type Pendientes } from '@anotado/shared';
-import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useAhora } from '../hooks/useAhora.ts';
 import type { Conversacion, MensajeConversacion, TipoMensaje } from '../hooks/useConversaciones.ts';
 import type { Producto } from '../hooks/useMenu.ts';
@@ -13,8 +13,12 @@ import {
   desdeEntregaBorrador,
   type PedidoConfirmado,
 } from '../lib/pedidos.ts';
+import { usePreguntar } from '../lib/dialogos.ts';
+import { formatearTelefono, nombreCliente } from '../lib/whatsapp.ts';
+import { efecto } from '../lib/sonido.ts';
 import { supabase } from '../lib/supabase.ts';
-import { MensajeError } from './Estado.tsx';
+import { MensajeError, Nota } from './Estado.tsx';
+import { Icono } from './Icono.tsx';
 import { PanelPedido } from './PanelPedido.tsx';
 
 /** Lo que edita el cajero se guarda solo, al rato de dejar de tocar. */
@@ -82,6 +86,22 @@ export function TarjetaWhatsApp({
   const guardada = useRef(0);
 
   const clienteWhatsApp = servidor?.cliente ?? null;
+  const preguntar = usePreguntar();
+
+  // Sonidos: llega un mensaje del cliente, la IA anota algo en el pedido.
+  const ultimoCliente = servidor?.mensajes.filter((m) => m.rol === 'cliente').at(-1)?.id;
+  const vistoCliente = useRef(ultimoCliente);
+  useEffect(() => {
+    if (ultimoCliente && ultimoCliente !== vistoCliente.current) efecto('recibir');
+    vistoCliente.current = ultimoCliente;
+  }, [ultimoCliente]);
+  const items = borrador.items.length;
+  const itemsAntes = useRef(items);
+  useEffect(() => {
+    if (items > itemsAntes.current && !sucio) efecto('anotar');
+    itemsAntes.current = items;
+  }, [items, sucio]);
+
 
   // Lo nuevo del servidor (la IA interpretó, otra pantalla editó) se adopta si no hay cambios
   // locales sin guardar. Durante el render, con guarda (no en un efecto): al adoptar, la
@@ -253,13 +273,22 @@ export function TarjetaWhatsApp({
       r = await confirmarPedido({ negocioId, origen: 'whatsapp', borrador, entrega, notas });
     }
     setConfirmando(false);
-    if (!r.ok) return setError(r.error);
+    if (!r.ok) {
+      efecto('error');
+      return setError(r.error);
+    }
     onCerrada(r.pedido, nombreCliente(clienteWhatsApp) ?? etiqueta);
   }
 
   async function descartar() {
     const quien = nombreCliente(clienteWhatsApp) ?? etiqueta;
-    if (!confirm(`¿Descartar ${quien ? `el pedido de ${quien}` : 'esta tarjeta'}? No se crea ningún pedido.`)) return;
+    const ok = await preguntar({
+      titulo: `¿Descartar ${quien ? `el pedido de ${quien}` : 'esta conversación'}?`,
+      texto: 'No se crea ningún pedido. Si el cliente vuelve a escribir, aparece de nuevo.',
+      aceptar: 'Descartar',
+      peligro: true,
+    });
+    if (ok === null) return;
     if (conversacionId) {
       const { error } = await supabase.rpc('cerrar_conversacion', { p_conversacion_id: conversacionId });
       if (error) return setError(error.message);
@@ -268,14 +297,18 @@ export function TarjetaWhatsApp({
   }
 
   const titulo = clienteWhatsApp ? nombreCliente(clienteWhatsApp) : etiqueta.trim();
+  const hayPendientes = pendientes.dudosos.length + pendientes.preguntas.length + pendientes.errores.length > 0 || aviso || error;
 
   return (
-    <article className="flex flex-col gap-3 rounded-2xl border-2 border-emerald-600 bg-emerald-50 p-3">
-      <div className="flex items-center gap-2">
+    <article className="tarjeta @container/t animate-entra overflow-hidden">
+      <header className="flex items-center gap-3 border-b border-linea px-4 py-3">
+        <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-wa text-sm font-bold text-white">
+          {(titulo || 'C').charAt(0).toUpperCase()}
+        </span>
         {clienteWhatsApp ? (
           <div className="min-w-0 flex-1">
-            <p className="truncate text-lg font-bold">{nombreCliente(clienteWhatsApp) ?? 'Cliente'}</p>
-            <p className="text-stone-600">{formatearTelefono(clienteWhatsApp.telefono)}</p>
+            <p className="truncate font-bold">{nombreCliente(clienteWhatsApp) ?? 'Cliente'}</p>
+            <p className="num truncate text-[0.8125rem] text-tinta-3">{formatearTelefono(clienteWhatsApp.telefono)}</p>
           </div>
         ) : (
           <input
@@ -284,104 +317,111 @@ export function TarjetaWhatsApp({
             maxLength={40}
             placeholder="Nombre del cliente (opcional)"
             aria-label="Nombre de la tarjeta"
-            className="min-w-0 flex-1 rounded-lg border-2 border-emerald-300 bg-white px-3 py-2 text-lg font-bold"
+            className="campo campo-chico min-w-0 flex-1 font-semibold"
           />
         )}
-        <button type="button" onClick={() => void descartar()} className="font-medium text-red-700 underline">
+        <button type="button" onClick={() => void descartar()} className="btn btn-quitar btn-chico">
           Descartar
         </button>
+      </header>
+
+      <div className="grid @2xl/t:grid-cols-2">
+        <section aria-label="Conversación" className="flex min-h-0 flex-col border-b border-linea @2xl/t:border-r @2xl/t:border-b-0">
+          {servidor && servidor.mensajes.length > 0 ? (
+            <Mensajes mensajes={servidor.mensajes} />
+          ) : (
+            !clienteWhatsApp && (
+              <p className="px-4 pt-4 text-sm text-tinta-2">
+                Copiá los mensajes del cliente en WhatsApp y pegalos acá. La IA arma el pedido; vos lo revisás.
+              </p>
+            )
+          )}
+          {clienteWhatsApp ? (
+            <EstadoIA servidor={servidor!} ocupado={interpretando} onInterpretar={() => void interpretarPendientes()} />
+          ) : (
+            <form onSubmit={interpretar} className="flex flex-col gap-2 p-4">
+              <textarea
+                value={mensaje}
+                onChange={(e) => setMensaje(e.target.value)}
+                rows={4}
+                maxLength={2000}
+                placeholder="Pegá acá el mensaje de WhatsApp del cliente"
+                aria-label="Mensaje del cliente"
+                className="campo"
+              />
+              <button type="submit" disabled={interpretando || !mensaje.trim()} className="btn btn-tinta">
+                {interpretando ? 'Leyendo el mensaje…' : 'Interpretar mensaje'}
+              </button>
+            </form>
+          )}
+        </section>
+
+        <PanelPedido
+          titulo={titulo ? `Pedido de ${titulo}` : 'Pedido'}
+          vacio={
+            clienteWhatsApp
+              ? 'Cuando la IA lea los mensajes, el pedido aparece acá. También podés armarlo a mano.'
+              : 'Pegá un mensaje y la IA arma el pedido. Revisalo antes de confirmar.'
+          }
+          borrador={borrador}
+          onBorrador={editarBorrador}
+          productos={productos}
+          zonas={zonas}
+          entrega={entrega}
+          onEntrega={editarEntrega}
+          notas={notas}
+          onNotas={setNotas}
+          onConfirmar={() => void confirmar()}
+          enviando={confirmando}
+          error={null}
+          extra={
+            hayPendientes && (
+              <div className="flex flex-col gap-2">
+                {pendientes.dudosos.map((texto, i) => (
+                  <Dudoso
+                    key={`${texto}-${i}`}
+                    texto={texto}
+                    activos={activos}
+                    onElegir={(productoId, cantidad) => {
+                      setBorrador((b) => agregarItem(b, productoId, cantidad));
+                      quitarPendiente('dudosos', i);
+                    }}
+                    onDescartar={() => quitarPendiente('dudosos', i)}
+                  />
+                ))}
+                {pendientes.preguntas.map((pregunta, i) => (
+                  <Nota
+                    key={`${pregunta}-${i}`}
+                    tono="alerta"
+                    accion={<Cerrar onClick={() => quitarPendiente('preguntas', i)} />}
+                  >
+                    <span className="font-semibold">Falta saber:</span> {pregunta}
+                  </Nota>
+                ))}
+                {pendientes.errores.map((texto, i) => (
+                  <Nota key={`${texto}-${i}`} tono="peligro" accion={<Cerrar onClick={() => quitarPendiente('errores', i)} />}>
+                    <span className="font-semibold">No se agregó:</span> {texto}
+                  </Nota>
+                ))}
+                {aviso && (
+                  <Nota accion={<Cerrar onClick={() => setAviso(null)} />}>{aviso}</Nota>
+                )}
+                {error && <MensajeError>{error}</MensajeError>}
+              </div>
+            )
+          }
+        />
       </div>
-
-      {servidor && servidor.mensajes.length > 0 && <Mensajes mensajes={servidor.mensajes} />}
-
-      {clienteWhatsApp ? (
-        <EstadoIA
-          servidor={servidor!}
-          ocupado={interpretando}
-          onInterpretar={() => void interpretarPendientes()}
-        />
-      ) : (
-        <form onSubmit={interpretar} className="flex flex-col gap-2">
-          <textarea
-            value={mensaje}
-            onChange={(e) => setMensaje(e.target.value)}
-            rows={3}
-            maxLength={2000}
-            placeholder="Pegá acá el mensaje de WhatsApp del cliente"
-            aria-label="Mensaje del cliente"
-            className="rounded-lg border-2 border-stone-300 bg-white px-3 py-2 text-lg"
-          />
-          <button
-            type="submit"
-            disabled={interpretando || !mensaje.trim()}
-            className="rounded-xl bg-stone-900 py-3 text-lg font-bold text-white disabled:opacity-50"
-          >
-            {interpretando ? 'Leyendo el mensaje…' : 'Interpretar mensaje'}
-          </button>
-        </form>
-      )}
-
-      {pendientes.dudosos.map((texto, i) => (
-        <Dudoso
-          key={`${texto}-${i}`}
-          texto={texto}
-          activos={activos}
-          onElegir={(productoId, cantidad) => {
-            setBorrador((b) => agregarItem(b, productoId, cantidad));
-            quitarPendiente('dudosos', i);
-          }}
-          onDescartar={() => quitarPendiente('dudosos', i)}
-        />
-      ))}
-
-      {pendientes.preguntas.map((pregunta, i) => (
-        <Aviso key={`${pregunta}-${i}`} color="sky" onCerrar={() => quitarPendiente('preguntas', i)}>
-          <span className="font-bold">Preguntale al cliente:</span> {pregunta}
-        </Aviso>
-      ))}
-
-      {pendientes.errores.map((texto, i) => (
-        <Aviso key={`${texto}-${i}`} color="red" onCerrar={() => quitarPendiente('errores', i)}>
-          <span className="font-bold">No se agregó:</span> {texto}
-        </Aviso>
-      ))}
-
-      {aviso && (
-        <Aviso color="sky" onCerrar={() => setAviso(null)}>
-          {aviso}
-        </Aviso>
-      )}
-      {error && <MensajeError>{error}</MensajeError>}
-
-      <PanelPedido
-        titulo={titulo ? `Pedido de ${titulo}` : 'Pedido'}
-        vacio={
-          clienteWhatsApp
-            ? 'Cuando la IA lea los mensajes, el pedido aparece acá. También podés armarlo a mano.'
-            : 'Pegá un mensaje y la IA arma el pedido. Revisalo antes de confirmar.'
-        }
-        borrador={borrador}
-        onBorrador={editarBorrador}
-        productos={productos}
-        zonas={zonas}
-        entrega={entrega}
-        onEntrega={editarEntrega}
-        notas={notas}
-        onNotas={setNotas}
-        onConfirmar={() => void confirmar()}
-        enviando={confirmando}
-        error={null}
-      />
     </article>
   );
 }
 
-const nombreCliente = (c: Conversacion['cliente']) => c?.nombre?.trim() || null;
-
-/** +598 99 123 456 para los de Uruguay; el resto, con + y los dígitos. */
-function formatearTelefono(t: string): string {
-  const uy = /^598(9\d)(\d{3})(\d{3})$/.exec(t);
-  return uy ? `+598 ${uy[1]} ${uy[2]} ${uy[3]}` : `+${t}`;
+function Cerrar({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} aria-label="Listo, cerrar aviso" title="Cerrar" className="-my-1 -mr-1.5 grid size-7 place-items-center rounded-md text-tinta-3 transition-colors hover:bg-tinta/5 hover:text-tinta">
+      <Icono nombre="cerrar" className="size-4" />
+    </button>
+  );
 }
 
 const AVISOS_TIPO: Partial<Record<TipoMensaje, string>> = {
@@ -398,34 +438,40 @@ const AVISOS_TIPO: Partial<Record<TipoMensaje, string>> = {
 const mapa = (m: MensajeConversacion) =>
   m.tipo === 'ubicacion' ? (/https:\/\/maps\.google\.com\/\?q=-?\d+\.\d+,-?\d+\.\d+/.exec(m.contenido)?.[0] ?? null) : null;
 
-const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' });
+const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
-/** La charla en orden: el cliente a la izquierda, el bot a la derecha. Lo que no es texto, en amarillo. */
+/** La charla en orden, como un registro: hora, quién y qué. Lo que no es texto, marcado. */
 function Mensajes({ mensajes }: { mensajes: MensajeConversacion[] }) {
-  const final = useRef<HTMLLIElement>(null);
+  const caja = useRef<HTMLOListElement>(null);
   useEffect(() => {
-    final.current?.scrollIntoView({ block: 'nearest' });
+    const el = caja.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   }, [mensajes.length]);
   return (
-    <ol aria-label="Conversación con el cliente" className="flex max-h-64 flex-col gap-2 overflow-y-auto rounded-xl bg-white p-2">
-      {mensajes.map((m, i) => {
+    <ol
+      ref={caja}
+      aria-label="Conversación con el cliente"
+      className="flex max-h-[26rem] min-h-40 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3.5 @2xl/t:max-h-[34rem]"
+    >
+      {mensajes.map((m) => {
         const avisoTipo = AVISOS_TIPO[m.tipo];
         const bot = m.rol === 'asistente';
         return (
-          <li
-            key={m.id}
-            ref={i === mensajes.length - 1 ? final : undefined}
-            className={`rounded-lg px-3 py-2 ${bot ? 'ml-8 bg-emerald-50' : avisoTipo ? 'mr-8 border-2 border-amber-300 bg-amber-50' : 'mr-8 bg-stone-100'}`}
-          >
-            {bot && <p className="text-xs font-bold text-emerald-800">Respuesta automática</p>}
-            {avisoTipo && <p className="font-bold text-amber-900">{avisoTipo}</p>}
-            {(!avisoTipo || m.contenido.includes(' ')) && <p className="whitespace-pre-wrap break-words">{m.contenido}</p>}
-            {mapa(m) && (
-              <a href={mapa(m)!} target="_blank" rel="noopener noreferrer" className="font-bold text-sky-800 underline">
-                Ver en el mapa
-              </a>
-            )}
-            <p className="text-right text-xs text-stone-500">{hora(m.created_at)}</p>
+          <li key={m.id} className="grid animate-entra grid-cols-[2.75rem_minmax(0,1fr)] gap-2 text-[0.9375rem] leading-snug">
+            <time className="num pt-0.5 text-xs text-tinta-3">{hora(m.created_at)}</time>
+            <div className="min-w-0">
+              {bot && <span className="rotulo mr-2 text-ok">Bot</span>}
+              {avisoTipo && <span className="chip chip-alerta mb-1">{avisoTipo}</span>}
+              {(!avisoTipo || m.contenido.includes(' ')) && (
+                <span className={`break-words whitespace-pre-wrap ${bot ? 'text-tinta-2' : ''}`}>{m.contenido}</span>
+              )}
+              {mapa(m) && (
+                <a href={mapa(m)!} target="_blank" rel="noopener noreferrer" className="enlace mt-1 flex items-center gap-1 text-sm">
+                  <Icono nombre="ubicacion" className="size-4" />
+                  Ver en el mapa
+                </a>
+              )}
+            </div>
           </li>
         );
       })}
@@ -441,18 +487,23 @@ function EstadoIA({ servidor, ocupado, onInterpretar }: { servidor: Conversacion
   const ultimo = new Date(sinLeer.at(-1)!.created_at).getTime();
   if (ocupado || servidor.interpretando || ahora - ultimo < ESPERA_IA_MS) {
     return (
-      <p role="status" className="rounded-xl bg-white p-3 text-lg font-medium text-stone-700">
-        Leyendo los mensajes…
+      <p role="status" className="flex items-center gap-2.5 border-t border-linea px-4 py-3 text-sm font-medium text-birome">
+        <span aria-hidden className="flex gap-1">
+          {[0, 150, 300].map((d) => (
+            <span key={d} className="size-1.5 animate-latido rounded-full bg-current" style={{ animationDelay: `${d}ms` }} />
+          ))}
+        </span>
+        La IA está leyendo los mensajes
       </p>
     );
   }
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
-      <p className="flex-1 font-medium text-amber-950">
-        {sinLeer.length === 1 ? 'Un mensaje sin interpretar.' : `${sinLeer.length} mensajes sin interpretar.`} Podés
-        armar el pedido a mano o probar con la IA.
+    <div className="flex flex-wrap items-center gap-3 border-t border-linea bg-alerta-suave/50 px-4 py-3">
+      <p className="flex-1 text-sm">
+        {sinLeer.length === 1 ? 'Un mensaje sin interpretar.' : `${sinLeer.length} mensajes sin interpretar.`} Armá el pedido a
+        mano o probá con la IA.
       </p>
-      <button type="button" onClick={onInterpretar} className="rounded-xl bg-stone-900 px-4 py-2 font-bold text-white">
+      <button type="button" onClick={onInterpretar} className="btn btn-tinta btn-chico">
         Interpretar
       </button>
     </div>
@@ -474,16 +525,19 @@ function Dudoso({
   const [productoId, setProductoId] = useState('');
   const [cantidad, setCantidad] = useState(1);
   return (
-    <div className="flex flex-col gap-2 rounded-xl border-2 border-amber-400 bg-amber-50 p-3">
-      <p>
-        <span className="font-bold">Dudoso:</span> “{texto}”
+    <div className="flex animate-entra flex-col gap-2.5 rounded-xl border border-alerta/30 bg-alerta-suave px-3.5 py-3">
+      <p className="flex items-start gap-3 text-[0.9375rem] leading-snug">
+        <Icono nombre="alerta" className="mt-px text-alerta" />
+        <span>
+          <span className="font-semibold">No sé qué es:</span> “{texto}”
+        </span>
       </p>
       <div className="flex flex-wrap gap-2">
         <select
           value={productoId}
           onChange={(e) => setProductoId(e.target.value)}
           aria-label="Producto correcto"
-          className="min-w-0 flex-1 rounded-lg border-2 border-amber-300 bg-white px-2 py-2"
+          className="campo campo-chico min-w-0 flex-1"
         >
           <option value="">Elegí el producto…</option>
           {activos.map((p) => (
@@ -499,32 +553,15 @@ function Dudoso({
           value={cantidad}
           onChange={(e) => setCantidad(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
           aria-label="Cantidad"
-          className="w-16 rounded-lg border-2 border-amber-300 bg-white px-2 py-2 text-center"
+          className="campo campo-chico num w-16 text-center"
         />
-        <button
-          type="button"
-          disabled={!productoId}
-          onClick={() => onElegir(productoId, cantidad)}
-          className="rounded-lg bg-amber-500 px-3 py-2 font-bold text-white disabled:opacity-50"
-        >
+        <button type="button" disabled={!productoId} onClick={() => onElegir(productoId, cantidad)} className="btn btn-tinta btn-chico h-9">
           Agregar
         </button>
-        <button type="button" onClick={onDescartar} className="px-2 font-medium underline">
+        <button type="button" onClick={onDescartar} className="btn btn-fantasma btn-chico h-9">
           Ignorar
         </button>
       </div>
-    </div>
-  );
-}
-
-function Aviso({ color, onCerrar, children }: { color: 'sky' | 'red'; onCerrar: () => void; children: ReactNode }) {
-  const estilos = color === 'sky' ? 'border-sky-300 bg-sky-50 text-sky-900' : 'border-red-300 bg-red-50 text-red-900';
-  return (
-    <div className={`flex items-start gap-2 rounded-xl border-2 p-3 ${estilos}`}>
-      <p className="flex-1">{children}</p>
-      <button type="button" onClick={onCerrar} aria-label="Cerrar aviso" className="px-1 text-xl leading-none">
-        ×
-      </button>
     </div>
   );
 }
