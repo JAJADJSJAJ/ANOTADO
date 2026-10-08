@@ -38,8 +38,10 @@ const PROHIBIDO =
   /[$<>@\n\r]|https?:|www\.|\.(com|uy|net|org)\b|precio|gratis|descuento|promo|oferta|pag[aáo]|transfer|tarjeta|cuenta|contraseñ|clave|c[oó]digo|tel[eé]fono|celular|whats|mail|correo|c[eé]dula|\bdni\b|documento|\d[\d .-]{4,}\d/i;
 
 // Solo para las preguntas de la IA (no para lo que se cita del cliente): ninguna pide datos de
-// contacto o de dónde vive. La dirección de envío la pide la plantilla, no la IA (revisión).
-const PIDE_DATOS = /n[uú]mero|direcci[oó]n|domicilio|ubicaci[oó]n|d[oó]nde (viv|est)|barrio|calle|esquina|zona|nombre|apellido|llam[aá]s|contact/i;
+// contacto o de dónde vive. La dirección de envío la pide la plantilla, no la IA (revisión). Es
+// una lista de mejor esfuerzo: lo que se escape es la IA preguntándole un dato al mismo cliente
+// en su chat (docs/decisiones.md).
+const PIDE_DATOS = /n[uú]mero|direcci[oó]n|domicilio|ubicaci[oó]n|d[oó]nde|altura|barrio|calle|esquina|zona|nombre|apellido|llam[aá]s|contact/i;
 
 /** La pregunta de la IA si es segura para mandarle al cliente; si no, null. */
 export function preguntaSegura(pregunta: string): string | null {
