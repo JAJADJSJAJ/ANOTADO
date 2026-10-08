@@ -26,12 +26,16 @@ export type DatosRespuesta = {
 };
 
 const MAX_PREGUNTA = 150;
-const MAX_DUDOSO = 60;
+const MAX_CITA = 60;
+const MAX_DIRECCION = 120;
 const PREGUNTA_GENERICA = '¿Me aclarás qué querías pedir?';
 
-// Una pregunta corta, que termina en "?", sin plata, links ni temas de pago: la IA solo puede
-// preguntar por productos. Cualquier otra cosa puede ser un intento de manipulación.
-const PROHIBIDO = /[$<>\n\r]|https?:|www\.|\.(com|uy|net|org)\b|precio|gratis|descuento|promo|oferta|pag[aáo]|transfer|tarjeta|cuenta|contraseñ|clave|c[oó]digo/i;
+// Lo que la IA o el cliente escribieron solo vuelve en una respuesta si es corto y sin plata, links,
+// pagos, pedidos de datos personales (teléfono, mail, documento) ni números largos: el bot solo
+// pregunta por productos. Cualquier otra cosa puede ser un intento de manipulación, y en la demo
+// compartida otros visitantes ven las respuestas en el mostrador.
+const PROHIBIDO =
+  /[$<>@\n\r]|https?:|www\.|\.(com|uy|net|org)\b|precio|gratis|descuento|promo|oferta|pag[aáo]|transfer|tarjeta|cuenta|contraseñ|clave|c[oó]digo|tel[eé]fono|celular|whats|mail|correo|c[eé]dula|\bdni\b|documento|\d[\d .-]{4,}\d/i;
 
 /** La pregunta de la IA si es segura para mandarle al cliente; si no, null. */
 export function preguntaSegura(pregunta: string): string | null {
@@ -40,11 +44,11 @@ export function preguntaSegura(pregunta: string): string | null {
   return p.startsWith('¿') ? p : `¿${p}`;
 }
 
-/** Lo que escribió el cliente, acotado y en una línea, para citarlo. Null si no se puede citar. */
-function citar(texto: string): string | null {
+/** Texto del cliente o de la IA, acotado y en una línea, para citarlo. Null si no se puede citar. */
+function citar(texto: string, max = MAX_CITA): string | null {
   const t = texto.trim().replace(/\s+/g, ' ').replace(/[«»"]/g, '');
   if (!t || PROHIBIDO.test(t)) return null;
-  return t.length > MAX_DUDOSO ? `${t.slice(0, MAX_DUDOSO - 1)}…` : t;
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
 }
 
 /** "a", "a y b", "a, b y c". */
@@ -58,7 +62,8 @@ function describirItems(borrador: Borrador, menu: readonly ProductoMenu[]): stri
   const partes = borrador.items.flatMap((it) => {
     const nombre = nombres.get(it.producto_id);
     if (!nombre) return [];
-    return [`${it.cantidad} ${nombre}${it.notas ? ` (${it.notas})` : ''}`];
+    const notas = it.notas ? citar(it.notas) : null;
+    return [`${it.cantidad} ${nombre}${notas ? ` (${notas})` : ''}`];
   });
   return partes.length ? enumerar(partes) : null;
 }
@@ -66,7 +71,7 @@ function describirItems(borrador: Borrador, menu: readonly ProductoMenu[]): stri
 /** La respuesta del bot, o null si no hay nada que decir (un "gracias" que no cambió nada). */
 export function respuestaBot(d: DatosRespuesta): string | null {
   const preguntas = [...new Set(d.preguntas.map((p) => preguntaSegura(p) ?? PREGUNTA_GENERICA))];
-  const dudosos = d.dudosos.map(citar);
+  const dudosos = d.dudosos.map((t) => citar(t));
   const hayNovedad = d.cambio || preguntas.length > 0 || dudosos.length > 0 || d.errores > 0;
   if (!hayNovedad && !d.primera) return null;
 
@@ -78,8 +83,13 @@ export function respuestaBot(d: DatosRespuesta): string | null {
   if (items) {
     let detalle = '';
     if (entrega?.modo === 'retiro') detalle = ', para retirar';
-    else if (entrega?.modo === 'delivery' && entrega.direccion) detalle = `, para enviar a ${entrega.direccion}`;
-    else if (entrega?.modo === 'mesa' && entrega.mesa) detalle = `, para la mesa ${entrega.mesa}`;
+    else if (entrega?.modo === 'delivery' && entrega.direccion) {
+      const direccion = citar(entrega.direccion, MAX_DIRECCION);
+      detalle = direccion ? `, para enviar a ${direccion}` : ', para enviar a la dirección que nos pasaste';
+    } else if (entrega?.modo === 'mesa' && entrega.mesa) {
+      const mesa = citar(entrega.mesa, 20);
+      if (mesa) detalle = `, para la mesa ${mesa}`;
+    }
     lineas.push(`Anoté: ${items}${detalle}.`);
   }
 

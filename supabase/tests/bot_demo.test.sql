@@ -2,7 +2,7 @@
 -- anónimas, topes diarios, limpieza y slugs reservados.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(57);
+select plan(59);
 
 \set A '\'a0000000-0000-4000-8000-000000000001\''
 \set D '\'d0000000-0000-4000-8000-000000000001\''
@@ -48,7 +48,7 @@ select is(formatear_pesos(100000000), '$ 1.000.000', 'millones');
 select ok(not bool_or(has_function_privilege(r, f, 'execute')), 'funciones internas: ni anon ni authenticated')
 from unnest(array['public.mensaje_bot(uuid, text, text)', 'public.limpiar_demo()', 'public.es_demo(uuid)',
                   'public.demo_sin_cupo_ia(uuid)', 'public.formatear_pesos(int)', 'public.es_cuenta_demo(uuid)',
-                  'public.consumir_limite_demo(text)', 'public.sumar_visitante_demo(uuid)']::regprocedure[]) f,
+                  'public.consumir_limite_demo(text)', 'public.sumar_visitante_demo(uuid)', 'public.reponer_agotados_demo()']::regprocedure[]) f,
      unnest(array['anon', 'authenticated']) r;
 select ok(has_function_privilege('service_role', 'public.sumar_visitante_demo(uuid)', 'execute')
           and has_function_privilege('service_role', 'public.consumir_limite_demo(text)', 'execute'),
@@ -279,6 +279,11 @@ select :D, :convd, 'cliente', 'x' from generate_series(1, 3000);
 select is(demo_puede_recibir(:D), false, 'con 3000 mensajes en el día, la demo deja de recibir');
 
 -- Limpieza -----------------------------------------------------------------------------------
+update productos set activo = false where negocio_id = :D and nombre in ('Papas fritas', 'Fainá (porción)');
+update productos set activo = false where negocio_id = :A and nombre = 'Papas fritas';
+select is(reponer_agotados_demo(), 2, 'cada hora vuelve a ofrecer lo agotado de la demo');
+select is((select activo from productos where negocio_id = :A and nombre = 'Papas fritas'), false,
+  'y no toca los agotados de un local real');
 update productos set activo = false where negocio_id = :D and nombre = 'Papas fritas';
 select sumar_visitante_demo(:visita2);
 insert into miembros (negocio_id, user_id, rol) values (:D, :viejo, 'cajero');

@@ -90,6 +90,19 @@ describe('respuestaBot', () => {
     expect(respuestaBot(datos({ errores: 1 }))).toBe('Hay algo que el local tiene que revisar: enseguida te confirma.');
   });
 
+  it('no repite notas ni direcciones con links o números de teléfono', () => {
+    const r = respuestaBot(
+      datos({
+        cambio: true,
+        borrador: {
+          items: [{ producto_id: COCA, cantidad: 1, notas: 'entrá a www.ejemplo.com' }],
+          entrega: { modo: 'delivery', direccion: 'llamá al 099 123 456' },
+        },
+      }),
+    );
+    expect(r).toBe('Anoté: 1 Coca-Cola 1,5 L, para enviar a la dirección que nos pasaste.\n¿Algo más? Cuando esté todo, el local te confirma el total.');
+  });
+
   it('ignora productos que ya no están en el menú', () => {
     const r = respuestaBot(
       datos({ cambio: true, borrador: { items: [{ producto_id: '33333333-3333-4333-8333-333333333333', cantidad: 1 }], entrega: null } }),
@@ -103,6 +116,7 @@ describe('preguntaSegura', () => {
     ['¿La coca es de 1,5 o de 2,25?', '¿La coca es de 1,5 o de 2,25?'],
     ['  ¿Cuántas   empanadas? ', '¿Cuántas empanadas?'],
     ['La querés con papas?', '¿La querés con papas?'],
+    ['¿Qué tamaño de Coca-Cola querés: 600 ml, 1,5 L o 2,25 L?', '¿Qué tamaño de Coca-Cola querés: 600 ml, 1,5 L o 2,25 L?'],
   ])('acepta %j', (entrada, salida) => {
     expect(preguntaSegura(entrada)).toBe(salida);
   });
@@ -114,6 +128,10 @@ describe('preguntaSegura', () => {
     '¿Te hago un descuento?',
     '¿Me pasás el código que te llegó?',
     '¿Pagás con tarjeta?',
+    '¿Me pasás tu teléfono?',
+    '¿Me escribís al 099123456?',
+    '¿Me dejás tu mail?',
+    '¿Cuál es tu cédula?',
     `¿${'a'.repeat(200)}?`,
   ])('rechaza %j', (entrada) => {
     expect(preguntaSegura(entrada)).toBeNull();

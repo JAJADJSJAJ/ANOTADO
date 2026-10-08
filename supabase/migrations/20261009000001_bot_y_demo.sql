@@ -477,6 +477,22 @@ $$;
 
 -- 8. Demo: limpieza diaria ---------------------------------------------------------------------
 
+-- Lo agotado en la demo vuelve a ofrecerse cada hora: si un visitante marca todo agotado, el
+-- siguiente no tiene que esperar a la noche para probarla.
+create function public.reponer_agotados_demo() returns int
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_n int;
+begin
+  update public.productos p set activo = true from public.negocios ng
+  where ng.id = p.negocio_id and ng.es_demo and not p.activo;
+  get diagnostics v_n = row_count;
+  return v_n;
+end;
+$$;
+
+revoke all on function public.reponer_agotados_demo() from public, anon, authenticated;
+
 -- Deja los locales de demo como recién creados (menú intacto, nada agotado, sin pedidos ni
 -- chats) y borra las cuentas de demo de más de un día (sus membresías se van en cascada).
 -- Devuelve cuántos usuarios borró.
@@ -491,11 +507,11 @@ begin
   delete from public.clientes c using public.negocios ng where ng.id = c.negocio_id and ng.es_demo;
   delete from public.limites_ia l using public.negocios ng where ng.id = l.negocio_id and ng.es_demo;
   delete from public.contadores_pedidos cp using public.negocios ng where ng.id = cp.negocio_id and ng.es_demo;
-  update public.productos p set activo = true from public.negocios ng
-  where ng.id = p.negocio_id and ng.es_demo and not p.activo;
+  perform public.reponer_agotados_demo();
 
+  -- Solo las marcadas por demo-entrar (revisión: no cualquier anónima).
   delete from auth.users u
-  where (u.is_anonymous or coalesce(u.raw_app_meta_data ->> 'demo', '') = 'true')
+  where coalesce(u.raw_app_meta_data ->> 'demo', '') = 'true'
     and u.created_at < now() - interval '1 day';
   get diagnostics v_borrados = row_count;
   return v_borrados;
@@ -508,6 +524,7 @@ create extension if not exists pg_cron with schema pg_catalog;
 
 -- Todos los días a las 5:00 de Uruguay (8:00 UTC), la hora más tranquila.
 select cron.schedule('limpiar-demo', '0 8 * * *', 'select public.limpiar_demo()');
+select cron.schedule('reponer-agotados-demo', '30 * * * *', 'select public.reponer_agotados_demo()');
 
 -- 9. Slugs reservados: /demo y /privacidad -----------------------------------------------------
 
