@@ -315,6 +315,7 @@ export type Database = {
       }
       mensajes: {
         Row: {
+          clave: string | null
           contenido: string
           conversacion_id: string
           created_at: string
@@ -327,6 +328,7 @@ export type Database = {
           wa_message_id: string | null
         }
         Insert: {
+          clave?: string | null
           contenido: string
           conversacion_id: string
           created_at?: string
@@ -339,6 +341,7 @@ export type Database = {
           wa_message_id?: string | null
         }
         Update: {
+          clave?: string | null
           contenido?: string
           conversacion_id?: string
           created_at?: string
@@ -398,6 +401,7 @@ export type Database = {
           activo: boolean
           config: Json
           created_at: string
+          es_demo: boolean
           hora_corte_jornada: string
           horarios: Json
           ia_activa: boolean
@@ -412,6 +416,7 @@ export type Database = {
           activo?: boolean
           config?: Json
           created_at?: string
+          es_demo?: boolean
           hora_corte_jornada?: string
           horarios?: Json
           ia_activa?: boolean
@@ -426,6 +431,7 @@ export type Database = {
           activo?: boolean
           config?: Json
           created_at?: string
+          es_demo?: boolean
           hora_corte_jornada?: string
           horarios?: Json
           ia_activa?: boolean
@@ -911,6 +917,9 @@ export type Database = {
         Args: { p_codigo: string; p_nombre: string }
         Returns: Json
       }
+      demo_puede_recibir: { Args: { p_negocio_id: string }; Returns: boolean }
+      demo_sin_cupo_ia: { Args: { p_negocio_id: string }; Returns: boolean }
+      es_demo: { Args: { p_negocio_id: string }; Returns: boolean }
       es_miembro: { Args: { n: string }; Returns: boolean }
       es_operador: { Args: never; Returns: boolean }
       es_ultimo_dueno: {
@@ -931,6 +940,7 @@ export type Database = {
         Returns: undefined
       }
       existe_cuenta: { Args: { p_email_hash: string }; Returns: boolean }
+      formatear_pesos: { Args: { p_centavos: number }; Returns: string }
       guardar_borrador: {
         Args: {
           p_borrador: Json
@@ -966,6 +976,7 @@ export type Database = {
           p_modelo: string
           p_negocio_id: string
           p_pendientes: Json
+          p_respuesta?: string
           p_tokens_entrada: number
           p_tokens_salida: number
           p_version: number
@@ -996,9 +1007,18 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      limpiar_demo: { Args: never; Returns: number }
       marcar_agotado: {
         Args: { p_agotado: boolean; p_producto_id: string }
         Returns: Json
+      }
+      mensaje_bot: {
+        Args: {
+          p_clave?: string
+          p_contenido: string
+          p_conversacion_id: string
+        }
+        Returns: undefined
       }
       mi_estado_operador: { Args: never; Returns: Json }
       miembros_negocio: {
@@ -1141,6 +1161,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      unirse_demo: { Args: never; Returns: Json }
       ver_invitacion: { Args: { p_token: string }; Returns: Json }
     }
     Enums: {
