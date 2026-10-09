@@ -24,10 +24,13 @@ import {
   type ConfigIA,
   construirMensajes,
   construirMenu,
+  type Cancelacion,
   ErrorIA,
   historialWhatsApp,
+  leerPagos,
   llamarIA,
   type MensajeHistorial,
+  type PedidoDelCliente,
   type Pendientes,
   PendientesSchema,
   respuestaBot,
@@ -121,6 +124,9 @@ async function vueltas(
 ): Promise<ResultadoInterpretacion> {
   const inicio = Date.now();
   let algunaOk = false;
+  // Un pedido que este proceso ya canceló: si la vuelta se repite (el cajero editó en el medio),
+  // no se vuelve a pedir la cancelación, que ahora diría "ya estaba cancelado".
+  let cancelado: PedidoDelCliente | null = null;
   if (opciones.esperarRafaga) await dormir(ESPERA_RAFAGA_MS);
 
   for (let vuelta = 0; vuelta < MAX_VUELTAS && Date.now() - inicio < MAX_DURACION_MS; vuelta++) {
@@ -150,7 +156,7 @@ async function vueltas(
     // suspendido. Antes del límite y de la IA: con alguna apagada no se gasta nada.
     const { data: negocio, error: errNegocio } = await admin
       .from('negocios')
-      .select('nombre, activo, ia_permitida, ia_activa')
+      .select('nombre, activo, ia_permitida, ia_activa, config')
       .eq('id', negocioId)
       .maybeSingle();
     if (errNegocio || !negocio) return 'error';
@@ -210,7 +216,50 @@ async function vueltas(
     // Respuesta al cliente: solo en conversaciones de WhatsApp (las pegadas a mano no tienen a
     // quién contestarle). Saluda la primera vez que el bot le escribe en esta conversación.
     let respuestaCliente: string | null = null;
+    // Lo que el cajero tiene que resolver por algo que pidió el cliente (cancelar algo ya en cocina).
+    const avisosCajero: string[] = [];
     if (conv.cliente_id) {
+      // Cancelar un pedido ya confirmado: solo si la cocina no lo empezó (lo decide la base).
+      let cancelacion: Cancelacion | undefined;
+      if (aplicado.cancelar === 'pedido') {
+        if (cancelado) {
+          cancelacion = { pedido: cancelado, cancelado: true };
+        } else {
+          const { data, error: errCancelar } = await admin.rpc('cancelar_pedido_cliente', {
+            p_negocio_id: negocioId,
+            p_cliente_id: conv.cliente_id,
+          });
+          if (errCancelar) return 'error';
+          const r = data as (PedidoDelCliente & { cancelado: boolean }) | null;
+          cancelacion = r ? { pedido: { numero: r.numero, estado: r.estado, modo: r.modo }, cancelado: r.cancelado } : null;
+          if (r?.cancelado) cancelado = { numero: r.numero, estado: r.estado, modo: r.modo };
+        }
+        if (cancelacion && !cancelacion.cancelado && cancelacion.pedido.estado !== 'cancelado') {
+          avisosCajero.push(`El cliente pide cancelar el pedido #${cancelacion.pedido.numero}, que ya está ${
+            cancelacion.pedido.estado === 'entregado' ? 'entregado' : 'en cocina'
+          }.`);
+        }
+      } else if (aplicado.cancelar === 'borrador') {
+        cancelacion = 'borrador';
+      }
+
+      // Cómo va su pedido: el último de las últimas 12 horas.
+      let estadoPedido: PedidoDelCliente | null | undefined;
+      if (aplicado.estado) {
+        const { data: ultimo, error: errUltimo } = await admin
+          .from('pedidos')
+          .select('numero, estado, entrega')
+          .eq('negocio_id', negocioId)
+          .eq('cliente_id', conv.cliente_id)
+          .gt('created_at', new Date(Date.now() - 12 * 3600_000).toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (errUltimo) return 'error';
+        const modo = (ultimo?.entrega as { modo?: PedidoDelCliente['modo'] } | null)?.modo ?? null;
+        estadoPedido = ultimo ? { numero: ultimo.numero, estado: ultimo.estado, modo } : null;
+      }
+
       const { count, error: errPrevias } = await admin
         .from('mensajes')
         .select('id', { count: 'exact', head: true })
@@ -229,6 +278,10 @@ async function vueltas(
         primera: (count ?? 0) === 0,
         consulta: aplicado.consulta,
         precios: new Map(productos.map((p) => [p.id, p.precio_centavos])),
+        listo: respuesta.respuesta.listo_para_confirmar,
+        estadoPedido,
+        pagos: aplicado.pago ? leerPagos(negocio.config) : undefined,
+        cancelacion,
       });
     }
     const { error: errGuardar } = await admin.rpc('guardar_interpretacion_wa', {
@@ -239,7 +292,15 @@ async function vueltas(
       p_borrador: aplicado.borrador,
       // Si el bot contestó, las preguntas ya se las hizo él al cliente: no quedan como tarea del
       // cajero ("Preguntale al cliente"). Los dudosos sí, los resuelve el cajero.
-      p_pendientes: combinarPendientes(pendientesPrevios, respuestaCliente ? { ...aplicado, preguntas: [] } : aplicado, quitados),
+      p_pendientes: combinarPendientes(
+        pendientesPrevios,
+        {
+          ...aplicado,
+          preguntas: respuestaCliente ? [] : aplicado.preguntas,
+          errores: [...aplicado.errores, ...avisosCajero],
+        },
+        quitados,
+      ),
       p_modelo: respuesta.modelo,
       p_tokens_entrada: respuesta.tokensEntrada,
       p_tokens_salida: respuesta.tokensSalida,

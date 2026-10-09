@@ -403,7 +403,7 @@ export function TarjetaWhatsApp({
                 ))}
                 {pendientes.errores.map((texto, i) => (
                   <Nota key={`${texto}-${i}`} tono="peligro" accion={<Cerrar onClick={() => quitarPendiente('errores', i)} />}>
-                    <span className="font-semibold">No se agregó:</span> {texto}
+                    <span className="font-semibold">Revisar:</span> {texto}
                   </Nota>
                 ))}
                 {aviso && (

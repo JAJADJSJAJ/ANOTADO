@@ -303,6 +303,24 @@ El cupo diario de IA se descuenta solo si el pedido pasó el límite por minuto:
 
 **Otros mails de Auth** (recuperar contraseña, magic link): van al mail de la cuenta, que en la demo es un `@demo.anotado.invalid` inventado, nunca a un tercero. Pedirlos para el mail de otra persona ya lo podía hacer cualquiera, con o sin demo: no es algo nuevo de la demo (revisión).
 
+## Rediseño y lo que el cliente pregunta (octubre 2026)
+
+### Diseño: "birome sobre comanda"
+Papel, tinta y un solo azul (el de la birome). Bricolage Grotesque y JetBrains Mono instaladas como paquetes, sin pedidos a Google. Sin degradés, brillos ni emojis. Sonidos de la interfaz generados en el navegador, con interruptor guardado; las alarmas de la cocina suenan siempre. Las pantallas de trabajo (Pedidos, Cocina) quedan separadas de Administrar. La demo va en tres pasos, una pantalla a la vez (pedido de Fran: "más separado y sencillo").
+
+### El bot contesta lo que el cliente pregunta, siempre con plantillas
+La IA solo **detecta** qué quiere el cliente; los datos los busca el servidor y el texto lo arma el bot (`shared/bot.ts`). Nunca va texto libre de la IA al cliente.
+- **Menú** (`consultar`): la IA dice qué productos responden ("¿qué pizzas tienen?") y el bot los nombra con el precio de la base. Es la primera vez que el bot dice precios: salen del menú, nunca de la IA. Si no hay, "Lo que preguntaste no lo tenemos en el menú".
+- **Cómo va su pedido** (`estado`): el último pedido del cliente de las últimas 12 horas.
+- **Formas de pago** (`pago`): las que marca el dueño en Administrar (`negocios.config.pagos`). **Solo los medios** (decisión de Fran): el alias o la cuenta para transferir los pasa el local a mano, así nadie que entre a la cuenta del dueño puede cambiarlos para quedarse con la plata.
+- **"Eso es todo"** (`listo_para_confirmar`, ya existía): si el pedido está completo, el bot avisa que el local lo revisa y confirma. La IA sigue sin confirmar sola.
+
+### Cancelar por WhatsApp (decisión de Fran)
+Si el cliente está armando un pedido, se vacía. Si no, habla de su último pedido confirmado: `cancelar_pedido_cliente` (solo `service_role`) lo cancela **solo si la cocina no tocó "Empezar"** (pendiente), con la fila bloqueada para que no choque con la cocina. Si ya empezó o se entregó, no se toca: el bot le dice al cliente que avisó al local y al cajero le queda un "Revisar" en la conversación. Si la vuelta de interpretación se repite, no se vuelve a pedir la cancelación.
+
+### Mensajes escritos rápido desde el celular
+Además del prompt, una red de seguridad sin IA (`shared/fonetica.ts`): si la IA deja algo como dudoso y **suena igual** a un solo producto activo (b=v, s=z=c, ll=y=l, x=ch, h muda, sin plurales), se agrega con su cantidad ("2 virras" = 2 birras). Solo la frase entera y un único candidato: nada de parecidos aproximados. Evals: 36 casos (7 de ortografía muy mala); lo que falla varía entre corridas del modelo.
+
 ## Pendiente de decidir
 
 - **Clave de idempotencia para tarjetas nuevas de WhatsApp** (Fase 2). No bloquea.

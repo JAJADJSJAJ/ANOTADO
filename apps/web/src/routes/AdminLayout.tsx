@@ -20,6 +20,7 @@ const SECCIONES: { grupo: string; items: Seccion[] }[] = [
     items: [
       { ruta: 'envios', texto: 'Envíos', icono: 'moto' },
       { ruta: 'cocina', texto: 'Cocina', icono: 'cocina' },
+      { ruta: 'pagos', texto: 'Formas de pago', icono: 'billete' },
       { ruta: 'ia', texto: 'IA de WhatsApp', icono: 'chispa' },
     ],
   },

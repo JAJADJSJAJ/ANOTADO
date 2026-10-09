@@ -907,6 +907,10 @@ export type Database = {
         Args: { p_motivo?: string; p_pedido_id: string }
         Returns: Json
       }
+      cancelar_pedido_cliente: {
+        Args: { p_cliente_id: string; p_negocio_id: string }
+        Returns: Json
+      }
       cerrar_conversacion: {
         Args: { p_conversacion_id: string }
         Returns: undefined

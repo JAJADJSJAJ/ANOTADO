@@ -110,6 +110,13 @@ const TRAZOS = {
       <circle cx="12" cy="10" r="2.2" />
     </>
   ),
+  billete: (
+    <>
+      <rect x="3" y="6.5" width="18" height="11" rx="2" />
+      <circle cx="12" cy="12" r="2.3" />
+      <path d="M6.5 9.5v.01M17.5 14.5v.01" />
+    </>
+  ),
   lapiz: <path d="M4.5 19.5 5.5 15 15.5 5a2.1 2.1 0 0 1 3 3l-10 10zM13.5 7l3 3" />,
   pausa: <path d="M9 6.5v11M15 6.5v11" />,
   ojo: (

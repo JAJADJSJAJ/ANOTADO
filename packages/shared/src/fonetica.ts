@@ -6,7 +6,7 @@
 // aproximados, que agregarían cosas que el cliente no pidió.
 
 /**
- * Forma fonética: sin tildes, b=v, s=z=c(e,i), k=c=qu, sin h muda, sin letras repetidas y sin
+ * Forma fonética: sin tildes, b=v, s=z=c(e,i), k=c=qu, x=ch, sin h muda, sin letras repetidas y sin
  * plurales. ll, y y l van juntas: "poyo" es pollo y "musarela" es muzzarella.
  */
 export function fonetica(texto: string): string {
@@ -20,6 +20,7 @@ export function fonetica(texto: string): string {
     .filter(Boolean)
     .map((palabra) =>
       palabra
+        .replace(/x/g, 'ch') // "xivito": en el celular la x se usa por ch
         .replace(/ch/g, 'X') // la ch se protege para no perderla con la h muda
         .replace(/h/g, '')
         .replace(/qu(?=[ei])/g, 'k')

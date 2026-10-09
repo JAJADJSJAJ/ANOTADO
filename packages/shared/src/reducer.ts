@@ -34,6 +34,15 @@ export type ResultadoAcciones = {
    * null = no preguntó; [] = preguntó por algo que no hay.
    */
   consulta: string[] | null;
+  /** Preguntó cómo va su pedido. */
+  estado: boolean;
+  /** Preguntó cómo se puede pagar. */
+  pago: boolean;
+  /**
+   * Pidió cancelar. 'borrador': había un pedido armándose y se vació. 'pedido': no había nada
+   * armado, así que habla del último pedido confirmado (lo resuelve el servidor). null: no pidió.
+   */
+  cancelar: 'borrador' | 'pedido' | null;
 };
 
 /**
@@ -53,6 +62,9 @@ export function aplicarAcciones(
   const preguntas: string[] = [];
   const errores: string[] = [];
   let consulta: string[] | null = null;
+  let estado = false;
+  let pago = false;
+  let cancelar: ResultadoAcciones['cancelar'] = null;
 
   const lineasDe = (productoId: string) =>
     b.items.flatMap((it, i) => (it.producto_id === productoId ? [i] : []));
@@ -174,10 +186,29 @@ export function aplicarAcciones(
         consulta = [...new Set([...(consulta ?? []), ...ids])].slice(0, MAX_CONSULTA);
         break;
       }
+
+      case 'estado':
+        estado = true;
+        break;
+
+      case 'pago':
+        pago = true;
+        break;
+
+      case 'cancelar':
+        // Con algo armado, se cancela eso (sin pedido no hay nada que cocinar). Sin nada armado,
+        // habla de un pedido ya confirmado, que no se toca acá.
+        if (b.items.length > 0 || cancelar === 'borrador') {
+          b = { items: [], entrega: null };
+          cancelar = 'borrador';
+        } else {
+          cancelar = 'pedido';
+        }
+        break;
     }
   }
 
-  return { borrador: b, dudosos, preguntas, errores, consulta };
+  return { borrador: b, dudosos, preguntas, errores, consulta, estado, pago, cancelar };
 }
 
 /** El producto que "suena igual" a todo el texto, si es uno solo (con su cantidad). */

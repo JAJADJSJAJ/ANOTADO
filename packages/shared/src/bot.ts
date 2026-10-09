@@ -1,4 +1,5 @@
 import { formatearPrecio } from './dinero.ts';
+import { ETIQUETA_PAGO, type MedioPago } from './pagos.ts';
 import type { ProductoMenu } from './reducer.ts';
 import type { Borrador } from './schemas.ts';
 
@@ -29,7 +30,29 @@ export type DatosRespuesta = {
   consulta?: readonly string[] | null;
   /** Precio de cada producto del menú (centavos), para contestar la consulta. */
   precios?: ReadonlyMap<string, number>;
+  /** El cliente dijo que terminó de pedir (listo_para_confirmar de la IA). */
+  listo?: boolean;
+  /** Preguntó cómo va su pedido: el último de hoy, o null si no hay. undefined = no preguntó. */
+  estadoPedido?: PedidoDelCliente | null;
+  /** Preguntó cómo pagar: los medios del local. undefined = no preguntó. */
+  pagos?: readonly MedioPago[];
+  /** Pidió cancelar. */
+  cancelacion?: Cancelacion;
 };
+
+/** Último pedido del cliente, como lo ve el bot. */
+export type PedidoDelCliente = {
+  numero: number;
+  estado: 'pendiente' | 'en_cocina' | 'listo' | 'entregado' | 'cancelado';
+  modo: 'retiro' | 'delivery' | 'mesa' | null;
+};
+
+/**
+ * Cómo terminó un pedido de cancelación. 'borrador': se vació lo que estaba armando.
+ * pedido + cancelado: lo canceló el servidor (el aviso lo manda la base: el bot no repite).
+ * pedido sin cancelar: ya estaba en cocina o entregado, le avisa al local. null: no había pedido.
+ */
+export type Cancelacion = 'borrador' | { pedido: PedidoDelCliente; cancelado: boolean } | null;
 
 const MAX_PREGUNTA = 150;
 const MAX_CITA = 60;
@@ -86,11 +109,41 @@ export function respuestaBot(d: DatosRespuesta): string | null {
   const preguntas = [...new Set(d.preguntas.map((p) => preguntaSegura(p) ?? PREGUNTA_GENERICA))];
   const dudosos = d.dudosos.map((t) => citar(t));
   const consulta = d.consulta ?? null;
-  const hayNovedad = d.cambio || preguntas.length > 0 || dudosos.length > 0 || d.errores > 0;
-  if (!hayNovedad && consulta === null && !d.primera) return null;
+  // Quien pregunta por un pedido que ya hizo ya conoce al bot: no se lo presenta de nuevo.
+  const yaPidio = d.estadoPedido !== undefined || (d.cancelacion !== undefined && d.cancelacion !== 'borrador');
+  const saludo = d.primera && !yaPidio ? [`¡Hola! Te atiende el asistente de ${d.negocio}.`] : [];
 
-  const lineas: string[] = [];
-  if (d.primera) lineas.push(`¡Hola! Te atiende el asistente de ${d.negocio}.`);
+  // Cancelar lo que estaba armando: se dice eso y nada más.
+  if (d.cancelacion === 'borrador') {
+    return [...saludo, 'Listo, cancelé el pedido. Si querés pedir otra cosa, escribime.'].join('\n');
+  }
+  // Respuestas a lo que preguntó o pidió y no cambia productos (cancelar, estado, pagos).
+  const avisos: string[] = [];
+  if (d.cancelacion !== undefined) {
+    const c = d.cancelacion;
+    if (c === null) avisos.push('No encontré un pedido tuyo de hoy para cancelar.');
+    else if (!c.cancelado) avisos.push(noSePuedeCancelar(c.pedido));
+    // Cancelado por el servidor: el aviso "se canceló" lo manda la base.
+  }
+  if (d.estadoPedido !== undefined) avisos.push(contarEstado(d.estadoPedido, d.borrador.items.length > 0));
+  if (d.pagos !== undefined) avisos.push(contarPagos(d.pagos));
+
+  const hayNovedad = d.cambio || preguntas.length > 0 || dudosos.length > 0 || d.errores > 0;
+  // Dijo que terminó y el pedido está completo: se le avisa que el local confirma.
+  const completo = d.borrador.items.length > 0 && entregaCompleta(d.borrador.entrega);
+  const terminoAhora = d.listo === true && completo;
+  if (!hayNovedad && consulta === null && !terminoAhora) {
+    if (avisos.length) return [...saludo, ...avisos].join('\n');
+    // Ya se canceló un pedido confirmado: el aviso lo mandó la base, no hace falta saludar.
+    if (typeof d.cancelacion === 'object' && d.cancelacion?.cancelado) return null;
+    return d.primera ? [...saludo, '¿Qué te gustaría pedir?'].join('\n') : null;
+  }
+
+  const lineas: string[] = [...saludo, ...avisos];
+  if (terminoAhora && !hayNovedad && consulta === null) {
+    lineas.push('¡Perfecto! El local lo revisa y te confirma el total en un momento.');
+    return lineas.join('\n');
+  }
 
   // Solo una pregunta sobre el menú: se contesta eso, sin repetir el pedido.
   if (consulta !== null && !hayNovedad) {
@@ -130,9 +183,56 @@ export function respuestaBot(d: DatosRespuesta): string | null {
   } else if (!pendiente) {
     if (!entrega) lineas.push('¿Es para retirar o te lo mandamos?');
     else if (entrega.modo === 'delivery' && !entrega.direccion) lineas.push('¿A qué dirección te lo mandamos?');
+    else if (d.listo) lineas.push('¡Perfecto! El local lo revisa y te confirma el total en un momento.');
     else lineas.push('¿Algo más? Cuando esté todo, el local te confirma el total.');
   }
   return lineas.join('\n');
+}
+
+function entregaCompleta(e: Borrador['entrega']): boolean {
+  if (!e) return false;
+  if (e.modo === 'delivery') return Boolean(e.direccion);
+  if (e.modo === 'mesa') return Boolean(e.mesa);
+  return true;
+}
+
+/** Cómo va el pedido, en palabras del local. */
+function contarEstado(p: PedidoDelCliente | null, armando: boolean): string {
+  if (!p) {
+    return armando
+      ? 'Tu pedido todavía no está confirmado: cuando esté todo, el local te confirma el total.'
+      : 'No encontré un pedido tuyo de hoy. ¿Qué te gustaría pedir?';
+  }
+  const n = `Tu pedido #${p.numero}`;
+  switch (p.estado) {
+    case 'pendiente':
+      return `${n} ya está en el local: en un ratito empiezan a prepararlo.`;
+    case 'en_cocina':
+      return `${n} se está preparando.`;
+    case 'listo':
+      return p.modo === 'retiro'
+        ? `${n} está listo. Podés pasar a retirarlo.`
+        : p.modo === 'delivery'
+          ? `${n} está listo y sale enseguida.`
+          : `${n} está listo.`;
+    case 'entregado':
+      return p.modo === 'delivery' ? `${n} ya salió. ¡Va en camino!` : `${n} ya fue entregado.`;
+    case 'cancelado':
+      return `${n} se canceló.`;
+  }
+}
+
+function noSePuedeCancelar(p: PedidoDelCliente): string {
+  const n = `Tu pedido #${p.numero}`;
+  if (p.estado === 'cancelado') return `${n} ya estaba cancelado.`;
+  if (p.estado === 'entregado') return `${n} ya fue entregado: le avisé al local y te contestan por acá.`;
+  return `${n} ya se está preparando, así que no lo puedo cancelar yo: le avisé al local y te contestan enseguida.`;
+}
+
+function contarPagos(medios: readonly MedioPago[]): string {
+  if (!medios.length) return 'Las formas de pago te las confirma el local.';
+  const nombres = medios.map((m) => (m === 'mercadopago' ? ETIQUETA_PAGO[m] : ETIQUETA_PAGO[m].toLowerCase()));
+  return `Aceptamos ${enumerar(nombres)}.`;
 }
 
 /** "Tenemos Muzzarella ($ 450) y Napolitana ($ 520)." o que no hay. Solo nombres y precios del menú. */

@@ -15,6 +15,7 @@ import { AdminIA } from './routes/AdminIA.tsx';
 import { AdminLayout } from './routes/AdminLayout.tsx';
 import { AdminEquipo } from './routes/AdminEquipo.tsx';
 import { AdminMenu } from './routes/AdminMenu.tsx';
+import { AdminPagos } from './routes/AdminPagos.tsx';
 import { Bienvenida } from './routes/Bienvenida.tsx';
 import { Cocina } from './routes/Cocina.tsx';
 import { Demo } from './routes/Demo.tsx';
@@ -93,6 +94,7 @@ const router = createBrowserRouter([
               { path: 'envios', element: <SinDemo><AdminEnvios /></SinDemo> },
               { path: 'cocina', element: <SinDemo><AdminCocina /></SinDemo> },
               { path: 'ia', element: <SinDemo><AdminIA /></SinDemo> },
+              { path: 'pagos', element: <SinDemo><AdminPagos /></SinDemo> },
               // Links viejos a la pantalla única de ajustes.
               { path: 'ajustes', element: <Navigate to="../horarios" replace /> },
             ],

@@ -7,6 +7,7 @@ export * from './cocina.ts';
 export * from './dinero.ts';
 export * from './fonetica.ts';
 export * from './horarios.ts';
+export * from './pagos.ts';
 export * from './ia/cliente.ts';
 export * from './ia/prompt.ts';
 export * from './reducer.ts';

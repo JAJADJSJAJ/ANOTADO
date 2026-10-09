@@ -1,0 +1,12 @@
+{
+  "id": "intencion-02",
+  "menu": "demo",
+  "categoria": "no_es_pedido",
+  "mensajes": [
+    "aceptan mercado pago o tarjeta?"
+  ],
+  "esperado": {
+    "items": [],
+    "entrega": null
+  }
+}

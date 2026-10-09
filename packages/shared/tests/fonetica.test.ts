@@ -9,7 +9,7 @@ describe('fonetica', () => {
     expect(fonetica('kiero')).toBe(fonetica('quiero'));
     expect(fonetica('jamon i keso')).not.toBe(fonetica('jamón y queso')); // la i suelta no se adivina
     expect(fonetica('fainas')).toBe(fonetica('fainá'));
-    expect(fonetica('xivito')).not.toBe(fonetica('chivito')); // x por ch: lo resuelve la IA, no esto
+    expect(fonetica('xivitos al plato')).toBe(fonetica('chivito al plato'));
   });
 
   it('no confunde palabras distintas', () => {
