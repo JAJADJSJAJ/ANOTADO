@@ -211,7 +211,14 @@ function EncabezadoCategoria(p: {
   );
 }
 
-type DatosProducto = { nombre: string; precio_centavos: number; alias: string[]; categoria_id: string | null };
+type DatosProducto = {
+  nombre: string;
+  precio_centavos: number;
+  alias: string[];
+  categoria_id: string | null;
+  /** Unidades por jornada; null = sin control de stock. */
+  stock_dia: number | null;
+};
 
 function FilaProducto(p: {
   producto: Producto;
@@ -246,6 +253,11 @@ function FilaProducto(p: {
           {!prod.activo && <span className="chip chip-alerta ml-2 align-[1px]">Agotado</span>}
         </p>
         {prod.alias.length > 0 && <p className="truncate text-sm text-tinta-3">También: {prod.alias.join(', ')}</p>}
+        {prod.stock_dia !== null && (
+          <p className={`num text-sm ${prod.quedan === 0 ? 'text-peligro' : 'text-tinta-2'}`}>
+            Quedan {prod.quedan ?? prod.stock_dia} de {prod.stock_dia} hoy
+          </p>
+        )}
       </div>
       <span className={`num font-semibold ${prod.activo ? '' : 'text-tinta-3'}`}>{formatearPrecio(prod.precio_centavos)}</span>
       <Interruptor prendido={prod.activo} onCambio={p.onDisponible} etiqueta={`${prod.nombre} disponible`} />
@@ -280,7 +292,7 @@ function NuevoProducto(p: {
   return (
     <div className="border-t border-linea bg-papel/50 px-5 py-4">
       <FormProducto
-        inicial={{ nombre: '', precio_centavos: null, alias: [], categoria_id: p.categoria.id }}
+        inicial={{ nombre: '', precio_centavos: null, alias: [], categoria_id: p.categoria.id, stock_dia: null }}
         categorias={p.categorias}
         textoBoton="Agregar"
         onGuardar={async (datos) => {
@@ -296,7 +308,7 @@ function NuevoProducto(p: {
 }
 
 function FormProducto(p: {
-  inicial: { nombre: string; precio_centavos: number | null; alias: string[]; categoria_id: string | null };
+  inicial: { nombre: string; precio_centavos: number | null; alias: string[]; categoria_id: string | null; stock_dia: number | null };
   categorias: Categoria[];
   textoBoton: string;
   onGuardar: (datos: DatosProducto) => Promise<void>;
@@ -308,6 +320,7 @@ function FormProducto(p: {
   );
   const [alias, setAlias] = useState(p.inicial.alias.join(', '));
   const [categoriaId, setCategoriaId] = useState(p.inicial.categoria_id ?? '');
+  const [stock, setStock] = useState(p.inicial.stock_dia === null ? '' : String(p.inicial.stock_dia));
   const [error, setError] = useState<string | null>(null);
 
   async function enviar(e: FormEvent) {
@@ -321,12 +334,17 @@ function FormProducto(p: {
     if (centavos === null) return setError('Precio inválido. Ej: 280 o 125,50');
     if (listaAlias.length > 20) return setError('Hasta 20 nombres alternativos.');
     if (listaAlias.some((a) => a.length > 60)) return setError('Cada nombre alternativo puede tener hasta 60 caracteres.');
+    const stockDia = stock.trim() === '' ? null : Number(stock);
+    if (stockDia !== null && (!Number.isInteger(stockDia) || stockDia < 0 || stockDia > 10000)) {
+      return setError('El stock del día es un número entero de 0 a 10000, o vacío si no llevás la cuenta.');
+    }
     setError(null);
     await p.onGuardar({
       nombre: nombre.trim(),
       precio_centavos: centavos,
       alias: listaAlias,
       categoria_id: categoriaId || null,
+      stock_dia: stockDia,
     });
   }
 
@@ -359,7 +377,14 @@ function FormProducto(p: {
           ))}
         </select>
       </label>
-      <div className="flex items-end justify-end gap-2">
+      <label>
+        <span className="etiqueta">Stock del día</span>
+        <input value={stock} onChange={(e) => setStock(e.target.value)} inputMode="numeric" placeholder="Sin límite" className="campo num" />
+      </label>
+      <p className="text-sm text-tinta-3 sm:col-span-2">
+        Con stock, cada pedido descuenta y en 0 pasa a agotado solo. Vuelve a este número al empezar cada jornada.
+      </p>
+      <div className="flex items-end justify-end gap-2 sm:col-span-2">
         <button type="button" className="btn btn-fantasma h-11" onClick={p.onCancelar}>
           Cancelar
         </button>

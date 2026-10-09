@@ -8,6 +8,7 @@ import { PantallaMensaje } from './components/Estado.tsx';
 import { RequiereSesion } from './components/RequiereSesion.tsx';
 import { SesionProvider } from './components/SesionProvider.tsx';
 import { SinDemo, SoloRoles } from './components/SoloRoles.tsx';
+import { AdminAutomatico } from './routes/AdminAutomatico.tsx';
 import { AdminCocina } from './routes/AdminCocina.tsx';
 import { AdminEnvios } from './routes/AdminEnvios.tsx';
 import { AdminHorarios } from './routes/AdminHorarios.tsx';
@@ -95,6 +96,7 @@ const router = createBrowserRouter([
               { path: 'cocina', element: <SinDemo><AdminCocina /></SinDemo> },
               { path: 'ia', element: <SinDemo><AdminIA /></SinDemo> },
               { path: 'pagos', element: <SinDemo><AdminPagos /></SinDemo> },
+              { path: 'automatico', element: <SinDemo><AdminAutomatico /></SinDemo> },
               // Links viejos a la pantalla única de ajustes.
               { path: 'ajustes', element: <Navigate to="../horarios" replace /> },
             ],

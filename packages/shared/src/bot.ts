@@ -38,7 +38,12 @@ export type DatosRespuesta = {
   pagos?: readonly MedioPago[];
   /** Pidió cancelar. */
   cancelacion?: Cancelacion;
+  /** Confirmación automática al terminar: preguntar "¿Lo confirmo?", avisar que falta stock, o a mano. */
+  confirmacion?: Confirmacion;
 };
+
+/** pregunta: se le manda el total y "¿Lo confirmo?". sin_stock: se terminó algo. a_mano: lo confirma el local. */
+export type Confirmacion = { tipo: 'pregunta'; total: number } | { tipo: 'sin_stock'; detalle: string } | { tipo: 'a_mano' };
 
 /** Último pedido del cliente, como lo ve el bot. */
 export type PedidoDelCliente = {
@@ -141,7 +146,11 @@ export function respuestaBot(d: DatosRespuesta): string | null {
 
   const lineas: string[] = [...saludo, ...avisos];
   if (terminoAhora && !hayNovedad && consulta === null) {
-    lineas.push('¡Perfecto! El local lo revisa y te confirma el total en un momento.');
+    // Con la pregunta de confirmación va el resumen completo: el cliente confirma lo que ve.
+    if (d.confirmacion?.tipo === 'pregunta') {
+      lineas.push(`Tu pedido: ${describirItems(d.borrador, d.menu)}${detalleEntrega(d.borrador.entrega)}.`);
+    }
+    lineas.push(cierreListo(d.confirmacion));
     return lineas.join('\n');
   }
 
@@ -154,18 +163,7 @@ export function respuestaBot(d: DatosRespuesta): string | null {
 
   const items = describirItems(d.borrador, d.menu);
   const entrega = d.borrador.entrega;
-  if (items) {
-    let detalle = '';
-    if (entrega?.modo === 'retiro') detalle = ', para retirar';
-    else if (entrega?.modo === 'delivery' && entrega.direccion) {
-      const direccion = citar(entrega.direccion, MAX_DIRECCION);
-      detalle = direccion ? `, para enviar a ${direccion}` : ', para enviar a la dirección que nos pasaste';
-    } else if (entrega?.modo === 'mesa' && entrega.mesa) {
-      const mesa = citar(entrega.mesa, 20);
-      if (mesa) detalle = `, para la mesa ${mesa}`;
-    }
-    lineas.push(`Anoté: ${items}${detalle}.`);
-  }
+  if (items) lineas.push(`Anoté: ${items}${detalleEntrega(entrega)}.`);
   if (consulta !== null) lineas.push(contestarConsulta(consulta, d));
 
   const citables = dudosos.filter((t): t is string => t !== null);
@@ -183,10 +181,34 @@ export function respuestaBot(d: DatosRespuesta): string | null {
   } else if (!pendiente) {
     if (!entrega) lineas.push('¿Es para retirar o te lo mandamos?');
     else if (entrega.modo === 'delivery' && !entrega.direccion) lineas.push('¿A qué dirección te lo mandamos?');
-    else if (d.listo) lineas.push('¡Perfecto! El local lo revisa y te confirma el total en un momento.');
+    else if (d.listo) lineas.push(cierreListo(d.confirmacion));
     else lineas.push('¿Algo más? Cuando esté todo, el local te confirma el total.');
   }
   return lineas.join('\n');
+}
+
+/** ", para retirar", ", para enviar a Blandengues 450", ", para la mesa 4" o nada. */
+function detalleEntrega(entrega: Borrador['entrega']): string {
+  if (entrega?.modo === 'retiro') return ', para retirar';
+  if (entrega?.modo === 'delivery' && entrega.direccion) {
+    const direccion = citar(entrega.direccion, MAX_DIRECCION);
+    return direccion ? `, para enviar a ${direccion}` : ', para enviar a la dirección que nos pasaste';
+  }
+  if (entrega?.modo === 'mesa' && entrega.mesa) {
+    const mesa = citar(entrega.mesa, 20);
+    if (mesa) return `, para la mesa ${mesa}`;
+  }
+  return '';
+}
+
+/** Lo que se le dice cuando terminó de pedir, según la confirmación automática. */
+function cierreListo(c: Confirmacion | undefined): string {
+  if (c?.tipo === 'pregunta') return `Total: ${formatearPrecio(c.total)}. ¿Lo confirmo? Respondé SÍ.`;
+  if (c?.tipo === 'sin_stock') {
+    const detalle = c.detalle.charAt(0).toLowerCase() + c.detalle.slice(1);
+    return `Perdón: ${detalle}. ¿Querés cambiarlo por otra cosa?`;
+  }
+  return '¡Perfecto! El local lo revisa y te confirma el total en un momento.';
 }
 
 function entregaCompleta(e: Borrador['entrega']): boolean {

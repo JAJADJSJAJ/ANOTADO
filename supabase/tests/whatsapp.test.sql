@@ -67,7 +67,7 @@ from unnest(array[
   'public.tomar_conversacion_wa(uuid, uuid, int)',
   'public.soltar_conversacion_wa(uuid, uuid)',
   'public.consumir_limite_ia_cliente(uuid, uuid, int, int)',
-  'public.guardar_interpretacion_wa(uuid, uuid, int, uuid[], jsonb, jsonb, text, int, int, text)'
+  'public.guardar_interpretacion_wa(uuid, uuid, int, uuid[], jsonb, jsonb, text, int, int, text, int, boolean, text)'
 ]::regprocedure[]) f;
 select ok(bool_and(has_function_privilege('authenticated', f, 'execute') and not has_function_privilege('anon', f, 'execute')),
   'mostrador y operador: execute para authenticated, no para anon')

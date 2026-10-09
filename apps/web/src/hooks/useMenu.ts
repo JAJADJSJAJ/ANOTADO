@@ -3,16 +3,21 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.ts';
 
 export type Categoria = Tables<'categorias'>;
-export type Producto = Tables<'productos'>;
+/** quedan: lo que queda hoy si tiene stock del día (lo calcula la base según la jornada del local). */
+export type Producto = Tables<'productos'> & { quedan: number | null };
 
 type Resultado = { categorias: Categoria[]; productos: Producto[]; error: string | null };
 
 async function cargarMenu(negocioId: string): Promise<Resultado> {
   const [c, p] = await Promise.all([
     supabase.from('categorias').select('*').eq('negocio_id', negocioId).order('orden').order('nombre'),
-    supabase.from('productos').select('*').eq('negocio_id', negocioId).order('nombre'),
+    supabase.from('productos').select('*, quedan:stock_disponible').eq('negocio_id', negocioId).order('nombre'),
   ]);
-  return { categorias: c.data ?? [], productos: p.data ?? [], error: (c.error ?? p.error)?.message ?? null };
+  return {
+    categorias: c.data ?? [],
+    productos: (p.data ?? []) as unknown as Producto[],
+    error: (c.error ?? p.error)?.message ?? null,
+  };
 }
 
 /** Categorías y productos del negocio (incluye agotados). */

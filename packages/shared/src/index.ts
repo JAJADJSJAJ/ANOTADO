@@ -1,6 +1,7 @@
 // Código compartido entre la web y las Edge Functions (Deno).
 // Sin APIs de Node ni del navegador, e imports con extensión .ts.
 export * from './acciones.ts';
+export * from './auto.ts';
 export * from './borrador.ts';
 export * from './bot.ts';
 export * from './cocina.ts';

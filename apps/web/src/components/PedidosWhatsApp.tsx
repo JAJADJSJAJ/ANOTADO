@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Conversacion } from '../hooks/useConversaciones.ts';
 import type { Categoria, Producto } from '../hooks/useMenu.ts';
 import type { Zona } from '../hooks/useZonas.ts';
+import { useAhora } from '../hooks/useAhora.ts';
 import type { PedidoConfirmado } from '../lib/pedidos.ts';
 import { efecto } from '../lib/sonido.ts';
 import { Cargando, MensajeError, Vacio } from './Estado.tsx';
@@ -67,7 +68,10 @@ export function PedidosWhatsApp({
   const enServidor = new Set(conversaciones.map((c) => c.id));
   const locales = nuevas.filter((n) => !n.conversacionId || !enServidor.has(n.conversacionId));
   const reclamadas = new Set(locales.map((n) => n.conversacionId));
-  const visibles = conversaciones.filter((c) => !cerradas.has(c.id) && !reclamadas.has(c.id));
+  // Las que tienen al cliente esperando la confirmación van arriba, la que más espera primero.
+  const visibles = conversaciones
+    .filter((c) => !cerradas.has(c.id) && !reclamadas.has(c.id))
+    .sort((a, b) => (a.listoAt ?? '9999').localeCompare(b.listoAt ?? '9999'));
   const cerrar = (id: string | null, clave?: string) => {
     if (id) setCerradas((s) => new Set(s).add(id));
     if (clave) setNuevas((ns) => ns.filter((n) => n.clave !== clave));
@@ -164,9 +168,13 @@ function ItemBandeja({
   const ultimo = c?.mensajes.at(-1);
   const titulo = c ? (nombreCliente(c.cliente) ?? (c.cliente ? formatearTelefono(c.cliente.telefono) : c.etiqueta || 'Pegado a mano')) : 'Pegado a mano';
   const pendientes = c ? c.pendientes.dudosos.length + c.pendientes.preguntas.length + c.pendientes.errores.length : 0;
+  const ahora = useAhora(0, 30_000);
+  const espera = c?.listoAt ? Math.max(0, Math.floor((ahora - new Date(c.listoAt).getTime()) / 60_000)) : null;
   const estado = !c
     ? { texto: 'Nuevo', clase: '' }
-    : c.interpretando
+    : espera !== null
+      ? { texto: espera < 1 ? 'Espera confirmar' : `Espera hace ${espera} min`, clase: espera >= 5 ? 'chip-peligro' : 'chip-alerta' }
+      : c.interpretando
       ? { texto: 'Leyendo', clase: 'chip-birome' }
       : pendientes > 0
         ? { texto: 'Revisar', clase: 'chip-alerta' }

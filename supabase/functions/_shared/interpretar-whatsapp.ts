@@ -25,15 +25,22 @@ import {
   construirMensajes,
   construirMenu,
   type Cancelacion,
+  type Confirmacion,
   ErrorIA,
+  esAfirmacion,
+  estadoHorario,
   historialWhatsApp,
+  leerConfigAuto,
+  leerHorarios,
   leerPagos,
+  motivoManual,
   llamarIA,
   type MensajeHistorial,
   type PedidoDelCliente,
   type Pendientes,
   PendientesSchema,
   respuestaBot,
+  tieneHorarios,
 } from '@anotado/shared';
 import type { SupabaseContext } from '@supabase/server';
 
@@ -87,6 +94,30 @@ export function combinarPendientes(
   };
 }
 
+type ResultadoAuto = { ok: true; total_centavos: number } | { ok: false; motivo: string; detalle?: string };
+
+/** Qué decirle al cliente y al cajero cuando no se puede confirmar solo. */
+function segunMotivo(r: ResultadoAuto & { ok: false } | { ok: false; motivo: string; detalle?: string }): {
+  confirmacion: Confirmacion;
+  motivo: string | null;
+  quedaListo: boolean;
+} {
+  if (r.motivo === 'stock') {
+    // Se terminó algo: el cliente elige otra cosa, no queda esperando al local.
+    return { confirmacion: { tipo: 'sin_stock', detalle: r.detalle ?? 'Se terminó un producto' }, motivo: motivoManual('stock', r.detalle), quedaListo: false };
+  }
+  return { confirmacion: { tipo: 'a_mano' }, motivo: motivoManual(r.motivo, r.detalle), quedaListo: true };
+}
+
+/** Productos y una entrega completa (con dirección o mesa si hace falta). */
+function pedidoCompleto(b: Borrador): boolean {
+  const e = b.entrega;
+  if (!b.items.length || !e) return false;
+  if (e.modo === 'delivery') return Boolean(e.direccion);
+  if (e.modo === 'mesa') return Boolean(e.mesa);
+  return true;
+}
+
 export async function interpretarConversacion(
   admin: Admin,
   config: ConfigIA,
@@ -133,7 +164,7 @@ async function vueltas(
     // Conversación: del negocio y abierta. Desde acá, service_role: todo filtra por negocio_id.
     const { data: conv, error: errConv } = await admin
       .from('conversaciones')
-      .select('estado, version, borrador, pendientes, cliente_id')
+      .select('estado, version, borrador, pendientes, cliente_id, resumen_version')
       .eq('id', conversacionId)
       .eq('negocio_id', negocioId)
       .maybeSingle();
@@ -156,7 +187,7 @@ async function vueltas(
     // suspendido. Antes del límite y de la IA: con alguna apagada no se gasta nada.
     const { data: negocio, error: errNegocio } = await admin
       .from('negocios')
-      .select('nombre, activo, ia_permitida, ia_activa, config')
+      .select('nombre, activo, ia_permitida, ia_activa, config, horarios, zona_horaria')
       .eq('id', negocioId)
       .maybeSingle();
     if (errNegocio || !negocio) return 'error';
@@ -216,6 +247,13 @@ async function vueltas(
     // Respuesta al cliente: solo en conversaciones de WhatsApp (las pegadas a mano no tienen a
     // quién contestarle). Saluda la primera vez que el bot le escribe en esta conversación.
     let respuestaCliente: string | null = null;
+    // Confirmación automática: qué decirle al cliente, el total del resumen que se le pregunta, si
+    // queda esperando al local (para el aviso de demora) y por qué no se confirmó sola.
+    let confirmacion: Confirmacion | undefined;
+    let resumenTotal: number | undefined;
+    let quedaListo = false;
+    let motivo: string | null = null;
+    let probarYResumir = false;
     // Lo que el cajero tiene que resolver por algo que pidió el cliente (cancelar algo ya en cocina).
     const avisosCajero: string[] = [];
     if (conv.cliente_id) {
@@ -260,6 +298,91 @@ async function vueltas(
         estadoPedido = ultimo ? { numero: ultimo.numero, estado: ultimo.estado, modo } : null;
       }
 
+      // Confirmación automática (si el local la tiene prendida). Las reglas las aplica la base;
+      // acá se decide cuándo probar y qué decirle al cliente.
+      const auto = leerConfigAuto(negocio.config);
+      const cambio = JSON.stringify(aplicado.borrador) !== JSON.stringify(borradorInicial);
+      const pendientesPrueba = combinarPendientes(
+        pendientesPrevios,
+        { ...aplicado, preguntas: [], errores: [...aplicado.errores, ...avisosCajero] },
+        quitados,
+      );
+      const sinPendientes =
+        pendientesPrueba.dudosos.length + pendientesPrueba.preguntas.length + pendientesPrueba.errores.length === 0 &&
+        aplicado.preguntas.length === 0;
+      const horarios = leerHorarios(negocio.horarios);
+      const abierto = !tieneHorarios(horarios) || estadoHorario(horarios, negocio.zona_horaria, new Date()).abierto;
+      // "Sí" al resumen: lo marca la IA o, por las dudas, un sí corto reconocido sin IA.
+      const afirma =
+        auto.activa &&
+        conv.resumen_version !== null &&
+        conv.resumen_version === conv.version &&
+        !cambio &&
+        sinPendientes &&
+        aplicado.consulta === null &&
+        (respuesta.respuesta.listo_para_confirmar || esAfirmacion(nuevos.map((m) => m.contenido).join(' ')));
+      const termino = respuesta.respuesta.listo_para_confirmar && pedidoCompleto(aplicado.borrador);
+
+      if (afirma) {
+        if (!abierto) {
+          confirmacion = { tipo: 'a_mano' };
+          motivo = motivoManual('cerrado');
+          quedaListo = true;
+        } else {
+          const { data: r, error: errConfirmar } = await admin.rpc('confirmar_automatico', {
+            p_negocio_id: negocioId,
+            p_conversacion_id: conversacionId,
+            p_probar: false,
+            p_version: conv.version,
+            p_mensajes: nuevos.map((m) => m.id),
+            p_modelo: respuesta.modelo,
+            p_tokens_entrada: respuesta.tokensEntrada,
+            p_tokens_salida: respuesta.tokensSalida,
+          });
+          if (errConfirmar) return 'error';
+          const res = r as ResultadoAuto;
+          // Confirmado: el aviso con el número y el total lo manda la base (trigger). Listo.
+          if (res.ok) {
+            algunaOk = true;
+            continue;
+          }
+          if (res.motivo === 'cerrada') return algunaOk ? 'ok' : 'nada';
+          if (res.motivo === 'cambio' || res.motivo === 'precio') {
+            // Cambió algo desde el resumen: se vuelve a probar y a mandar el resumen nuevo.
+            probarYResumir = true;
+          } else {
+            ({ confirmacion, motivo, quedaListo } = segunMotivo(res));
+          }
+        }
+      } else if (termino) {
+        probarYResumir = auto.activa;
+        if (!auto.activa) quedaListo = true;
+      }
+
+      if (probarYResumir) {
+        if (!sinPendientes) {
+          ({ confirmacion, motivo, quedaListo } = segunMotivo({ ok: false, motivo: 'pendientes' }));
+        } else if (!abierto) {
+          ({ confirmacion, motivo, quedaListo } = segunMotivo({ ok: false, motivo: 'cerrado' }));
+        } else {
+          const { data: r, error: errProbar } = await admin.rpc('confirmar_automatico', {
+            p_negocio_id: negocioId,
+            p_conversacion_id: conversacionId,
+            p_probar: true,
+            p_borrador: aplicado.borrador,
+            p_pendientes: pendientesPrueba,
+          });
+          if (errProbar) return 'error';
+          const res = r as ResultadoAuto;
+          if (res.ok) {
+            confirmacion = { tipo: 'pregunta', total: res.total_centavos };
+            resumenTotal = res.total_centavos;
+          } else {
+            ({ confirmacion, motivo, quedaListo } = segunMotivo(res));
+          }
+        }
+      }
+
       const { count, error: errPrevias } = await admin
         .from('mensajes')
         .select('id', { count: 'exact', head: true })
@@ -278,7 +401,8 @@ async function vueltas(
         primera: (count ?? 0) === 0,
         consulta: aplicado.consulta,
         precios: new Map(productos.map((p) => [p.id, p.precio_centavos])),
-        listo: respuesta.respuesta.listo_para_confirmar,
+        listo: respuesta.respuesta.listo_para_confirmar || afirma,
+        confirmacion,
         estadoPedido,
         pagos: aplicado.pago ? leerPagos(negocio.config) : undefined,
         cancelacion,
@@ -305,6 +429,9 @@ async function vueltas(
       p_tokens_entrada: respuesta.tokensEntrada,
       p_tokens_salida: respuesta.tokensSalida,
       p_respuesta: respuestaCliente ?? undefined,
+      p_resumen_total: resumenTotal,
+      p_listo: quedaListo,
+      p_motivo_manual: motivo ?? undefined,
     });
     if (errGuardar) {
       // El cajero editó en el medio, o un producto se agotó: se vuelve a leer y a interpretar.

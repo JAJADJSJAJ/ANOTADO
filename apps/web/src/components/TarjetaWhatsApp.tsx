@@ -327,6 +327,13 @@ export function TarjetaWhatsApp({
         </button>
       </header>
 
+      {servidor?.listoAt && (
+        <p role="status" className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-alerta/25 bg-alerta-suave px-4 py-2.5 text-sm">
+          <span className="font-semibold">El cliente terminó y espera que lo confirmes.</span>
+          {servidor.motivoManual && <span className="text-tinta-2">No se confirmó solo: {servidor.motivoManual}.</span>}
+        </p>
+      )}
+
       <div className="grid @2xl/t:grid-cols-2">
         <section aria-label="Conversación" className="flex min-h-0 flex-col border-b border-linea @2xl/t:border-r @2xl/t:border-b-0">
           {servidor && servidor.mensajes.length > 0 ? (

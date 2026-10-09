@@ -68,6 +68,7 @@ export function Catalogo({
               <span className="pr-6 leading-tight font-semibold group-disabled:text-tinta-3">{p.nombre}</span>
               <span className="num text-sm text-tinta-2 group-disabled:text-tinta-3">
                 {p.activo ? formatearPrecio(p.precio_centavos) : 'Agotado'}
+                {p.activo && p.quedan !== null && <span className={p.quedan <= 3 ? 'text-alerta-tinta' : ''}> · quedan {p.quedan}</span>}
               </span>
               {cuantos > 0 && (
                 <span key={cuantos} className="contador absolute top-2.5 right-2.5 animate-pop">
