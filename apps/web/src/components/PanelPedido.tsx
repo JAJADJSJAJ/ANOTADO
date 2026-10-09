@@ -116,7 +116,7 @@ export function PanelPedido(p: Props) {
             onCerrar={() => setEligiendo(false)}
             ancho="max-w-3xl"
           >
-            <div className="@container max-h-[60dvh] overflow-y-auto">
+            <div className="@container max-h-[60dvh] overflow-x-hidden overflow-y-auto px-1">
               <Catalogo
                 categorias={p.agregar.categorias}
                 productos={[...p.productos.values()]}

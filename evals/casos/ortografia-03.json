@@ -1,0 +1,20 @@
+{
+  "id": "ortografia-03",
+  "menu": "demo",
+  "categoria": "ortografia",
+  "mensajes": [
+    "kiero 3 milas al pn y unas papa frita"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Milanesa al pan completa",
+        "cantidad": 3
+      },
+      {
+        "producto": "Papas fritas",
+        "cantidad": 1
+      }
+    ]
+  }
+}

@@ -1,5 +1,6 @@
 import type { AccionIA } from './acciones.ts';
 import { agregarItem, quitarItem } from './borrador.ts';
+import { fonetica, separarCantidad } from './fonetica.ts';
 import { MAX_CANTIDAD, MAX_CONSULTA, MAX_DIRECCION, MAX_ITEMS, MAX_MESA, MAX_NOTAS_ITEM } from './reglas.ts';
 import type { Borrador, EntregaBorrador } from './schemas.ts';
 
@@ -16,6 +17,8 @@ export type ProductoMenu = {
   ref: string;
   nombre: string;
   activo: boolean;
+  /** Nombre y otros nombres, para reconocer lo que la IA dejó como dudoso (fonetica.ts). */
+  claves?: readonly string[];
 };
 
 export type ResultadoAcciones = {
@@ -54,6 +57,19 @@ export function aplicarAcciones(
   const lineasDe = (productoId: string) =>
     b.items.flatMap((it, i) => (it.producto_id === productoId ? [i] : []));
 
+  /** Suma un producto validando reglas; si no se puede, lo deja en errores. */
+  const agregar = (p: ProductoMenu, cantidad: number, notasIA: string | null) => {
+    const error = validarProducto(p) ?? validarCantidad(p, cantidad) ?? validarNotas(p, notasIA);
+    if (error) return errores.push(error);
+    const notas = notasIA?.trim() || undefined;
+    const existente = b.items.find((it) => it.producto_id === p.id && it.notas === notas);
+    if (existente && existente.cantidad + cantidad > MAX_CANTIDAD) {
+      return errores.push(`${p.nombre}: sumando quedarían ${existente.cantidad + cantidad} (máximo ${MAX_CANTIDAD})`);
+    }
+    if (!existente && b.items.length >= MAX_ITEMS) return errores.push(`Máximo ${MAX_ITEMS} productos distintos por pedido`);
+    b = agregarItem(b, p.id, cantidad, notas);
+  };
+
   for (const a of acciones) {
     switch (a.tipo) {
       case 'agregar': {
@@ -62,22 +78,7 @@ export function aplicarAcciones(
           errores.push(PRODUCTO_DESCONOCIDO);
           break;
         }
-        const error = validarProducto(p) ?? validarCantidad(p, a.cantidad) ?? validarNotas(p, a.notas);
-        if (error) {
-          errores.push(error);
-          break;
-        }
-        const notas = a.notas?.trim() || undefined;
-        const existente = b.items.find((it) => it.producto_id === p.id && it.notas === notas);
-        if (existente && existente.cantidad + a.cantidad > MAX_CANTIDAD) {
-          errores.push(`${p.nombre}: sumando quedarían ${existente.cantidad + a.cantidad} (máximo ${MAX_CANTIDAD})`);
-          break;
-        }
-        if (!existente && b.items.length >= MAX_ITEMS) {
-          errores.push(`Máximo ${MAX_ITEMS} productos distintos por pedido`);
-          break;
-        }
-        b = agregarItem(b, p.id, a.cantidad, notas);
+        agregar(p, a.cantidad, a.notas);
         break;
       }
 
@@ -150,7 +151,11 @@ export function aplicarAcciones(
 
       case 'dudoso': {
         const texto = a.texto_original.trim().slice(0, MAX_TEXTO_PENDIENTE);
-        if (texto) dudosos.push(texto);
+        if (!texto) break;
+        // Escrito como suena ("2 virras" = 2 birras): si suena igual a UN producto, es ese.
+        const reconocido = reconocerPorSonido(texto, menu);
+        if (reconocido) agregar(reconocido.producto, reconocido.cantidad, null);
+        else dudosos.push(texto);
         break;
       }
 
@@ -173,6 +178,18 @@ export function aplicarAcciones(
   }
 
   return { borrador: b, dudosos, preguntas, errores, consulta };
+}
+
+/** El producto que "suena igual" a todo el texto, si es uno solo (con su cantidad). */
+function reconocerPorSonido(
+  texto: string,
+  menu: readonly ProductoMenu[],
+): { producto: ProductoMenu; cantidad: number } | null {
+  const { cantidad, resto } = separarCantidad(texto);
+  const clave = fonetica(resto);
+  if (clave.length < 3) return null;
+  const candidatos = menu.filter((p) => p.activo && (p.claves ?? [p.nombre]).some((k) => fonetica(k) === clave));
+  return candidatos.length === 1 ? { producto: candidatos[0]!, cantidad } : null;
 }
 
 function validarProducto(p: ProductoMenu): string | null {

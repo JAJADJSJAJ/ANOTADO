@@ -1,0 +1,23 @@
+{
+  "id": "ortografia-07",
+  "menu": "demo",
+  "categoria": "ortografia",
+  "mensajes": [
+    "me mandas 2 empanadas d carne y 1 de jyq a rivera 2030"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Empanada de carne",
+        "cantidad": 2
+      },
+      {
+        "producto": "Empanada de jamón y queso",
+        "cantidad": 1
+      }
+    ],
+    "entrega": {
+      "modo": "delivery"
+    }
+  }
+}

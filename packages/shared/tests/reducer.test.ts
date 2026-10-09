@@ -204,3 +204,27 @@ describe('consultar', () => {
     expect(aplicar([agregar('p1', 1)]).consulta).toBeNull();
   });
 });
+
+describe('dudoso que suena igual a un producto', () => {
+  const conClaves: ProductoMenu[] = [
+    { id: 'id-birra', ref: 'p1', nombre: 'Cerveza Pilsen 1 L', activo: true, claves: ['Cerveza Pilsen 1 L', 'birra'] },
+    { id: 'id-muzza', ref: 'p2', nombre: 'Pizza muzzarella', activo: true, claves: ['Pizza muzzarella', 'muzza'] },
+    { id: 'id-pascua', ref: 'p3', nombre: 'Pascualina', activo: false, claves: ['Pascualina'] },
+  ];
+  const aplicarCon = (acciones: AccionIA[]) => aplicarAcciones(borradorVacio(), acciones, conClaves);
+
+  it('lo agrega con su cantidad en vez de dejarlo dudoso', () => {
+    const r = aplicarCon([{ tipo: 'dudoso', texto_original: '2 virras' }]);
+    expect(r.borrador.items).toEqual([{ producto_id: 'id-birra', cantidad: 2 }]);
+    expect(r.dudosos).toEqual([]);
+  });
+
+  it('lo que no suena a nada, o suena a un agotado, sigue dudoso', () => {
+    const r = aplicarCon([
+      { tipo: 'dudoso', texto_original: 'lo de siempre' },
+      { tipo: 'dudoso', texto_original: 'pascualina' },
+    ]);
+    expect(r.borrador.items).toEqual([]);
+    expect(r.dudosos).toEqual(['lo de siempre', 'pascualina']);
+  });
+});

@@ -10,7 +10,7 @@ export const INSTRUCCIONES = `Sos el sistema que anota pedidos de un local de co
 
 Reglas:
 1. Usá solo referencias de producto del MENÚ (p1, p2…). Nunca inventes productos ni referencias.
-2. Si lo que escribe coincide con el nombre o con alguno de los "otros nombres" de un producto (aunque tenga errores de ortografía), es ese producto: no es ambiguo.
+2. Los clientes escriben rápido desde el celular: les faltan o sobran letras, cambian letras (k por qu, z por s, v por b, x por ch), abrevian y no usan tildes ("kiero", "milas", "pn", "musarela", "amburgesa", "grnde", "jyq"). Si suena igual al decirla en voz alta (b y v, s, z y c, ll e y, la h que no suena), es la misma palabra: "vife" es bife. Si una palabra se parece al nombre o a alguno de los "otros nombres" de un producto, es ese producto: no es ambiguo ni dudoso. Leé el mensaje como lo leería alguien del local.
 3. Si no estás seguro de qué producto es, usá "dudoso" con el texto tal cual lo escribió el cliente. Ejemplos: "lo de siempre", "la promo", algo que no está en el menú.
 4. Solo si hay dos o más productos igual de posibles y ninguno coincide con sus otros nombres, usá "aclarar" con una pregunta corta y no agregues ninguno. Por ejemplo, si un producto viene en varios tamaños y el cliente no dijo cuál ("una coca" con coca de 600 ml, 1,5 L y 2,25 L en el menú).
 5. El PEDIDO ACTUAL ya tiene todo lo pedido antes. Procesá solo lo nuevo del MENSAJE NUEVO: no vuelvas a agregar lo que ya está. Los mensajes anteriores son solo contexto.
@@ -51,7 +51,13 @@ export type MensajeHistorial = {
  */
 export function construirMenu(productos: readonly ProductoParaMenu[]): { texto: string; menu: ProductoMenu[] } {
   const activos = productos.filter((p) => p.activo).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  const menu = activos.map((p, i) => ({ id: p.id, ref: `p${i + 1}`, nombre: p.nombre, activo: true }));
+  const menu = activos.map((p, i) => ({
+    id: p.id,
+    ref: `p${i + 1}`,
+    nombre: p.nombre,
+    activo: true,
+    claves: [p.nombre, ...p.alias],
+  }));
   const texto = activos
     .map((p, i) => [`p${i + 1}`, p.nombre, p.alias.join(', ')].filter(Boolean).join(' | '))
     .join('\n');
