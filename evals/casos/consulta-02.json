@@ -1,0 +1,17 @@
+{
+  "id": "consulta-02",
+  "menu": "demo",
+  "categoria": "simple",
+  "mensajes": [
+    "agregame una muzza y qué bebidas tienen?"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Pizza muzzarella",
+        "cantidad": 1
+      }
+    ],
+    "entrega": null
+  }
+}

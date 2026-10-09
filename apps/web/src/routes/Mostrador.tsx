@@ -154,6 +154,7 @@ export function Mostrador() {
           onRecargar={() => void whatsapp.recargar()}
           productos={productos}
           activos={activos}
+          categorias={menu.categorias}
           zonas={zonasActivas}
           onConfirmado={(pedido, etiqueta) => avisarConfirmado(pedido, etiqueta || undefined)}
         />

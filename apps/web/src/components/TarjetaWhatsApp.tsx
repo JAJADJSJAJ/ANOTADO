@@ -2,7 +2,7 @@ import { agregarItem, type Borrador, borradorVacio, type Pendientes } from '@ano
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useAhora } from '../hooks/useAhora.ts';
 import type { Conversacion, MensajeConversacion, TipoMensaje } from '../hooks/useConversaciones.ts';
-import type { Producto } from '../hooks/useMenu.ts';
+import type { Categoria, Producto } from '../hooks/useMenu.ts';
 import type { Zona } from '../hooks/useZonas.ts';
 import { mensajeDeFuncion } from '../lib/funciones.ts';
 import {
@@ -49,6 +49,7 @@ export function TarjetaWhatsApp({
   servidor,
   productos,
   activos,
+  categorias,
   zonas,
   onCreada,
   onCerrada,
@@ -59,6 +60,7 @@ export function TarjetaWhatsApp({
   servidor: Conversacion | null;
   productos: ReadonlyMap<string, Producto>;
   activos: Producto[];
+  categorias: Categoria[];
   zonas: Zona[];
   onCreada: (conversacionId: string) => void;
   onCerrada: (confirmado: PedidoConfirmado | null, etiqueta: string) => void;
@@ -374,6 +376,7 @@ export function TarjetaWhatsApp({
           onConfirmar={() => void confirmar()}
           enviando={confirmando}
           error={null}
+          agregar={{ categorias, onAgregar: (prod) => editarBorrador(agregarItem(borrador, prod.id)) }}
           extra={
             hayPendientes && (
               <div className="flex flex-col gap-2">

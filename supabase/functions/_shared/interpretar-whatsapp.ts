@@ -169,7 +169,7 @@ async function vueltas(
 
     const { data: productos, error: errMenu } = await admin
       .from('productos')
-      .select('id, nombre, alias, activo')
+      .select('id, nombre, alias, activo, precio_centavos')
       .eq('negocio_id', negocioId);
     if (errMenu || !productos) return 'error';
     const { texto: menuTexto, menu } = construirMenu(productos);
@@ -227,6 +227,8 @@ async function vueltas(
         errores: aplicado.errores.length,
         cambio: JSON.stringify(aplicado.borrador) !== JSON.stringify(borradorInicial),
         primera: (count ?? 0) === 0,
+        consulta: aplicado.consulta,
+        precios: new Map(productos.map((p) => [p.id, p.precio_centavos])),
       });
     }
     const { error: errGuardar } = await admin.rpc('guardar_interpretacion_wa', {

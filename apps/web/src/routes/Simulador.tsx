@@ -253,6 +253,7 @@ function MostradorDemo({
       servidor={conversacion}
       productos={productos}
       activos={activos}
+      categorias={menu.categorias}
       zonas={zonasActivas}
       onRecargar={onRecargar}
       onCreada={() => {}}

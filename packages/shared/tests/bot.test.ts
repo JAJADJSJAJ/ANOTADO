@@ -21,6 +21,32 @@ const datos = (extra: Partial<DatosRespuesta> = {}): DatosRespuesta => ({
 });
 
 describe('respuestaBot', () => {
+  it('una pregunta sobre el menú se contesta con nombres y precios de la base', () => {
+    const precios = new Map([
+      [COMPLETA, 32000],
+      [COCA, 18000],
+    ]);
+    expect(respuestaBot(datos({ consulta: [COMPLETA, COCA], precios }))).toBe(
+      'Tenemos Hamburguesa completa ($ 320) y Coca-Cola 1,5 L ($ 180).\n¿Qué te gustaría pedir?',
+    );
+  });
+
+  it('una consulta con pedido armado no repite el pedido', () => {
+    const borrador = { items: [{ producto_id: COMPLETA, cantidad: 1 }], entrega: null };
+    expect(respuestaBot(datos({ borrador, consulta: [COCA] }))).toBe('Tenemos Coca-Cola 1,5 L.\n¿Querés agregar algo?');
+  });
+
+  it('si no hay lo que pregunta, lo dice', () => {
+    expect(respuestaBot(datos({ consulta: [] }))).toBe('Lo que preguntaste no lo tenemos en el menú.\n¿Qué te gustaría pedir?');
+  });
+
+  it('consulta y cambio en el mismo mensaje: contesta y anota', () => {
+    const borrador = { items: [{ producto_id: COMPLETA, cantidad: 1 }], entrega: null };
+    expect(respuestaBot(datos({ borrador, cambio: true, consulta: [COCA] }))).toBe(
+      'Anoté: 1 Hamburguesa completa.\nTenemos Coca-Cola 1,5 L.\n¿Es para retirar o te lo mandamos?',
+    );
+  });
+
   it('primer mensaje sin pedido: saluda y pregunta qué quiere', () => {
     expect(respuestaBot(datos({ primera: true }))).toBe('¡Hola! Te atiende el asistente de El Ceibo.\n¿Qué te gustaría pedir?');
   });

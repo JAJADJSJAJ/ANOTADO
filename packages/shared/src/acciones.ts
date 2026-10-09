@@ -41,6 +41,12 @@ export const AccionIASchema = z.discriminatedUnion('tipo', [
     tipo: z.literal('aclarar'),
     pregunta: z.string(),
   }),
+  // Pregunta sobre el menú ("¿qué pizzas tienen?"): la IA solo dice QUÉ productos la
+  // responden; lo que se le contesta al cliente lo arma el bot con nombres y precios de la base.
+  z.object({
+    tipo: z.literal('consultar'),
+    productos: z.array(z.string()),
+  }),
 ]);
 
 export const RespuestaIASchema = z.object({

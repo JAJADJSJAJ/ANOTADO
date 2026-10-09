@@ -9,9 +9,11 @@ import {
   totalEstimado,
 } from '@anotado/shared';
 import { type ReactNode, useState } from 'react';
-import type { Producto } from '../hooks/useMenu.ts';
+import type { Categoria, Producto } from '../hooks/useMenu.ts';
 import type { Zona } from '../hooks/useZonas.ts';
 import type { DatosEntrega, ModoEntrega } from '../lib/pedidos.ts';
+import { Catalogo } from './Catalogo.tsx';
+import { Dialogo } from './Dialogo.tsx';
 import { MensajeError, Vacio } from './Estado.tsx';
 import { Icono } from './Icono.tsx';
 import { Segmentado } from './Segmentado.tsx';
@@ -36,6 +38,8 @@ type Props = {
   error: string | null;
   /** Algo para mostrar entre los productos y la entrega (dudas de la IA). */
   extra?: ReactNode;
+  /** Si viene, se pueden sumar productos a mano desde el menú (pedidos de WhatsApp). */
+  agregar?: { categorias: Categoria[]; onAgregar: (producto: Producto) => void };
 };
 
 const ORIGENES: { valor: Origen; texto: string }[] = [
@@ -62,6 +66,9 @@ export function PanelPedido(p: Props) {
   const unidades = p.borrador.items.reduce((s, it) => s + it.cantidad, 0);
   // Origen y notas se usan poco: quedan plegados (abiertos si ya hay algo distinto de lo normal).
   const [masAbierto, setMasAbierto] = useState(false);
+  const [eligiendo, setEligiendo] = useState(false);
+  const enPedido = new Map<string, number>();
+  for (const it of p.borrador.items) enPedido.set(it.producto_id, (enPedido.get(it.producto_id) ?? 0) + it.cantidad);
   const mas = masAbierto || p.notas.trim() !== '' || (p.origen !== undefined && p.origen !== 'mostrador');
 
   return (
@@ -95,6 +102,37 @@ export function PanelPedido(p: Props) {
               />
             ))}
           </ul>
+        )}
+        {p.agregar && (
+          <button type="button" onClick={() => setEligiendo(true)} className="btn btn-chico -mt-1 self-start" data-sonido="abrir">
+            <Icono nombre="mas" className="size-4" />
+            Agregar producto
+          </button>
+        )}
+        {p.agregar && eligiendo && (
+          <Dialogo
+            titulo="Agregar al pedido"
+            descripcion="Cada toque suma uno. Las cantidades y las notas se cambian después en el pedido."
+            onCerrar={() => setEligiendo(false)}
+            ancho="max-w-3xl"
+          >
+            <div className="@container max-h-[60dvh] overflow-y-auto">
+              <Catalogo
+                categorias={p.agregar.categorias}
+                productos={[...p.productos.values()]}
+                enPedido={enPedido}
+                onElegir={p.agregar.onAgregar}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="num text-sm text-tinta-3">
+                {unidades} {unidades === 1 ? 'producto' : 'productos'} en el pedido
+              </span>
+              <button type="button" onClick={() => setEligiendo(false)} className="btn btn-tinta">
+                Listo
+              </button>
+            </div>
+          </Dialogo>
         )}
 
         {p.extra}

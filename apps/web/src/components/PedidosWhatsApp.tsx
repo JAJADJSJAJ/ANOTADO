@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Conversacion } from '../hooks/useConversaciones.ts';
-import type { Producto } from '../hooks/useMenu.ts';
+import type { Categoria, Producto } from '../hooks/useMenu.ts';
 import type { Zona } from '../hooks/useZonas.ts';
 import type { PedidoConfirmado } from '../lib/pedidos.ts';
 import { efecto } from '../lib/sonido.ts';
@@ -30,6 +30,7 @@ export function PedidosWhatsApp({
   onRecargar,
   productos,
   activos,
+  categorias,
   zonas,
   onConfirmado,
 }: {
@@ -39,6 +40,7 @@ export function PedidosWhatsApp({
   onRecargar: () => void;
   productos: ReadonlyMap<string, Producto>;
   activos: Producto[];
+  categorias: Categoria[];
   /** Zonas de envío activas. */
   zonas: Zona[];
   onConfirmado: (pedido: PedidoConfirmado, etiqueta: string) => void;
@@ -71,7 +73,7 @@ export function PedidosWhatsApp({
     if (clave) setNuevas((ns) => ns.filter((n) => n.clave !== clave));
     onRecargar();
   };
-  const props = { negocioId, productos, activos, zonas, onRecargar };
+  const props = { negocioId, productos, activos, categorias, zonas, onRecargar };
 
   // La que se ve: la elegida si sigue abierta; si no, la primera.
   const claves = [...visibles.map((c) => c.id), ...locales.map((n) => n.clave)];

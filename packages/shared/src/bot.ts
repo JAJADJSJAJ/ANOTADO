@@ -1,3 +1,4 @@
+import { formatearPrecio } from './dinero.ts';
 import type { ProductoMenu } from './reducer.ts';
 import type { Borrador } from './schemas.ts';
 
@@ -7,7 +8,8 @@ import type { Borrador } from './schemas.ts';
 // manda texto libre de la IA, así no puede inventar precios, promociones ni prometer nada. La
 // única excepción son las preguntas de aclaración ("¿la coca es de 1,5 o de 2,25?"), que pasan
 // por un filtro estricto y si no lo pasan se reemplazan por una genérica.
-// Los precios y el total los manda la base al confirmar, nunca esto.
+// Los precios salen siempre de la base: el total lo manda al confirmar y, si el cliente pregunta
+// por el menú, el bot nombra los productos con su precio del menú (nunca uno que diga la IA).
 
 export type DatosRespuesta = {
   /** Nombre del local, para el saludo. */
@@ -23,6 +25,10 @@ export type DatosRespuesta = {
   cambio: boolean;
   /** El bot todavía no le escribió nada en esta conversación. */
   primera: boolean;
+  /** Productos que responden una pregunta sobre el menú (ids); null si no preguntó. */
+  consulta?: readonly string[] | null;
+  /** Precio de cada producto del menú (centavos), para contestar la consulta. */
+  precios?: ReadonlyMap<string, number>;
 };
 
 const MAX_PREGUNTA = 150;
@@ -79,11 +85,19 @@ function describirItems(borrador: Borrador, menu: readonly ProductoMenu[]): stri
 export function respuestaBot(d: DatosRespuesta): string | null {
   const preguntas = [...new Set(d.preguntas.map((p) => preguntaSegura(p) ?? PREGUNTA_GENERICA))];
   const dudosos = d.dudosos.map((t) => citar(t));
+  const consulta = d.consulta ?? null;
   const hayNovedad = d.cambio || preguntas.length > 0 || dudosos.length > 0 || d.errores > 0;
-  if (!hayNovedad && !d.primera) return null;
+  if (!hayNovedad && consulta === null && !d.primera) return null;
 
   const lineas: string[] = [];
   if (d.primera) lineas.push(`¡Hola! Te atiende el asistente de ${d.negocio}.`);
+
+  // Solo una pregunta sobre el menú: se contesta eso, sin repetir el pedido.
+  if (consulta !== null && !hayNovedad) {
+    lineas.push(contestarConsulta(consulta, d));
+    lineas.push(d.borrador.items.length ? '¿Querés agregar algo?' : '¿Qué te gustaría pedir?');
+    return lineas.join('\n');
+  }
 
   const items = describirItems(d.borrador, d.menu);
   const entrega = d.borrador.entrega;
@@ -99,6 +113,7 @@ export function respuestaBot(d: DatosRespuesta): string | null {
     }
     lineas.push(`Anoté: ${items}${detalle}.`);
   }
+  if (consulta !== null) lineas.push(contestarConsulta(consulta, d));
 
   const citables = dudosos.filter((t): t is string => t !== null);
   // Dudoso es tanto lo que no está en el menú como lo ambiguo ("una coca" con tres tamaños).
@@ -118,6 +133,18 @@ export function respuestaBot(d: DatosRespuesta): string | null {
     else lineas.push('¿Algo más? Cuando esté todo, el local te confirma el total.');
   }
   return lineas.join('\n');
+}
+
+/** "Tenemos Muzzarella ($ 450) y Napolitana ($ 520)." o que no hay. Solo nombres y precios del menú. */
+function contestarConsulta(ids: readonly string[], d: DatosRespuesta): string {
+  const nombres = new Map(d.menu.map((p) => [p.id, p.nombre]));
+  const partes = ids.flatMap((id) => {
+    const nombre = nombres.get(id);
+    if (!nombre) return [];
+    const precio = d.precios?.get(id);
+    return [precio === undefined ? nombre : `${nombre} (${formatearPrecio(precio)})`];
+  });
+  return partes.length ? `Tenemos ${enumerar(partes)}.` : 'Lo que preguntaste no lo tenemos en el menú.';
 }
 
 /**

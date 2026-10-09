@@ -1,6 +1,6 @@
 import type { AccionIA } from './acciones.ts';
 import { agregarItem, quitarItem } from './borrador.ts';
-import { MAX_CANTIDAD, MAX_DIRECCION, MAX_ITEMS, MAX_MESA, MAX_NOTAS_ITEM } from './reglas.ts';
+import { MAX_CANTIDAD, MAX_CONSULTA, MAX_DIRECCION, MAX_ITEMS, MAX_MESA, MAX_NOTAS_ITEM } from './reglas.ts';
 import type { Borrador, EntregaBorrador } from './schemas.ts';
 
 /** Sin la referencia interna (p7…): al cajero no le dice nada. */
@@ -26,6 +26,11 @@ export type ResultadoAcciones = {
   preguntas: string[];
   /** Acciones rechazadas por reglas: producto inexistente, agotado, cantidad absurda… */
   errores: string[];
+  /**
+   * El cliente preguntó por el menú: ids de los productos que responden (activos, sin repetir).
+   * null = no preguntó; [] = preguntó por algo que no hay.
+   */
+  consulta: string[] | null;
 };
 
 /**
@@ -44,6 +49,7 @@ export function aplicarAcciones(
   const dudosos: string[] = [];
   const preguntas: string[] = [];
   const errores: string[] = [];
+  let consulta: string[] | null = null;
 
   const lineasDe = (productoId: string) =>
     b.items.flatMap((it, i) => (it.producto_id === productoId ? [i] : []));
@@ -153,10 +159,20 @@ export function aplicarAcciones(
         if (pregunta) preguntas.push(pregunta);
         break;
       }
+
+      case 'consultar': {
+        // Referencias que no están en el menú se ignoran: una consulta no toca el pedido.
+        const ids = a.productos.flatMap((ref) => {
+          const p = porRef.get(ref);
+          return p?.activo ? [p.id] : [];
+        });
+        consulta = [...new Set([...(consulta ?? []), ...ids])].slice(0, MAX_CONSULTA);
+        break;
+      }
     }
   }
 
-  return { borrador: b, dudosos, preguntas, errores };
+  return { borrador: b, dudosos, preguntas, errores, consulta };
 }
 
 function validarProducto(p: ProductoMenu): string | null {

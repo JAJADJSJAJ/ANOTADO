@@ -8,3 +8,5 @@ export const MAX_DIRECCION = 200;
 export const MAX_MESA = 20;
 /** Máximo de acciones que se aceptan de una sola respuesta de la IA. */
 export const MAX_ACCIONES = 40;
+/** Máximo de productos que el bot nombra al contestar una pregunta sobre el menú. */
+export const MAX_CONSULTA = 12;

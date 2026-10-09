@@ -190,3 +190,17 @@ it('recorta dudosos y preguntas largos que vengan de la IA', () => {
   expect(r.dudosos[0]).toHaveLength(300);
   expect(r.preguntas[0]).toHaveLength(300);
 });
+
+describe('consultar', () => {
+  it('devuelve los productos activos que responden, sin repetir y sin tocar el pedido', () => {
+    const r = aplicar([{ tipo: 'consultar', productos: ['p2', 'p1', 'p2', 'p3', 'p99'] }]);
+    expect(r.consulta).toEqual(['id-coca', 'id-completa']);
+    expect(r.borrador).toEqual(borradorVacio());
+    expect(r.errores).toEqual([]);
+  });
+
+  it('sin coincidencias queda vacía (no hay), y sin consultar es null', () => {
+    expect(aplicar([{ tipo: 'consultar', productos: [] }]).consulta).toEqual([]);
+    expect(aplicar([agregar('p1', 1)]).consulta).toBeNull();
+  });
+});
