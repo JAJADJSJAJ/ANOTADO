@@ -331,6 +331,9 @@ async function vueltas(
       // mensaje es solo cortesía, decide únicamente el reconocimiento sin IA: "ok dale" confirma,
       // "gracias" no (revisión).
       const texto = nuevos.map((m) => m.contenido).join(' ');
+      // Un "gracias" con el resumen ya mandado no es "terminé": no se le vuelve a mandar.
+      const yaPreguntado = conv.resumen_version !== null && conv.resumen_version === conv.version;
+      const listoIA = respuesta.respuesta.listo_para_confirmar && !(soloCortesia && yaPreguntado);
       const afirma =
         auto.activa &&
         conv.resumen_version !== null &&
@@ -338,8 +341,8 @@ async function vueltas(
         !cambio &&
         sinPendientes &&
         aplicado.consulta === null &&
-        (soloCortesia ? esAfirmacion(texto) : respuesta.respuesta.listo_para_confirmar || esAfirmacion(texto));
-      const termino = respuesta.respuesta.listo_para_confirmar && pedidoCompleto(aplicado.borrador);
+        (soloCortesia ? esAfirmacion(texto) : listoIA || esAfirmacion(texto));
+      const termino = listoIA && pedidoCompleto(aplicado.borrador);
 
       if (afirma) {
         if (!abierto) {
@@ -428,7 +431,7 @@ async function vueltas(
         mensaje: nuevos.map((m) => m.contenido).join(' '),
         consulta: aplicado.consulta,
         precios: new Map(productos.map((p) => [p.id, p.precio_centavos])),
-        listo: respuesta.respuesta.listo_para_confirmar || afirma,
+        listo: listoIA || afirma,
         confirmacion,
         seTerminaron,
         estadoPedido,
