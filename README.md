@@ -2,15 +2,11 @@
 
 > Los pedidos de WhatsApp, anotados solos.
 
-**1. Se pega el mensaje de WhatsApp y la IA arma el pedido** (demo en la nube, con la IA real):
+![Un cliente escribe con faltas por WhatsApp, el bot anota el pedido, contesta qué pizzas hay, manda el resumen con el total y, con el "si dale", el pedido llega solo a la cocina](docs/img/demo.gif)
 
-![El cajero pega un mensaje de WhatsApp y la IA arma el pedido con productos, notas y dirección](docs/img/demo-ia.gif)
+*La demo en producción, con la IA real: el cliente escribe con faltas, pregunta por el menú, confirma con un "si dale" y el pedido llega solo a la cocina.*
 
-**2. Se confirma y aparece al instante en la tablet de la cocina:**
-
-![El cajero confirma un pedido en la compu y aparece al instante en la tablet de la cocina](docs/img/demo-cocina.gif)
-
-Los locales de comida reciben pedidos por WhatsApp y los anotan en papel: se mezclan, se pierden, llegan tarde. Anotado convierte esos mensajes en pedidos ordenados que aparecen en la pantalla de cocina en tiempo real. **La IA propone el pedido, una persona lo confirma.** El cliente no cambia nada: sigue escribiendo por WhatsApp como siempre.
+Los locales de comida reciben pedidos por WhatsApp y los anotan en papel: se mezclan, se pierden, llegan tarde. Anotado convierte esos mensajes en pedidos ordenados que aparecen en la pantalla de cocina en tiempo real. **La IA propone el pedido; lo confirma el cliente con un "sí" al resumen o una persona, según las reglas que pone cada local.** El cliente no cambia nada: sigue escribiendo por WhatsApp como siempre.
 
 **Demo en vivo, sin registrarte:** [anotadoproject.vercel.app/demo](https://anotadoproject.vercel.app/demo). Escribís como cliente en un WhatsApp simulado, el bot te contesta, confirmás en el mostrador y lo ves llegar a la cocina, todo en una pantalla. La demo es compartida y cerrada: se puede pedir, cocinar y agregar algún producto al menú, con topes de uso de IA, y se borra cada noche.
 
@@ -18,6 +14,8 @@ Los locales de comida reciben pedidos por WhatsApp y los anotan en papel: se mez
 
 - **WhatsApp conectado:** el cliente escribe al número del local y la tarjeta aparece sola en el mostrador, con sus mensajes y el pedido que armó la IA. Varios mensajes seguidos se interpretan juntos; audios y fotos quedan marcados para el cajero.
 - **El bot responde:** le dice al cliente qué anotó, le pregunta lo que falta (tamaño, retiro o envío, dirección) y le avisa cuando se confirma el pedido (con el total), cuando está listo o cuando sale. Con plantillas, nunca con texto libre de la IA: no puede inventar precios ni promesas.
+- **Confirmación automática** (se prende por local): el bot le manda al cliente el resumen con el total y, con su "sí", la base vuelve a revisar todo y lo confirma. Topes de total y de cantidad, cocina llena, stock o cliente nuevo pasan a una persona, que ve por qué.
+- **Stock del día:** se descuenta al confirmar, en 0 el producto queda agotado solo y se repone cada jornada.
 - **Mostrador:** carga manual con botones grandes, o pegar el mensaje de WhatsApp y dejar que la IA arme el borrador. Lo dudoso aparece marcado, nunca inventado. Lo que corrige el cajero se guarda solo y la IA sigue sobre eso. Se confirma con un toque.
 - **Cocina:** una tablet con las tarjetas en orden de llegada (lo más viejo a la izquierda), número gigante, notas resaltadas y temporizador verde/amarillo/rojo. Suena cuando entra un pedido, mantiene la pantalla encendida y avisa si se corta internet. Al volver la conexión recarga todo: un corte no pierde pedidos.
 - **Entregas:** los listos para entregar con dirección y total, y cancelar con motivo.
@@ -61,8 +59,8 @@ Detalle de cada flujo en [`docs/arquitectura.md`](docs/arquitectura.md).
 ## Decisiones clave
 
 - **El estado vive en la base, no en la IA.** La IA traduce texto a acciones; el borrador del pedido está en Postgres.
-- **La IA propone, el humano confirma.** Lo dudoso se marca, nunca se inventa.
-- **Aislamiento por negocio con RLS** en todas las tablas, verificado con 549 tests pgTAP que corren en cada PR.
+- **La IA propone; confirma el cliente o una persona, con reglas que aplica la base.** Lo dudoso se marca, nunca se inventa.
+- **Aislamiento por negocio con RLS** en todas las tablas, verificado con 610 tests pgTAP que corren en cada PR.
 - **Los precios nunca salen de la IA.** El total se recalcula en el servidor.
 - **La cocina ve solo lo que cocina.** Lee por una RPC sin dirección ni teléfono, y Realtime avisa solo "cambió el pedido X": la lista siempre se recarga desde la base, así un aviso perdido no deja la pantalla mal.
 - **La IA se prende por local, con dos llaves:** la habilita el operador y la prende o apaga el dueño.
@@ -71,7 +69,7 @@ El porqué de cada una, en [`docs/decisiones.md`](docs/decisiones.md).
 
 ## Evals del parser
 
-26 casos en 11 categorías: pedidos simples, notas, ortografía, varios mensajes, cambios de opinión, referencias vagas, fuera de menú, cantidades absurdas, intentos de manipulación, audios mal transcritos y mensajes que no son pedidos.
+40 casos en 11 categorías: pedidos simples, notas, ortografía, varios mensajes, cambios de opinión, referencias vagas, fuera de menú, cantidades absurdas, intentos de manipulación, audios mal transcritos y mensajes que no son pedidos.
 
 | Modelo (OpenRouter) | Aciertos | Costo de la corrida |
 |---|---|---|
@@ -79,7 +77,7 @@ El porqué de cada una, en [`docs/decisiones.md`](docs/decisiones.md).
 | Qwen 3.7 Flash | 24/26 | US$ 0,0015 |
 | GLM 4.7 Flash | 21/26 | US$ 0,003 |
 
-El único fallo del elegido marca "coca grnde" como dudoso: el error seguro. Costo estimado: **~US$ 0,50 por local por mes**. Se corren a mano (`pnpm eval`), no en CI, porque gastan tokens.
+La tabla es de la primera versión, con 26 casos. Hoy son 40, y con DeepSeek V4 Flash la última corrida completa dio 34 de 39 (lo que falla cambia entre corridas; lo más repetido es "coca grande", donde a veces pregunta el tamaño). El único fallo del elegido en la tabla marca "coca grnde" como dudoso: el error seguro. Costo estimado: **~US$ 0,50 por local por mes**. Se corren a mano (`pnpm eval`), no en CI, porque gastan tokens.
 
 ## Stack
 
