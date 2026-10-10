@@ -231,6 +231,14 @@ async function vueltas(
     const activos = new Set(menu.map((p) => p.id));
     const base: Borrador = BorradorSchema.catch(borradorVacio()).parse(conv.borrador ?? {});
     const quitados = base.items.filter((it) => !activos.has(it.producto_id)).length;
+    // Se agotaron mientras tanto (otro pedido se llevó lo último): el cliente tiene que saberlo.
+    const seTerminaron = [
+      ...new Set(
+        base.items
+          .filter((it) => !activos.has(it.producto_id))
+          .flatMap((it) => productos.find((p) => p.id === it.producto_id)?.nombre ?? []),
+      ),
+    ];
     const borradorInicial: Borrador = { ...base, items: base.items.filter((it) => activos.has(it.producto_id)) };
     const pendientesPrevios = PendientesSchema.catch(SIN_PENDIENTES).parse(conv.pendientes ?? {});
 
@@ -403,6 +411,7 @@ async function vueltas(
         precios: new Map(productos.map((p) => [p.id, p.precio_centavos])),
         listo: respuesta.respuesta.listo_para_confirmar || afirma,
         confirmacion,
+        seTerminaron,
         estadoPedido,
         pagos: aplicado.pago ? leerPagos(negocio.config) : undefined,
         cancelacion,

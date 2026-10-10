@@ -69,6 +69,18 @@ describe('respuestas de la confirmación automática', () => {
     );
   });
 
+  it('si todavía quedan algunas, ofrece cambiar la cantidad', () => {
+    expect(respuestaBot(datos({ confirmacion: { tipo: 'sin_stock', detalle: 'De Hamburguesa completa quedan 1' } }))).toBe(
+      'Perdón: de Hamburguesa completa quedan 1. ¿Querés cambiar la cantidad o pedir otra cosa?',
+    );
+  });
+
+  it('si algo del pedido se agotó mientras tanto, se lo dice', () => {
+    expect(
+      respuestaBot(datos({ borrador: { items: [], entrega: { modo: 'retiro' } }, listo: true, seTerminaron: ['Fainá (porción)'] })),
+    ).toBe('Perdón: se terminó Fainá (porción) y lo saqué del pedido. ¿Querés cambiarlo por otra cosa?');
+  });
+
   it('a mano: el local lo revisa', () => {
     expect(respuestaBot(datos({ confirmacion: { tipo: 'a_mano' } }))).toBe(
       '¡Perfecto! El local lo revisa y te confirma el total en un momento.',

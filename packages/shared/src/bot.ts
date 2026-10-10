@@ -40,6 +40,8 @@ export type DatosRespuesta = {
   cancelacion?: Cancelacion;
   /** Confirmación automática al terminar: preguntar "¿Lo confirmo?", avisar que falta stock, o a mano. */
   confirmacion?: Confirmacion;
+  /** Productos que estaban en el pedido y se agotaron mientras tanto (se sacaron solos). */
+  seTerminaron?: readonly string[];
 };
 
 /** pregunta: se le manda el total y "¿Lo confirmo?". sin_stock: se terminó algo. a_mano: lo confirma el local. */
@@ -133,7 +135,8 @@ export function respuestaBot(d: DatosRespuesta): string | null {
   if (d.estadoPedido !== undefined) avisos.push(contarEstado(d.estadoPedido, d.borrador.items.length > 0));
   if (d.pagos !== undefined) avisos.push(contarPagos(d.pagos));
 
-  const hayNovedad = d.cambio || preguntas.length > 0 || dudosos.length > 0 || d.errores > 0;
+  const terminados = d.seTerminaron ?? [];
+  const hayNovedad = d.cambio || preguntas.length > 0 || dudosos.length > 0 || d.errores > 0 || terminados.length > 0;
   // Dijo que terminó y el pedido está completo: se le avisa que el local confirma.
   const completo = d.borrador.items.length > 0 && entregaCompleta(d.borrador.entrega);
   const terminoAhora = d.listo === true && completo;
@@ -163,6 +166,11 @@ export function respuestaBot(d: DatosRespuesta): string | null {
 
   const items = describirItems(d.borrador, d.menu);
   const entrega = d.borrador.entrega;
+  if (terminados.length) {
+    lineas.push(
+      `Perdón: ${terminados.length === 1 ? 'se terminó' : 'se terminaron'} ${enumerar(terminados)} y lo saqué del pedido. ¿Querés cambiarlo por otra cosa?`,
+    );
+  }
   if (items) lineas.push(`Anoté: ${items}${detalleEntrega(entrega)}.`);
   if (consulta !== null) lineas.push(contestarConsulta(consulta, d));
 
@@ -175,7 +183,7 @@ export function respuestaBot(d: DatosRespuesta): string | null {
   lineas.push(...new Set(preguntas));
   if (d.errores > 0) lineas.push('Hay algo que el local tiene que revisar: enseguida te confirma.');
 
-  const pendiente = preguntas.length > 0 || dudosos.length > 0 || d.errores > 0;
+  const pendiente = preguntas.length > 0 || dudosos.length > 0 || d.errores > 0 || terminados.length > 0;
   if (!items) {
     if (!pendiente) lineas.push('¿Qué te gustaría pedir?');
   } else if (!pendiente) {
@@ -206,7 +214,10 @@ function cierreListo(c: Confirmacion | undefined): string {
   if (c?.tipo === 'pregunta') return `Total: ${formatearPrecio(c.total)}. ¿Lo confirmo? Respondé SÍ.`;
   if (c?.tipo === 'sin_stock') {
     const detalle = c.detalle.charAt(0).toLowerCase() + c.detalle.slice(1);
-    return `Perdón: ${detalle}. ¿Querés cambiarlo por otra cosa?`;
+    // "De Fainá quedan 2": todavía hay, puede pedir menos. "Se terminó": otra cosa.
+    return c.detalle.startsWith('De ')
+      ? `Perdón: ${detalle}. ¿Querés cambiar la cantidad o pedir otra cosa?`
+      : `Perdón: ${detalle}. ¿Querés cambiarlo por otra cosa?`;
   }
   return '¡Perfecto! El local lo revisa y te confirma el total en un momento.';
 }
