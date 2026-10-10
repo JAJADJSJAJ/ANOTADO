@@ -405,6 +405,14 @@ async function vueltas(
         preguntas: aplicado.preguntas,
         dudosos: aplicado.dudosos,
         errores: aplicado.errores.length,
+        excedidos: aplicado.excedidos,
+        sacados: [
+          ...new Set(
+            borradorInicial.items
+              .filter((it) => !aplicado.borrador.items.some((n) => n.producto_id === it.producto_id))
+              .flatMap((it) => menu.find((p) => p.id === it.producto_id)?.nombre ?? []),
+          ),
+        ],
         cambio: JSON.stringify(aplicado.borrador) !== JSON.stringify(borradorInicial),
         primera: (count ?? 0) === 0,
         consulta: aplicado.consulta,

@@ -29,6 +29,8 @@ export type ResultadoAcciones = {
   preguntas: string[];
   /** Acciones rechazadas por reglas: producto inexistente, agotado, cantidad absurda… */
   errores: string[];
+  /** Lo que no se anotó por pasarse del máximo por producto (el bot se lo dice al cliente). */
+  excedidos: { nombre: string; cantidad: number }[];
   /**
    * El cliente preguntó por el menú: ids de los productos que responden (activos, sin repetir).
    * null = no preguntó; [] = preguntó por algo que no hay.
@@ -61,6 +63,7 @@ export function aplicarAcciones(
   const dudosos: string[] = [];
   const preguntas: string[] = [];
   const errores: string[] = [];
+  const excedidos: ResultadoAcciones['excedidos'] = [];
   let consulta: string[] | null = null;
   let estado = false;
   let pago = false;
@@ -72,10 +75,14 @@ export function aplicarAcciones(
   /** Suma un producto validando reglas; si no se puede, lo deja en errores. */
   const agregar = (p: ProductoMenu, cantidad: number, notasIA: string | null) => {
     const error = validarProducto(p) ?? validarCantidad(p, cantidad) ?? validarNotas(p, notasIA);
-    if (error) return errores.push(error);
+    if (error) {
+      if (p.activo && cantidad > MAX_CANTIDAD) excedidos.push({ nombre: p.nombre, cantidad });
+      return errores.push(error);
+    }
     const notas = notasIA?.trim() || undefined;
     const existente = b.items.find((it) => it.producto_id === p.id && it.notas === notas);
     if (existente && existente.cantidad + cantidad > MAX_CANTIDAD) {
+      excedidos.push({ nombre: p.nombre, cantidad: existente.cantidad + cantidad });
       return errores.push(`${p.nombre}: sumando quedarían ${existente.cantidad + cantidad} (máximo ${MAX_CANTIDAD})`);
     }
     if (!existente && b.items.length >= MAX_ITEMS) return errores.push(`Máximo ${MAX_ITEMS} productos distintos por pedido`);
@@ -124,6 +131,7 @@ export function aplicarAcciones(
         const error =
           (a.cantidad !== null ? validarCantidad(p, a.cantidad) : null) ?? validarNotas(p, a.notas);
         if (error) {
+          if (a.cantidad !== null && a.cantidad > MAX_CANTIDAD) excedidos.push({ nombre: p.nombre, cantidad: a.cantidad });
           errores.push(error);
           break;
         }
@@ -208,7 +216,7 @@ export function aplicarAcciones(
     }
   }
 
-  return { borrador: b, dudosos, preguntas, errores, consulta, estado, pago, cancelar };
+  return { borrador: b, dudosos, preguntas, errores, excedidos, consulta, estado, pago, cancelar };
 }
 
 /** El producto que "suena igual" a todo el texto, si es uno solo (con su cantidad). */

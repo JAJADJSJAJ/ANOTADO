@@ -116,6 +116,33 @@ describe('respuestaBot', () => {
     expect(respuestaBot(datos({ errores: 1 }))).toBe('Hay algo que el local tiene que revisar: enseguida te confirma.');
   });
 
+  it('lo que se pasa del máximo se lo dice al cliente, sin el aviso genérico', () => {
+    const borrador = { items: [{ producto_id: COMPLETA, cantidad: 2 }], entrega: null };
+    const r = respuestaBot(
+      datos({ borrador, errores: 2, excedidos: [{ nombre: 'Hamburguesa completa', cantidad: 100 }, { nombre: 'Coca-Cola 1,5 L', cantidad: 1e12 }] }),
+    );
+    expect(r).toBe(
+      'Anoté: 2 Hamburguesa completa.\nNo anoté 100 Hamburguesa completa y Coca-Cola 1,5 L: por acá puedo anotar hasta 20 de cada producto.\n¿Es para retirar o te lo mandamos?',
+    );
+  });
+
+  it('con un excedido y otro error, también avisa que el local revisa', () => {
+    const r = respuestaBot(datos({ errores: 2, excedidos: [{ nombre: 'Hamburguesa completa', cantidad: 50 }] }));
+    expect(r).toBe(
+      'No anoté 50 Hamburguesa completa: por acá puedo anotar hasta 20 de cada producto.\nHay algo que el local tiene que revisar: enseguida te confirma.',
+    );
+  });
+
+  it('dice lo que sacó del pedido', () => {
+    const borrador = { items: [{ producto_id: COCA, cantidad: 1 }], entrega: { modo: 'retiro' as const } };
+    expect(respuestaBot(datos({ borrador, cambio: true, sacados: ['Hamburguesa completa'] }))).toBe(
+      'Saqué Hamburguesa completa del pedido.\nAnoté: 1 Coca-Cola 1,5 L, para retirar.\n¿Algo más? Cuando esté todo, el local te confirma el total.',
+    );
+    expect(respuestaBot(datos({ cambio: true, sacados: ['Hamburguesa completa', 'Coca-Cola 1,5 L'] }))).toBe(
+      'Saqué Hamburguesa completa y Coca-Cola 1,5 L del pedido.\n¿Qué te gustaría pedir?',
+    );
+  });
+
   it('no repite notas ni direcciones con links o números de teléfono', () => {
     const r = respuestaBot(
       datos({

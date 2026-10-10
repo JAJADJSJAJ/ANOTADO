@@ -1,0 +1,43 @@
+{
+  "id": "olvidar-02",
+  "menu": "demo",
+  "categoria": "cambio_de_opinion",
+  "mensajes": [
+    "Hola! Quiero 2 completas sin tomate y una coca chica",
+    {
+      "bot": "Anoté: 2 Hamburguesa completa (sin tomate) y 1 Coca-Cola 600 ml.\n¿Es para retirar o te lo mandamos?"
+    },
+    "agregame una pizza especial y una muzzarella",
+    {
+      "bot": "Anoté: 2 Hamburguesa completa (sin tomate), 1 Coca-Cola 600 ml, 1 Pizza especial y 1 Pizza muzzarella.\n¿Es para retirar o te lo mandamos?"
+    },
+    "no, quiero CIEN pizzas de cada una de esas",
+    {
+      "bot": "Anoté: 2 Hamburguesa completa (sin tomate), 1 Coca-Cola 600 ml, 1 Pizza especial y 1 Pizza muzzarella.\nNo anoté 100 Pizza especial y 100 Pizza muzzarella: por acá puedo anotar hasta 20 de cada producto.\n¿Es para retirar o te lo mandamos?"
+    },
+    "olvida las cien pizzas y hamburguesas, es para retirar en local."
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Hamburguesa completa",
+        "cantidad": 2
+      },
+      {
+        "producto": "Coca-Cola 600 ml",
+        "cantidad": 1
+      },
+      {
+        "producto": "Pizza especial",
+        "cantidad": 1
+      },
+      {
+        "producto": "Pizza muzzarella",
+        "cantidad": 1
+      }
+    ],
+    "entrega": {
+      "modo": "retiro"
+    }
+  }
+}

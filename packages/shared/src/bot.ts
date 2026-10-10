@@ -1,6 +1,7 @@
 import { formatearPrecio } from './dinero.ts';
 import { ETIQUETA_PAGO, type MedioPago } from './pagos.ts';
-import type { ProductoMenu } from './reducer.ts';
+import type { ProductoMenu, ResultadoAcciones } from './reducer.ts';
+import { MAX_CANTIDAD } from './reglas.ts';
 import type { Borrador } from './schemas.ts';
 
 // Lo que el bot le contesta al cliente después de interpretar sus mensajes (Fase 6).
@@ -22,6 +23,10 @@ export type DatosRespuesta = {
   preguntas: readonly string[];
   dudosos: readonly string[];
   errores: number;
+  /** Parte de los errores: lo que no se anotó por pasarse del máximo por producto. */
+  excedidos?: ResultadoAcciones['excedidos'];
+  /** Productos que estaban en el pedido y esta interpretación sacó (nombres). */
+  sacados?: readonly string[];
   /** El borrador cambió con esta interpretación. */
   cambio: boolean;
   /** El bot todavía no le escribió nada en esta conversación. */
@@ -136,6 +141,9 @@ export function respuestaBot(d: DatosRespuesta): string | null {
   if (d.pagos !== undefined) avisos.push(contarPagos(d.pagos));
 
   const terminados = d.seTerminaron ?? [];
+  const excedidos = d.excedidos ?? [];
+  // Los demás errores (producto que no está, notas largas…) los resuelve el local.
+  const otrosErrores = d.errores - excedidos.length;
   const hayNovedad = d.cambio || preguntas.length > 0 || dudosos.length > 0 || d.errores > 0 || terminados.length > 0;
   // Dijo que terminó y el pedido está completo: se le avisa que el local confirma.
   const completo = d.borrador.items.length > 0 && entregaCompleta(d.borrador.entrega);
@@ -171,7 +179,14 @@ export function respuestaBot(d: DatosRespuesta): string | null {
       `Perdón: ${terminados.length === 1 ? 'se terminó' : 'se terminaron'} ${enumerar(terminados)} y lo saqué del pedido. ¿Querés cambiarlo por otra cosa?`,
     );
   }
+  // Lo que sacó, dicho: si la IA entendió mal ("olvidá las cien"), el cliente lo ve enseguida.
+  const sacados = d.sacados ?? [];
+  if (sacados.length) lineas.push(`Saqué ${enumerar(sacados)} del pedido.`);
   if (items) lineas.push(`Anoté: ${items}${detalleEntrega(entrega)}.`);
+  if (excedidos.length) {
+    const partes = excedidos.map((e) => (Number.isSafeInteger(e.cantidad) && e.cantidad < 100_000 ? `${e.cantidad} ${e.nombre}` : e.nombre));
+    lineas.push(`No anoté ${enumerar(partes)}: por acá puedo anotar hasta ${MAX_CANTIDAD} de cada producto.`);
+  }
   if (consulta !== null) lineas.push(contestarConsulta(consulta, d));
 
   const citables = dudosos.filter((t): t is string => t !== null);
@@ -181,9 +196,9 @@ export function respuestaBot(d: DatosRespuesta): string | null {
   if (dudosos.length > citables.length && citables.length === 0) preguntas.push(PREGUNTA_GENERICA);
 
   lineas.push(...new Set(preguntas));
-  if (d.errores > 0) lineas.push('Hay algo que el local tiene que revisar: enseguida te confirma.');
+  if (otrosErrores > 0) lineas.push('Hay algo que el local tiene que revisar: enseguida te confirma.');
 
-  const pendiente = preguntas.length > 0 || dudosos.length > 0 || d.errores > 0 || terminados.length > 0;
+  const pendiente = preguntas.length > 0 || dudosos.length > 0 || otrosErrores > 0 || terminados.length > 0;
   if (!items) {
     if (!pendiente) lineas.push('¿Qué te gustaría pedir?');
   } else if (!pendiente) {

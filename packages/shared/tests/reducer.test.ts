@@ -46,12 +46,19 @@ describe('agregar', () => {
     const r = aplicar([agregar('p1', 500), agregar('p1', 0), agregar('p1', -2), agregar('p2', 1)]);
     expect(r.borrador.items).toEqual([{ producto_id: 'id-coca', cantidad: 1 }]);
     expect(r.errores).toHaveLength(3);
+    // Solo lo que se pasa del máximo se le explica al cliente (0 o -2 es un error de la IA).
+    expect(r.excedidos).toEqual([{ nombre: 'Hamburguesa completa', cantidad: 500 }]);
+  });
+
+  it('un agotado con cantidad grande es agotado, no excedido', () => {
+    expect(aplicar([agregar('p3', 100)]).excedidos).toEqual([]);
   });
 
   it('rechaza si sumando se pasa del máximo', () => {
     const r = aplicar([agregar('p1', 15), agregar('p1', 10)]);
     expect(r.borrador.items).toEqual([{ producto_id: 'id-completa', cantidad: 15 }]);
     expect(r.errores).toHaveLength(1);
+    expect(r.excedidos).toEqual([{ nombre: 'Hamburguesa completa', cantidad: 25 }]);
   });
 
   it('rechaza notas demasiado largas', () => {
