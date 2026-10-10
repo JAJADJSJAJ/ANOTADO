@@ -768,11 +768,25 @@ begin
   set borrador = p_borrador,
       pendientes = p_pendientes,
       version = cv.version + 1,
-      resumen_version = case when p_resumen_total is not null then cv.version + 1 end,
-      resumen_total = p_resumen_total,
-      listo_at = case when p_listo then coalesce(cv.listo_at, now()) end,
-      aviso_demora_at = case when p_listo then cv.aviso_demora_at end,
-      motivo_manual = left(nullif(btrim(p_motivo_manual), ''), 200)
+      -- Un mensaje que no cambió el pedido ("gracias") no invalida el resumen ni el "terminó":
+      -- el "sí" que llega después sigue valiendo y el aviso de demora sigue en pie. El total se
+      -- vuelve a comparar al confirmar.
+      resumen_version = case
+        when p_resumen_total is not null then cv.version + 1
+        when p_borrador = cv.borrador and cv.resumen_version = cv.version then cv.version + 1
+      end,
+      resumen_total = case
+        when p_resumen_total is not null then p_resumen_total
+        when p_borrador = cv.borrador and cv.resumen_version = cv.version then cv.resumen_total
+      end,
+      listo_at = case
+        when p_listo then coalesce(cv.listo_at, now())
+        when p_borrador = cv.borrador then cv.listo_at
+      end,
+      aviso_demora_at = case when p_listo or p_borrador = cv.borrador then cv.aviso_demora_at end,
+      motivo_manual = coalesce(
+        left(nullif(btrim(p_motivo_manual), ''), 200),
+        case when p_borrador = cv.borrador then cv.motivo_manual end)
   where cv.id = p_conversacion_id
   returning cv.version into v_version;
 

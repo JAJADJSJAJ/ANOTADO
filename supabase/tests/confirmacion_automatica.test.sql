@@ -1,7 +1,7 @@
 -- Fase 7: stock del día, confirmación automática y aviso de demora.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(45);
+select plan(50);
 
 delete from pedidos;
 delete from contadores_pedidos;
@@ -15,6 +15,8 @@ update negocios set config = config - 'auto' where id = 'a0000000-0000-4000-8000
 \set C2 '\'c7000000-0000-4000-8000-000000000002\''
 \set V1 '\'c8000000-0000-4000-8000-000000000001\''
 \set V2 '\'c8000000-0000-4000-8000-000000000002\''
+\set C3 '\'c7000000-0000-4000-8000-000000000003\''
+\set V3 '\'c8000000-0000-4000-8000-000000000003\''
 
 create function pg_temp.como(p_user uuid) returns void language plpgsql as $$
 begin
@@ -158,7 +160,29 @@ select is(avisar_demoras(), 0, 'una sola vez');
 select ok(exists (select 1 from mensajes where conversacion_id = :V2 and rol = 'asistente' and contenido like 'Perdón la demora%'),
   'el aviso queda en la conversación');
 
--- 4. Guardar una sección de la configuración ----------------------------------------------------
+-- 4. Un mensaje que no cambia el pedido no invalida el resumen -----------------------------------
+
+insert into clientes (id, negocio_id, telefono) values (:C3, :A, '59899100003');
+insert into conversaciones (id, negocio_id, cliente_id, borrador) values
+  (:V3, :A, :C3, jsonb_build_object('items', jsonb_build_array(jsonb_build_object('producto_id', :birra, 'cantidad', 1)), 'entrega', '{"modo":"retiro"}'::jsonb));
+insert into mensajes (id, negocio_id, conversacion_id, rol, contenido, interpretado) values
+  ('c9000000-0000-4000-8000-000000000001', :A, :V3, 'cliente', 'eso es todo', false),
+  ('c9000000-0000-4000-8000-000000000002', :A, :V3, 'cliente', 'gracias', false),
+  ('c9000000-0000-4000-8000-000000000003', :A, :V3, 'cliente', 'mejor 2', false);
+create temp table b3 as select borrador from conversaciones where id = :V3;
+select guardar_interpretacion_wa(:A, :V3, 0, array['c9000000-0000-4000-8000-000000000001'::uuid], (select borrador from b3),
+  '{"dudosos":[],"preguntas":[],"errores":[]}', 'prueba', 0, 0, null, 22000, true);
+select guardar_interpretacion_wa(:A, :V3, 1, array['c9000000-0000-4000-8000-000000000002'::uuid], (select borrador from b3),
+  '{"dudosos":[],"preguntas":[],"errores":[]}', 'prueba', 0, 0);
+select ok((select resumen_version = version from conversaciones where id = :V3), 'un "gracias" no invalida el resumen');
+select is((select resumen_total from conversaciones where id = :V3), 22000, 'y el total del resumen sigue');
+select ok((select listo_at is not null from conversaciones where id = :V3), 'ni el "terminó" (el aviso de demora sigue en pie)');
+select guardar_interpretacion_wa(:A, :V3, 2, array['c9000000-0000-4000-8000-000000000003'::uuid],
+  jsonb_set((select borrador from b3), '{items,0,cantidad}', '2'), '{"dudosos":[],"preguntas":[],"errores":[]}', 'prueba', 0, 0);
+select ok((select resumen_version is null and resumen_total is null from conversaciones where id = :V3), 'un cambio en el pedido sí lo invalida');
+select ok((select listo_at is null from conversaciones where id = :V3), 'y vuelve a armando');
+
+-- 5. Guardar una sección de la configuración ----------------------------------------------------
 
 select pg_temp.como(:dueno_a);
 select guardar_config(:A, 'pagos', '["efectivo"]');

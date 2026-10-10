@@ -327,7 +327,10 @@ async function vueltas(
         aplicado.preguntas.length === 0;
       const horarios = leerHorarios(negocio.horarios);
       const abierto = !tieneHorarios(horarios) || estadoHorario(horarios, negocio.zona_horaria, new Date()).abierto;
-      // "Sí" al resumen: lo marca la IA o, por las dudas, un sí corto reconocido sin IA.
+      // "Sí" al resumen: lo marca la IA o, por las dudas, un sí corto reconocido sin IA. Si el
+      // mensaje es solo cortesía, decide únicamente el reconocimiento sin IA: "ok dale" confirma,
+      // "gracias" no (revisión).
+      const texto = nuevos.map((m) => m.contenido).join(' ');
       const afirma =
         auto.activa &&
         conv.resumen_version !== null &&
@@ -335,7 +338,7 @@ async function vueltas(
         !cambio &&
         sinPendientes &&
         aplicado.consulta === null &&
-        (respuesta.respuesta.listo_para_confirmar || esAfirmacion(nuevos.map((m) => m.contenido).join(' ')));
+        (soloCortesia ? esAfirmacion(texto) : respuesta.respuesta.listo_para_confirmar || esAfirmacion(texto));
       const termino = respuesta.respuesta.listo_para_confirmar && pedidoCompleto(aplicado.borrador);
 
       if (afirma) {
