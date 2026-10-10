@@ -32,12 +32,13 @@ export function AdminAutomatico() {
       efecto('error');
       return setError('Revisá el total máximo: por ejemplo 3000.');
     }
-    const base = typeof negocio.config === 'object' && negocio.config !== null ? negocio.config : {};
     setGuardando(true);
-    const { error } = await supabase
-      .from('negocios')
-      .update({ config: { ...base, auto: aConfigGuardada({ ...c, maxTotalCentavos: centavos }) } })
-      .eq('id', negocio.id);
+    // Solo esta sección: guardar_config no pisa lo que otro dueño haya guardado en las demás.
+    const { error } = await supabase.rpc('guardar_config', {
+      p_negocio_id: negocio.id,
+      p_clave: 'auto',
+      p_valor: aConfigGuardada({ ...c, maxTotalCentavos: centavos }),
+    });
     setGuardando(false);
     if (error) return setError(error.message);
     setGuardadoEn(Date.now());

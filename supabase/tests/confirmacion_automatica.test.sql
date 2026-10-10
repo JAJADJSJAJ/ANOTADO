@@ -1,12 +1,15 @@
 -- Fase 7: stock del día, confirmación automática y aviso de demora.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(38);
+select plan(45);
 
 delete from pedidos;
 delete from contadores_pedidos;
+-- Lo que se haya prendido a mano en la base local no cuenta para el test.
+update negocios set config = config - 'auto' where id = 'a0000000-0000-4000-8000-000000000001';
 
 \set A '\'a0000000-0000-4000-8000-000000000001\''
+\set dueno_a '\'00000000-0000-4000-a000-0000000000a1\''
 \set cajero_a '\'00000000-0000-4000-a000-0000000000a2\''
 \set C1 '\'c7000000-0000-4000-8000-000000000001\''
 \set C2 '\'c7000000-0000-4000-8000-000000000002\''
@@ -73,6 +76,18 @@ select is(cancelar_pedido((select id from pedidos where numero = 2 and negocio_i
 reset role;
 select is((select stock from productos where id = :agua), 1, 'cancelar devuelve el stock');
 select ok((select activo and not agotado_por_stock from productos where id = :agua), 'y lo vuelve a ofrecer');
+
+-- Si el dueño cambió el stock del día después de la venta, cancelar no pasa del número nuevo.
+select pg_temp.como(:cajero_a);
+select ok(confirmar_pedido(:A, 'mostrador', jsonb_build_array(jsonb_build_object('producto_id', :agua, 'cantidad', 1)), '{"modo":"retiro"}') ? 'numero',
+  'se vende la que quedaba');
+reset role;
+update productos set stock_dia = 2 where id = :agua;
+select pg_temp.como(:cajero_a);
+select cancelar_pedido((select id from pedidos where negocio_id = :A and estado = 'pendiente' order by numero desc limit 1));
+reset role;
+select is((select stock from productos where id = :agua), 2, 'cancelar no deja más que el stock del día nuevo');
+update productos set stock_dia = 3 where id = :agua;
 
 -- Nueva jornada: vuelve al número del día. Un agotado a mano no lo prende la reposición.
 update productos set stock = 0, stock_jornada = jornada_actual(:A) - 1, activo = false, agotado_por_stock = true where id = :agua;
@@ -142,6 +157,24 @@ select is(avisar_demoras(), 1, 'el cliente terminó hace más de 10 minutos y na
 select is(avisar_demoras(), 0, 'una sola vez');
 select ok(exists (select 1 from mensajes where conversacion_id = :V2 and rol = 'asistente' and contenido like 'Perdón la demora%'),
   'el aviso queda en la conversación');
+
+-- 4. Guardar una sección de la configuración ----------------------------------------------------
+
+select pg_temp.como(:dueno_a);
+select guardar_config(:A, 'pagos', '["efectivo"]');
+reset role;
+select is((select config -> 'pagos' from negocios where id = :A), '["efectivo"]'::jsonb, 'el dueño guarda una sección');
+select is((select (config -> 'auto' ->> 'activa')::boolean from negocios where id = :A), true, 'sin pisar las otras');
+select pg_temp.como(:dueno_a);
+select throws_ok($$select guardar_config('a0000000-0000-4000-8000-000000000001', 'zonas', '[]')$$, '22023', null,
+  'solo las secciones conocidas');
+reset role;
+select pg_temp.como(:cajero_a);
+select throws_ok($$select guardar_config('a0000000-0000-4000-8000-000000000001', 'pagos', '[]')$$, '42501', null,
+  'el cajero no la cambia');
+reset role;
+select pg_temp.nadie();
+select ok(not has_function_privilege('anon', 'guardar_config(uuid, text, jsonb)', 'execute'), 'guardar_config: anon no');
 
 select * from finish();
 rollback;

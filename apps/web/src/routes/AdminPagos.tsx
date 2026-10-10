@@ -22,12 +22,9 @@ export function AdminPagos() {
 
   async function guardar() {
     setError(null);
-    const base = typeof negocio.config === 'object' && negocio.config !== null ? negocio.config : {};
     setGuardando(true);
-    const { error } = await supabase
-      .from('negocios')
-      .update({ config: { ...base, pagos: elegidos } })
-      .eq('id', negocio.id);
+    // Solo esta sección: guardar_config no pisa lo que otro dueño haya guardado en las demás.
+    const { error } = await supabase.rpc('guardar_config', { p_negocio_id: negocio.id, p_clave: 'pagos', p_valor: elegidos });
     setGuardando(false);
     if (error) return setError(error.message);
     setGuardadoEn(Date.now());

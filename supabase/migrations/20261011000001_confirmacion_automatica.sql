@@ -113,7 +113,9 @@ $$;
 
 revoke all on function public.reponer_stock_diario() from public, anon, authenticated;
 
--- Un pedido cancelado devuelve lo que descontó, si sigue siendo la misma jornada del stock.
+-- Un pedido cancelado devuelve lo que descontó, si sigue siendo la misma jornada del stock. Nunca
+-- por encima del stock del día: si el dueño lo cambió después de la venta, hoy arrancó de nuevo
+-- con ese número (revisión).
 create function public.devolver_stock_cancelado() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
@@ -121,7 +123,7 @@ begin
     return null;
   end if;
   update public.productos p
-  set stock = p.stock + d.cantidad,
+  set stock = least(p.stock + d.cantidad, p.stock_dia),
       activo = case when p.agotado_por_stock then true else p.activo end,
       agotado_por_stock = false
   from (
@@ -488,6 +490,27 @@ $$;
 
 revoke all on function public.config_auto(jsonb) from public, anon, authenticated;
 
+-- Guarda UNA sección de negocios.config (cada pantalla de Administrar tiene la suya) sin pisar las
+-- otras: si dos dueños guardan secciones distintas, quedan los dos cambios (revisión). Corre con
+-- los permisos de quien llama: la política "editar negocio" y el GRANT de config deciden.
+create function public.guardar_config(p_negocio_id uuid, p_clave text, p_valor jsonb) returns void
+language plpgsql security invoker set search_path = '' as $$
+begin
+  if p_clave is null or p_clave not in ('auto', 'cocina', 'pagos') then
+    raise exception 'Sección de configuración inválida' using errcode = '22023';
+  end if;
+  update public.negocios
+  set config = coalesce(config, '{}'::jsonb) || jsonb_build_object(p_clave, p_valor)
+  where id = p_negocio_id;
+  if not found then
+    raise exception 'No podés cambiar la configuración de este local' using errcode = '42501';
+  end if;
+end;
+$$;
+
+revoke all on function public.guardar_config(uuid, text, jsonb) from public, anon;
+grant execute on function public.guardar_config(uuid, text, jsonb) to authenticated;
+
 -- Revisa si una conversación se puede confirmar sola y, con p_probar = false, la confirma.
 --   p_probar = true (cuando el cliente dice "eso es todo"): no crea nada; devuelve el total que
 --     va en el resumen, o el motivo por el que tiene que confirmarla una persona.
@@ -590,6 +613,13 @@ begin
   end if;
   if v_total > (v_auto ->> 'max_total_centavos')::int then
     return jsonb_build_object('ok', false, 'motivo', 'tope_total', 'total_centavos', v_total);
+  end if;
+
+  -- Los topes que cuentan pedidos (por cliente, cocina llena) se miran de a una confirmación
+  -- automática por local: dos al mismo tiempo no pasan las dos el último lugar (revisión). Cada
+  -- consulta de abajo ve lo que confirmó la anterior (read committed).
+  if not p_probar then
+    perform pg_advisory_xact_lock(hashtextextended('confirmar-automatico:' || p_negocio_id, 0));
   end if;
 
   -- Cliente nuevo: el primer pedido lo confirma una persona.

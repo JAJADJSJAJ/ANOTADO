@@ -374,6 +374,8 @@ select pg_temp.nadie();
 
 -- Topes de mensajes y de IA de la demo --------------------------------------------------------------
 insert into demo_cupos (clave, dia, cuenta) values ('mensajes:' || :visita2, (now() at time zone 'America/Montevideo')::date, 60) on conflict (clave, dia) do update set cuenta = excluded.cuenta;
+-- Lo que la demo local ya gastó hoy no cuenta para el test.
+delete from demo_cupos where clave = 'ia:' || :D;
 select pg_temp.compartir();
 set local role service_role;
 select is(consumir_mensaje_demo(:D, :visita1), true, 'el simulador recibe');

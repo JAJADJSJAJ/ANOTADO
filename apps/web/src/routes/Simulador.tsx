@@ -1,5 +1,5 @@
 import { formatearPrecio, telefonoDemo } from '@anotado/shared';
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router';
 import { Vacio } from '../components/Estado.tsx';
 import { Icono } from '../components/Icono.tsx';
@@ -51,11 +51,18 @@ export function Simulador() {
   const telefono = userId ? telefonoDemo(userId) : null;
   const mia = whatsapp.conversaciones?.find((c) => c.cliente?.telefono === telefono) ?? null;
   const armado = (mia?.borrador.items.length ?? 0) > 0;
+  // El salto a la cocina después de confirmar: se cancela si la persona navega antes.
+  const salto = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (salto.current !== null) window.clearTimeout(salto.current);
+  }, []);
 
   if (!negocio.esDemo) return <Navigate to="../mostrador" replace />;
 
   const actual = PASOS[paso - 1]!;
   const ir = (p: Paso) => {
+    if (salto.current !== null) window.clearTimeout(salto.current);
+    salto.current = null;
     setPaso(p);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -105,7 +112,7 @@ export function Simulador() {
             onConfirmado={(numero, total) => {
               setConfirmado({ numero, total });
               // Un momento para escuchar la impresora y ver el aviso, y a la cocina.
-              setTimeout(() => ir(3), 900);
+              salto.current = window.setTimeout(() => ir(3), 900);
             }}
           />
           <Navegacion

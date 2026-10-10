@@ -27,12 +27,9 @@ export function AdminCocina() {
         `Los tiempos van en minutos enteros, de 1 a ${MAX_MINUTOS_COCINA}, y el rojo tiene que ser mayor que el amarillo.`,
       );
     }
-    const base = typeof negocio.config === 'object' && negocio.config !== null ? negocio.config : {};
     setGuardando(true);
-    const { error } = await supabase
-      .from('negocios')
-      .update({ config: { ...base, cocina: cocina.data } })
-      .eq('id', negocio.id);
+    // Solo esta sección: guardar_config no pisa lo que otro dueño haya guardado en las demás.
+    const { error } = await supabase.rpc('guardar_config', { p_negocio_id: negocio.id, p_clave: 'cocina', p_valor: cocina.data });
     setGuardando(false);
     if (error) return setError(error.message);
     setGuardadoEn(Date.now());

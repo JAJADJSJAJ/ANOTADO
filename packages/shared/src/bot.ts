@@ -254,7 +254,7 @@ function contarEstado(p: PedidoDelCliente | null, armando: boolean): string {
   const n = `Tu pedido #${p.numero}`;
   switch (p.estado) {
     case 'pendiente':
-      return `${n} ya está en el local: en un ratito empiezan a prepararlo.`;
+      return `${n} ya está en el local, esperando que lo empiecen a preparar.`;
     case 'en_cocina':
       return `${n} se está preparando.`;
     case 'listo':

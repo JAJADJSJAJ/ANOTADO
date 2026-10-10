@@ -1083,6 +1083,10 @@ export type Database = {
         }
         Returns: number
       }
+      guardar_config: {
+        Args: { p_clave: string; p_negocio_id: string; p_valor: Json }
+        Returns: undefined
+      }
       guardar_interpretacion: {
         Args: {
           p_borrador: Json
