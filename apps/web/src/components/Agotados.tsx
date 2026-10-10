@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { Categoria, Producto } from '../hooks/useMenu.ts';
+import { efecto } from '../lib/sonido.ts';
 import { supabase } from '../lib/supabase.ts';
-import { MensajeError } from './Estado.tsx';
+import { MensajeError, Vacio } from './Estado.tsx';
 
 /**
  * Marcar y desmarcar agotados, para cualquier rol del local (RPC marcar_agotado). Precios y
@@ -11,12 +12,10 @@ export function Agotados({
   categorias,
   productos,
   onCambio,
-  oscuro = false,
 }: {
   categorias: Categoria[];
   productos: Producto[];
   onCambio: () => void;
-  oscuro?: boolean;
 }) {
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +25,10 @@ export function Agotados({
     setError(null);
     const { error } = await supabase.rpc('marcar_agotado', { p_producto_id: p.id, p_agotado: p.activo });
     setOcupado(null);
-    if (error) setError(error.message);
+    if (error) {
+      efecto('error');
+      setError(error.message);
+    }
     onCambio();
   }
 
@@ -35,37 +37,34 @@ export function Agotados({
     { nombre: 'Otros', productos: productos.filter((p) => !p.categoria_id) },
   ].filter((g) => g.productos.length > 0);
 
-  if (productos.length === 0) return <p className="text-lg">Todavía no hay productos en el menú.</p>;
+  if (productos.length === 0) return <Vacio icono="menu" titulo="Todavía no hay productos en el menú" />;
+
+  const hay = 'border-linea bg-hoja shadow-papel hover:border-tinta-3';
+  const agotado = 'border-alerta bg-alerta-suave';
 
   return (
-    <div className="flex flex-col gap-4">
-      <p className={`text-sm ${oscuro ? 'text-stone-400' : 'text-stone-500'}`}>
-        Ojo: lo que el dueño sacó del menú también aparece como agotado. Si lo pasás a &quot;Hay&quot;, se vuelve a ofrecer.
-      </p>
+    <div className="flex flex-col gap-5">
       {error && <MensajeError>{error}</MensajeError>}
       {grupos.map((g) => (
         <section key={g.nombre}>
-          <h3 className={`mb-2 text-sm font-bold tracking-wide uppercase ${oscuro ? 'text-stone-400' : 'text-stone-500'}`}>
-            {g.nombre}
-          </h3>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+          <h3 className="rotulo mb-2.5">{g.nombre}</h3>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {g.productos.map((p) => (
               <button
                 key={p.id}
                 type="button"
                 aria-pressed={!p.activo}
                 disabled={ocupado === p.id}
+                data-sonido="llave"
                 onClick={() => void alternar(p)}
-                className={`flex min-h-20 flex-col justify-between rounded-xl border-2 p-3 text-left font-bold disabled:opacity-60 ${
-                  p.activo
-                    ? oscuro
-                      ? 'border-white/15 bg-white/5'
-                      : 'border-stone-200 bg-white'
-                    : 'border-amber-500 bg-amber-100 text-amber-950'
+                className={`flex min-h-[4.75rem] flex-col justify-between gap-2 rounded-xl border p-3 text-left transition-[border-color,background-color,transform] duration-150 active:scale-[0.97] disabled:opacity-60 ${
+                  p.activo ? hay : agotado
                 }`}
               >
-                <span className="leading-tight">{p.nombre}</span>
-                <span className={`text-sm ${p.activo ? 'text-emerald-500' : 'text-amber-800'}`}>
+                <span className="leading-tight font-semibold">{p.nombre}</span>
+                <span
+                  className={`chip chip-punto self-start ${p.activo ? 'chip-ok' : 'chip-alerta'}`}
+                >
                   {p.activo ? 'Hay' : 'Agotado'}
                 </span>
               </button>
@@ -73,6 +72,9 @@ export function Agotados({
           </div>
         </section>
       ))}
+      <p className="text-sm text-tinta-3">
+        Lo que el dueño sacó del menú también aparece como agotado. Si lo pasás a "Hay", se vuelve a ofrecer.
+      </p>
     </div>
   );
 }

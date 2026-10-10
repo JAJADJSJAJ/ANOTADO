@@ -1,0 +1,20 @@
+{
+  "id": "ortografia-04",
+  "menu": "demo",
+  "categoria": "ortografia",
+  "mensajes": [
+    "una musarela y 2 fainas porfa"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Pizza muzzarella",
+        "cantidad": 1
+      },
+      {
+        "producto": "Fainá (porción)",
+        "cantidad": 2
+      }
+    ]
+  }
+}

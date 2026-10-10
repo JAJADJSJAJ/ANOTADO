@@ -22,24 +22,28 @@ export function EstadoLocal({ horarios, zonaHoraria }: { horarios: Horarios; zon
 
   if (estado.abierto) {
     return (
-      <p role="status" className="flex items-center gap-2 font-bold text-emerald-800">
-        <span aria-hidden className="size-3 rounded-full bg-emerald-500" />
-        Abierto · cierra {estado.cierra}
-      </p>
+      <span role="status" className="chip chip-ok chip-punto">
+        Abierto · cierra <span className="num">{estado.cierra}</span>
+      </span>
     );
   }
   const abre = estado.abre;
   const cuando = !abre
-    ? ''
+    ? null
     : abre.dentro === 0
-      ? ` · abre hoy ${abre.hora}`
+      ? 'abre hoy'
       : abre.dentro === 1
-        ? ` · abre mañana ${abre.hora}`
-        : ` · abre ${NOMBRE_DIA[abre.dia]} ${abre.hora}`;
+        ? 'abre mañana'
+        : `abre ${NOMBRE_DIA[abre.dia]}`;
   return (
-    <p role="status" className="flex items-center gap-2 font-bold text-stone-600">
-      <span aria-hidden className="size-3 rounded-full bg-stone-400" />
-      Cerrado{cuando}
-    </p>
+    <span role="status" className="chip chip-punto">
+      Cerrado
+      {abre && (
+        <>
+          {' '}
+          · {cuando} <span className="num">{abre.hora}</span>
+        </>
+      )}
+    </span>
   );
 }

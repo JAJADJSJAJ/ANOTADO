@@ -13,10 +13,13 @@ import { useAhora } from '../hooks/useAhora.ts';
 import { useAvisos } from '../hooks/useAvisos.ts';
 import { useNegocio } from '../hooks/useNegocio.ts';
 import type { usePedidosCocina } from '../hooks/usePedidosCocina.ts';
+import { usePreguntar } from '../lib/dialogos.ts';
 import { cancelarPedido, moverPedido } from '../lib/estados.ts';
+import { efecto } from '../lib/sonido.ts';
 import { supabase } from '../lib/supabase.ts';
 import { ListaAvisos } from './Avisos.tsx';
-import { Cargando, MensajeError } from './Estado.tsx';
+import { Cargando, MensajeError, Vacio } from './Estado.tsx';
+import { Icono } from './Icono.tsx';
 
 type DatosMostrador = { direccion: string | null; total: number };
 
@@ -29,17 +32,21 @@ export function Entregas({ cocina }: { cocina: ReturnType<typeof usePedidosCocin
   const { pedidos, desfase, error, recargar, actualizarLocal } = cocina;
   const ahora = useAhora(desfase);
   const { avisos, avisar, quitar } = useAvisos();
+  const preguntar = usePreguntar();
   const [ocupado, setOcupado] = useState<string | null>(null);
-  const [aCancelar, setACancelar] = useState<PedidoCocina | null>(null);
   const datos = useDatosMostrador(pedidos);
 
   async function entregar(p: PedidoCocina, accion: 'avanzar' | 'retroceder') {
     setOcupado(p.id);
     const r = await moverPedido(accion, p.id, p.estado);
     setOcupado(null);
-    if (!r.ok) return avisar({ tipo: 'error', clave: p.id, texto: r.error });
+    if (!r.ok) {
+      efecto('error');
+      return avisar({ tipo: 'error', clave: p.id, texto: r.error });
+    }
     actualizarLocal(p.id, { estado: r.estado });
     if (r.cambiado && accion === 'avanzar') {
+      efecto('sello');
       avisar({
         tipo: 'deshacer',
         clave: p.id,
@@ -52,45 +59,79 @@ export function Entregas({ cocina }: { cocina: ReturnType<typeof usePedidosCocin
     void recargar();
   }
 
+  async function cancelar(p: PedidoCocina) {
+    const motivo = await preguntar({
+      titulo: `¿Cancelar el pedido #${p.numero}?`,
+      texto: 'Sale de la cocina al instante y no se puede deshacer. Si ya se cobró, la devolución se hace por fuera de Anotado.',
+      aceptar: 'Sí, cancelar',
+      peligro: true,
+      campo: { etiqueta: 'Motivo (opcional)', placeholder: 'El cliente se arrepintió', maxLength: 200 },
+    });
+    if (motivo === null) return;
+    setOcupado(p.id);
+    const r = await cancelarPedido(p.id, motivo);
+    setOcupado(null);
+    if (!r.ok) {
+      efecto('error');
+      return avisar({ tipo: 'error', clave: p.id, texto: r.error });
+    }
+    actualizarLocal(p.id, { estado: 'cancelado' });
+    avisar({ tipo: 'info', clave: p.id, texto: `Pedido #${p.numero} cancelado. La cocina ya lo sabe.` });
+    void recargar();
+  }
+
   if (!pedidos) return error ? <MensajeError>{error}</MensajeError> : <Cargando />;
 
   const listos = pedidos.filter((p) => p.estado === 'listo');
   const enCocina = pedidos.filter((p) => p.estado === 'pendiente' || p.estado === 'en_cocina');
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <section aria-label="Listos para entregar">
-        <h2 className="mb-3 text-xl font-black">Listos para entregar</h2>
+        <Titulo texto="Listos para entregar" cantidad={listos.length} />
         {listos.length === 0 ? (
-          <p className="rounded-2xl bg-white p-5 text-lg text-stone-500">Nada listo por ahora. Cuando cocina marque uno, aparece acá.</p>
+          <div className="tarjeta flex">
+            <Vacio icono="check" titulo="Nada listo por ahora">
+              Cuando la cocina marque un pedido como listo, aparece acá.
+            </Vacio>
+          </div>
         ) : (
-          <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <ul className="grid gap-3 @2xl:grid-cols-2 @5xl:grid-cols-3">
             {listos.map((p) => {
               const extra = datos.get(p.id);
               return (
-                <li key={p.id} className="flex flex-col gap-3 rounded-2xl border-2 border-emerald-500 bg-white p-4 shadow-sm">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-4xl font-black">#{p.numero}</span>
-                    {extra && <span className="text-xl font-bold">{formatearPrecio(extra.total)}</span>}
+                <li key={p.id} className="tarjeta flex animate-entra flex-col overflow-hidden border-t-[3px] border-t-ok">
+                  <div className="flex items-start justify-between gap-3 px-4 pt-3.5">
+                    <div>
+                      <p className="num text-[2rem] leading-none font-extrabold tracking-tight">#{p.numero}</p>
+                      <p className="mt-1.5 text-sm font-semibold text-tinta-2">{textoEntrega(p)}</p>
+                    </div>
+                    {extra && <p className="num pt-1 text-lg font-bold">{formatearPrecio(extra.total)}</p>}
                   </div>
-                  <p className="text-lg font-semibold">
-                    {textoEntrega(p)}
-                    {extra?.direccion && <span className="block text-stone-600">{extra.direccion}</span>}
+                  {extra?.direccion && (
+                    <p className="mx-4 mt-2 flex items-start gap-1.5 text-sm">
+                      <Icono nombre="ubicacion" className="mt-px size-4 text-tinta-3" />
+                      {extra.direccion}
+                    </p>
+                  )}
+                  <p className="mx-4 mt-2.5 border-t border-dashed border-linea-fuerte pt-2.5 text-sm text-tinta-2">
+                    {p.items.map((i) => `${i.cantidad} ${i.nombre}`).join(' · ')}
                   </p>
-                  <p className="text-stone-600">{p.items.map((i) => `${i.cantidad}× ${i.nombre}`).join(' · ')}</p>
-                  <div className="mt-auto flex gap-2">
+                  <div className="mt-auto flex gap-2 p-3 pt-4">
                     {puedeAvanzar(negocio.rol, p.estado) && (
                       <button
                         type="button"
                         disabled={ocupado === p.id}
                         onClick={() => void entregar(p, 'avanzar')}
-                        className="flex-1 rounded-xl bg-emerald-600 py-3 text-xl font-bold text-white active:bg-emerald-700 disabled:opacity-60"
+                        data-sonido="no"
+                        className="btn btn-tinta flex-1"
                       >
+                        <Icono nombre="check" />
                         Entregado
                       </button>
                     )}
                     {puedeCancelar(negocio.rol, p.estado) && (
-                      <button type="button" onClick={() => setACancelar(p)} className="rounded-xl px-3 font-semibold text-red-700">
+                      <button type="button" disabled={ocupado === p.id} onClick={() => void cancelar(p)} className="btn btn-quitar">
                         Cancelar
                       </button>
                     )}
@@ -103,25 +144,21 @@ export function Entregas({ cocina }: { cocina: ReturnType<typeof usePedidosCocin
       </section>
 
       <section aria-label="En cocina">
-        <h2 className="mb-3 text-xl font-black">En cocina</h2>
+        <Titulo texto="En cocina" cantidad={enCocina.length} />
         {enCocina.length === 0 ? (
-          <p className="rounded-2xl bg-white p-5 text-lg text-stone-500">No hay pedidos en cocina.</p>
+          <p className="text-sm text-tinta-3">No hay pedidos en cocina.</p>
         ) : (
-          <ul className="divide-y divide-stone-200 rounded-2xl bg-white">
+          <ul className="tarjeta divide-y divide-linea">
             {enCocina.map((p) => (
-              <li key={p.id} className="flex items-center gap-3 px-4 py-3">
-                <span className="w-14 text-2xl font-black">#{p.numero}</span>
-                <span className="text-stone-600">{textoEntrega(p)}</span>
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-sm font-bold ${
-                    p.estado === 'en_cocina' ? 'bg-sky-100 text-sky-800' : 'bg-amber-100 text-amber-900'
-                  }`}
-                >
+              <li key={p.id} className="flex animate-entra items-center gap-3 px-4 py-2.5">
+                <span className="num w-14 text-lg font-extrabold">#{p.numero}</span>
+                <span className="min-w-0 flex-1 truncate text-sm text-tinta-2">{textoEntrega(p)}</span>
+                <span className={`chip chip-punto ${p.estado === 'en_cocina' ? 'chip-birome' : ''}`}>
                   {p.estado === 'en_cocina' ? 'En preparación' : 'Esperando'}
                 </span>
-                <span className="text-stone-500 tabular-nums">{minutosDesde(p.created_at, ahora)} min</span>
+                <span className="num w-14 text-right text-sm text-tinta-3">{minutosDesde(p.created_at, ahora)} min</span>
                 {puedeCancelar(negocio.rol, p.estado) && (
-                  <button type="button" onClick={() => setACancelar(p)} className="ml-auto rounded-lg px-3 py-2 font-semibold text-red-700">
+                  <button type="button" disabled={ocupado === p.id} onClick={() => void cancelar(p)} className="btn btn-quitar btn-chico">
                     Cancelar
                   </button>
                 )}
@@ -130,21 +167,17 @@ export function Entregas({ cocina }: { cocina: ReturnType<typeof usePedidosCocin
           </ul>
         )}
       </section>
-
-      {aCancelar && (
-        <DialogoCancelar
-          pedido={aCancelar}
-          onCerrar={() => setACancelar(null)}
-          onCancelado={() => {
-            actualizarLocal(aCancelar.id, { estado: 'cancelado' });
-            avisar({ tipo: 'info', clave: aCancelar.id, texto: `Pedido #${aCancelar.numero} cancelado. Cocina ya lo sabe.` });
-            setACancelar(null);
-            void recargar();
-          }}
-        />
-      )}
       <ListaAvisos avisos={avisos} onCerrar={quitar} />
     </div>
+  );
+}
+
+function Titulo({ texto, cantidad }: { texto: string; cantidad: number }) {
+  return (
+    <h2 className="mb-3 flex items-baseline gap-2 font-bold tracking-[-0.01em]">
+      {texto}
+      {cantidad > 0 && <span className="num text-sm font-semibold text-tinta-3">{cantidad}</span>}
+    </h2>
   );
 }
 
@@ -175,66 +208,4 @@ function useDatosMostrador(pedidos: PedidoCocina[] | null) {
   }, [ids]);
 
   return datos;
-}
-
-function DialogoCancelar({
-  pedido,
-  onCerrar,
-  onCancelado,
-}: {
-  pedido: PedidoCocina;
-  onCerrar: () => void;
-  onCancelado: () => void;
-}) {
-  const [motivo, setMotivo] = useState('');
-  const [enviando, setEnviando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function confirmar() {
-    setEnviando(true);
-    setError(null);
-    const r = await cancelarPedido(pedido.id, motivo);
-    setEnviando(false);
-    if (!r.ok) return setError(r.error);
-    onCancelado();
-  }
-
-  return (
-    <div role="dialog" aria-modal="true" aria-label={`Cancelar pedido ${pedido.numero}`} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onCerrar}>
-      <div className="w-full max-w-md rounded-3xl bg-white p-6" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-2xl font-black">¿Cancelar el pedido #{pedido.numero}?</h2>
-        <p className="mt-2 text-stone-600">
-          Sale de la cocina al instante y no se puede deshacer. Si ya se cobró, la devolución se hace por fuera de Anotado.
-        </p>
-        <label className="mt-4 flex flex-col gap-1 font-medium">
-          Motivo (opcional)
-          <input
-            value={motivo}
-            maxLength={200}
-            onChange={(e) => setMotivo(e.target.value)}
-            placeholder="El cliente se arrepintió"
-            className="rounded-xl border-2 border-stone-300 px-3 py-2 text-lg"
-          />
-        </label>
-        {error && (
-          <div className="mt-3">
-            <MensajeError>{error}</MensajeError>
-          </div>
-        )}
-        <div className="mt-6 flex gap-2">
-          <button type="button" onClick={onCerrar} className="flex-1 rounded-xl bg-stone-100 py-3 text-lg font-bold">
-            Volver
-          </button>
-          <button
-            type="button"
-            disabled={enviando}
-            onClick={() => void confirmar()}
-            className="flex-1 rounded-xl bg-red-600 py-3 text-lg font-bold text-white active:bg-red-700 disabled:opacity-60"
-          >
-            {enviando ? 'Cancelando…' : 'Sí, cancelar'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }

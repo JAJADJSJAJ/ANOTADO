@@ -1,6 +1,7 @@
 import type { AccionIA } from './acciones.ts';
 import { agregarItem, quitarItem } from './borrador.ts';
-import { MAX_CANTIDAD, MAX_DIRECCION, MAX_ITEMS, MAX_MESA, MAX_NOTAS_ITEM } from './reglas.ts';
+import { fonetica, separarCantidad } from './fonetica.ts';
+import { MAX_CANTIDAD, MAX_CONSULTA, MAX_DIRECCION, MAX_ITEMS, MAX_MESA, MAX_NOTAS_ITEM } from './reglas.ts';
 import type { Borrador, EntregaBorrador } from './schemas.ts';
 
 /** Sin la referencia interna (p7…): al cajero no le dice nada. */
@@ -16,6 +17,8 @@ export type ProductoMenu = {
   ref: string;
   nombre: string;
   activo: boolean;
+  /** Nombre y otros nombres, para reconocer lo que la IA dejó como dudoso (fonetica.ts). */
+  claves?: readonly string[];
 };
 
 export type ResultadoAcciones = {
@@ -26,6 +29,22 @@ export type ResultadoAcciones = {
   preguntas: string[];
   /** Acciones rechazadas por reglas: producto inexistente, agotado, cantidad absurda… */
   errores: string[];
+  /** Lo que no se anotó por pasarse del máximo por producto (el bot se lo dice al cliente). */
+  excedidos: { nombre: string; cantidad: number }[];
+  /**
+   * El cliente preguntó por el menú: ids de los productos que responden (activos, sin repetir).
+   * null = no preguntó; [] = preguntó por algo que no hay.
+   */
+  consulta: string[] | null;
+  /** Preguntó cómo va su pedido. */
+  estado: boolean;
+  /** Preguntó cómo se puede pagar. */
+  pago: boolean;
+  /**
+   * Pidió cancelar. 'borrador': había un pedido armándose y se vació. 'pedido': no había nada
+   * armado, así que habla del último pedido confirmado (lo resuelve el servidor). null: no pidió.
+   */
+  cancelar: 'borrador' | 'pedido' | null;
 };
 
 /**
@@ -44,9 +63,31 @@ export function aplicarAcciones(
   const dudosos: string[] = [];
   const preguntas: string[] = [];
   const errores: string[] = [];
+  const excedidos: ResultadoAcciones['excedidos'] = [];
+  let consulta: string[] | null = null;
+  let estado = false;
+  let pago = false;
+  let cancelar: ResultadoAcciones['cancelar'] = null;
 
   const lineasDe = (productoId: string) =>
     b.items.flatMap((it, i) => (it.producto_id === productoId ? [i] : []));
+
+  /** Suma un producto validando reglas; si no se puede, lo deja en errores. */
+  const agregar = (p: ProductoMenu, cantidad: number, notasIA: string | null) => {
+    const error = validarProducto(p) ?? validarCantidad(p, cantidad) ?? validarNotas(p, notasIA);
+    if (error) {
+      if (p.activo && cantidad > MAX_CANTIDAD) excedidos.push({ nombre: p.nombre, cantidad });
+      return errores.push(error);
+    }
+    const notas = notasIA?.trim() || undefined;
+    const existente = b.items.find((it) => it.producto_id === p.id && it.notas === notas);
+    if (existente && existente.cantidad + cantidad > MAX_CANTIDAD) {
+      excedidos.push({ nombre: p.nombre, cantidad: existente.cantidad + cantidad });
+      return errores.push(`${p.nombre}: sumando quedarían ${existente.cantidad + cantidad} (máximo ${MAX_CANTIDAD})`);
+    }
+    if (!existente && b.items.length >= MAX_ITEMS) return errores.push(`Máximo ${MAX_ITEMS} productos distintos por pedido`);
+    b = agregarItem(b, p.id, cantidad, notas);
+  };
 
   for (const a of acciones) {
     switch (a.tipo) {
@@ -56,22 +97,7 @@ export function aplicarAcciones(
           errores.push(PRODUCTO_DESCONOCIDO);
           break;
         }
-        const error = validarProducto(p) ?? validarCantidad(p, a.cantidad) ?? validarNotas(p, a.notas);
-        if (error) {
-          errores.push(error);
-          break;
-        }
-        const notas = a.notas?.trim() || undefined;
-        const existente = b.items.find((it) => it.producto_id === p.id && it.notas === notas);
-        if (existente && existente.cantidad + a.cantidad > MAX_CANTIDAD) {
-          errores.push(`${p.nombre}: sumando quedarían ${existente.cantidad + a.cantidad} (máximo ${MAX_CANTIDAD})`);
-          break;
-        }
-        if (!existente && b.items.length >= MAX_ITEMS) {
-          errores.push(`Máximo ${MAX_ITEMS} productos distintos por pedido`);
-          break;
-        }
-        b = agregarItem(b, p.id, a.cantidad, notas);
+        agregar(p, a.cantidad, a.notas);
         break;
       }
 
@@ -105,6 +131,7 @@ export function aplicarAcciones(
         const error =
           (a.cantidad !== null ? validarCantidad(p, a.cantidad) : null) ?? validarNotas(p, a.notas);
         if (error) {
+          if (a.cantidad !== null && a.cantidad > MAX_CANTIDAD) excedidos.push({ nombre: p.nombre, cantidad: a.cantidad });
           errores.push(error);
           break;
         }
@@ -144,7 +171,11 @@ export function aplicarAcciones(
 
       case 'dudoso': {
         const texto = a.texto_original.trim().slice(0, MAX_TEXTO_PENDIENTE);
-        if (texto) dudosos.push(texto);
+        if (!texto) break;
+        // Escrito como suena ("2 virras" = 2 birras): si suena igual a UN producto, es ese.
+        const reconocido = reconocerPorSonido(texto, menu);
+        if (reconocido) agregar(reconocido.producto, reconocido.cantidad, null);
+        else dudosos.push(texto);
         break;
       }
 
@@ -153,10 +184,51 @@ export function aplicarAcciones(
         if (pregunta) preguntas.push(pregunta);
         break;
       }
+
+      case 'consultar': {
+        // Referencias que no están en el menú se ignoran: una consulta no toca el pedido.
+        const ids = a.productos.flatMap((ref) => {
+          const p = porRef.get(ref);
+          return p?.activo ? [p.id] : [];
+        });
+        consulta = [...new Set([...(consulta ?? []), ...ids])].slice(0, MAX_CONSULTA);
+        break;
+      }
+
+      case 'estado':
+        estado = true;
+        break;
+
+      case 'pago':
+        pago = true;
+        break;
+
+      case 'cancelar':
+        // Con algo armado, se cancela eso (sin pedido no hay nada que cocinar). Sin nada armado,
+        // habla de un pedido ya confirmado, que no se toca acá.
+        if (b.items.length > 0 || cancelar === 'borrador') {
+          b = { items: [], entrega: null };
+          cancelar = 'borrador';
+        } else {
+          cancelar = 'pedido';
+        }
+        break;
     }
   }
 
-  return { borrador: b, dudosos, preguntas, errores };
+  return { borrador: b, dudosos, preguntas, errores, excedidos, consulta, estado, pago, cancelar };
+}
+
+/** El producto que "suena igual" a todo el texto, si es uno solo (con su cantidad). */
+function reconocerPorSonido(
+  texto: string,
+  menu: readonly ProductoMenu[],
+): { producto: ProductoMenu; cantidad: number } | null {
+  const { cantidad, resto } = separarCantidad(texto);
+  const clave = fonetica(resto);
+  if (clave.length < 3) return null;
+  const candidatos = menu.filter((p) => p.activo && (p.claves ?? [p.nombre]).some((k) => fonetica(k) === clave));
+  return candidatos.length === 1 ? { producto: candidatos[0]!, cantidad } : null;
 }
 
 function validarProducto(p: ProductoMenu): string | null {

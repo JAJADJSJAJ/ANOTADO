@@ -164,6 +164,7 @@ export type Database = {
       }
       conversaciones: {
         Row: {
+          aviso_demora_at: string | null
           borrador: Json
           cliente_id: string | null
           created_at: string
@@ -171,12 +172,17 @@ export type Database = {
           etiqueta: string | null
           id: string
           interpretando_hasta: string | null
+          listo_at: string | null
+          motivo_manual: string | null
           negocio_id: string
           pendientes: Json
+          resumen_total: number | null
+          resumen_version: number | null
           ultimo_mensaje_at: string
           version: number
         }
         Insert: {
+          aviso_demora_at?: string | null
           borrador?: Json
           cliente_id?: string | null
           created_at?: string
@@ -184,12 +190,17 @@ export type Database = {
           etiqueta?: string | null
           id?: string
           interpretando_hasta?: string | null
+          listo_at?: string | null
+          motivo_manual?: string | null
           negocio_id: string
           pendientes?: Json
+          resumen_total?: number | null
+          resumen_version?: number | null
           ultimo_mensaje_at?: string
           version?: number
         }
         Update: {
+          aviso_demora_at?: string | null
           borrador?: Json
           cliente_id?: string | null
           created_at?: string
@@ -197,8 +208,12 @@ export type Database = {
           etiqueta?: string | null
           id?: string
           interpretando_hasta?: string | null
+          listo_at?: string | null
+          motivo_manual?: string | null
           negocio_id?: string
           pendientes?: Json
+          resumen_total?: number | null
+          resumen_version?: number | null
           ultimo_mensaje_at?: string
           version?: number
         }
@@ -516,6 +531,7 @@ export type Database = {
       pedido_items: {
         Row: {
           cantidad: number
+          descontado: boolean
           id: string
           negocio_id: string
           nombre_snapshot: string
@@ -526,6 +542,7 @@ export type Database = {
         }
         Insert: {
           cantidad: number
+          descontado?: boolean
           id?: string
           negocio_id: string
           nombre_snapshot: string
@@ -536,6 +553,7 @@ export type Database = {
         }
         Update: {
           cantidad?: number
+          descontado?: boolean
           id?: string
           negocio_id?: string
           nombre_snapshot?: string
@@ -570,6 +588,7 @@ export type Database = {
       }
       pedidos: {
         Row: {
+          automatico: boolean
           cancelado_motivo: string | null
           cancelado_por: string | null
           cliente_id: string | null
@@ -591,6 +610,7 @@ export type Database = {
           zona_id: string | null
         }
         Insert: {
+          automatico?: boolean
           cancelado_motivo?: string | null
           cancelado_por?: string | null
           cliente_id?: string | null
@@ -612,6 +632,7 @@ export type Database = {
           zona_id?: string | null
         }
         Update: {
+          automatico?: boolean
           cancelado_motivo?: string | null
           cancelado_por?: string | null
           cliente_id?: string | null
@@ -666,6 +687,7 @@ export type Database = {
       productos: {
         Row: {
           activo: boolean
+          agotado_por_stock: boolean
           alias: string[]
           categoria_id: string | null
           created_at: string
@@ -673,9 +695,13 @@ export type Database = {
           negocio_id: string
           nombre: string
           precio_centavos: number
+          stock: number | null
+          stock_dia: number | null
+          stock_jornada: string | null
         }
         Insert: {
           activo?: boolean
+          agotado_por_stock?: boolean
           alias?: string[]
           categoria_id?: string | null
           created_at?: string
@@ -683,9 +709,13 @@ export type Database = {
           negocio_id: string
           nombre: string
           precio_centavos: number
+          stock?: number | null
+          stock_dia?: number | null
+          stock_jornada?: string | null
         }
         Update: {
           activo?: boolean
+          agotado_por_stock?: boolean
           alias?: string[]
           categoria_id?: string | null
           created_at?: string
@@ -693,6 +723,9 @@ export type Database = {
           negocio_id?: string
           nombre?: string
           precio_centavos?: number
+          stock?: number | null
+          stock_dia?: number | null
+          stock_jornada?: string | null
         }
         Relationships: [
           {
@@ -895,6 +928,7 @@ export type Database = {
         }
         Returns: Json
       }
+      avisar_demoras: { Args: never; Returns: number }
       cambiar_rol: {
         Args: {
           p_negocio_id: string
@@ -907,9 +941,29 @@ export type Database = {
         Args: { p_motivo?: string; p_pedido_id: string }
         Returns: Json
       }
+      cancelar_pedido_cliente: {
+        Args: { p_cliente_id: string; p_negocio_id: string }
+        Returns: Json
+      }
       cerrar_conversacion: {
         Args: { p_conversacion_id: string }
         Returns: undefined
+      }
+      config_auto: { Args: { p_config: Json }; Returns: Json }
+      confirmar_automatico: {
+        Args: {
+          p_borrador?: Json
+          p_conversacion_id: string
+          p_mensajes?: string[]
+          p_modelo?: string
+          p_negocio_id: string
+          p_pendientes?: Json
+          p_probar: boolean
+          p_tokens_entrada?: number
+          p_tokens_salida?: number
+          p_version?: number
+        }
+        Returns: Json
       }
       confirmar_conversacion: {
         Args: {
@@ -984,6 +1038,19 @@ export type Database = {
         Args: { p_codigo: string; p_nombre: string }
         Returns: Json
       }
+      crear_pedido_interno: {
+        Args: {
+          p_automatico: boolean
+          p_conversacion_id: string
+          p_creado_por: string
+          p_entrega: Json
+          p_items: Json
+          p_negocio_id: string
+          p_notas: string
+          p_origen: Database["public"]["Enums"]["origen_pedido"]
+        }
+        Returns: Json
+      }
       es_cuenta_demo: { Args: { p_user_id: string }; Returns: boolean }
       es_demo: { Args: { p_negocio_id: string }; Returns: boolean }
       es_miembro: { Args: { n: string }; Returns: boolean }
@@ -1016,6 +1083,10 @@ export type Database = {
         }
         Returns: number
       }
+      guardar_config: {
+        Args: { p_clave: string; p_negocio_id: string; p_valor: Json }
+        Returns: undefined
+      }
       guardar_interpretacion: {
         Args: {
           p_borrador: Json
@@ -1038,11 +1109,14 @@ export type Database = {
         Args: {
           p_borrador: Json
           p_conversacion_id: string
+          p_listo?: boolean
           p_mensajes: string[]
           p_modelo: string
+          p_motivo_manual?: string
           p_negocio_id: string
           p_pendientes: Json
           p_respuesta?: string
+          p_resumen_total?: number
           p_tokens_entrada: number
           p_tokens_salida: number
           p_version: number
@@ -1073,6 +1147,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      jornada_actual: { Args: { p_negocio_id: string }; Returns: string }
       limpiar_demo: { Args: never; Returns: number }
       marcar_agotado: {
         Args: { p_agotado: boolean; p_producto_id: string }
@@ -1193,6 +1268,7 @@ export type Database = {
         Returns: Json
       }
       reponer_agotados_demo: { Args: never; Returns: number }
+      reponer_stock_diario: { Args: never; Returns: number }
       reservar_registro: {
         Args: { p_codigo?: string; p_email: string; p_token?: string }
         Returns: string
@@ -1214,6 +1290,10 @@ export type Database = {
       soltar_conversacion_wa: {
         Args: { p_conversacion_id: string; p_negocio_id: string }
         Returns: boolean
+      }
+      stock_disponible: {
+        Args: { p: Database["public"]["Tables"]["productos"]["Row"] }
+        Returns: number
       }
       sumar_visitante_demo: { Args: { p_user_id: string }; Returns: Json }
       tiene_rol: {

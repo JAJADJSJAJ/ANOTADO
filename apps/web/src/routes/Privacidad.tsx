@@ -13,17 +13,37 @@ const ACTUALIZADA = '6 de octubre de 2026';
  */
 export function Privacidad() {
   return (
-    <main className="min-h-screen bg-stone-100 p-4">
-      <article className="mx-auto flex max-w-2xl flex-col gap-6 rounded-3xl bg-white p-6 text-lg leading-relaxed shadow-sm sm:p-8">
-        <header className="flex flex-col gap-2">
-          <Link to="/login" className="self-start text-2xl">
+    <div className="min-h-dvh">
+      <header className="sticky top-0 z-30 border-b border-linea bg-hoja/95 backdrop-blur-[2px]">
+        <div className="mx-auto flex h-14 max-w-5xl items-center px-5">
+          <Link to="/login" className="rounded-lg">
             <Marca />
           </Link>
-          <h1 className="text-3xl font-black tracking-tight">Política de privacidad</h1>
-          <p className="text-stone-600">Última actualización: {ACTUALIZADA}.</p>
+          <Link to="/demo" className="btn btn-fantasma btn-chico ml-auto">
+            Probar la demo
+          </Link>
+        </div>
+      </header>
+      <div className="mx-auto grid max-w-5xl gap-10 px-5 py-10 md:grid-cols-[12rem_minmax(0,1fr)] md:py-14">
+        <nav aria-label="Secciones" className="hidden md:block">
+          <ol className="sticky top-24 flex flex-col gap-0.5 border-l border-linea">
+            {SECCIONES.map(([id, titulo]) => (
+              <li key={id}>
+                <a href={`#${id}`} className="-ml-px block border-l border-transparent py-1 pl-3.5 text-sm text-tinta-2 transition-colors hover:border-tinta hover:text-tinta">
+                  {titulo}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      <article className="flex max-w-2xl animate-entra flex-col gap-9 text-[1.0625rem] leading-relaxed [&_li]:mt-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:marker:text-tinta-3">
+        <header className="flex flex-col gap-3">
+          <p className="rotulo">Legal</p>
+          <h1 className="text-4xl leading-tight font-bold tracking-[-0.03em]">Política de privacidad</h1>
+          <p className="text-tinta-2">Última actualización: {ACTUALIZADA}.</p>
         </header>
 
-        <Seccion titulo="Qué es Anotado">
+        <Seccion titulo="Qué es Anotado" id="que-es">
           <p>
             Anotado es un sistema para locales de comida: recibe los pedidos que los clientes mandan por WhatsApp y los
             ordena para que el local los prepare. Cada local usa Anotado para sus propios clientes. Los datos de esos
@@ -32,9 +52,9 @@ export function Privacidad() {
           </p>
         </Seccion>
 
-        <Seccion titulo="Qué datos guardamos">
-          <p className="font-bold">De las personas que le escriben por WhatsApp a un local que usa Anotado:</p>
-          <ul className="list-disc pl-6">
+        <Seccion titulo="Qué datos guardamos" id="datos">
+          <p className="font-semibold">De las personas que le escriben por WhatsApp a un local que usa Anotado:</p>
+          <ul>
             <li>El número de teléfono y el nombre del perfil de WhatsApp.</li>
             <li>
               El texto completo de los mensajes que le mandan al local. De los audios, fotos y otros archivos solo
@@ -46,13 +66,13 @@ export function Privacidad() {
               de los mensajes que lo originaron.
             </li>
           </ul>
-          <p className="font-bold">De las personas que trabajan en un local y usan Anotado:</p>
-          <ul className="list-disc pl-6">
+          <p className="font-semibold">De las personas que trabajan en un local y usan Anotado:</p>
+          <ul>
             <li>El mail con el que entran, su rol en el local y las acciones que hacen en el sistema.</li>
           </ul>
         </Seccion>
 
-        <Seccion titulo="Para qué los usamos">
+        <Seccion titulo="Para qué los usamos" id="para-que">
           <p>
             Solo para que el local reciba, arme y entregue los pedidos. Un programa de inteligencia artificial lee los
             mensajes de texto y propone el pedido; una persona del local siempre lo revisa y lo confirma.
@@ -63,9 +83,9 @@ export function Privacidad() {
           </p>
         </Seccion>
 
-        <Seccion titulo="Quién más los procesa">
+        <Seccion titulo="Quién más los procesa" id="quien">
           <p>Para funcionar, Anotado usa estos servicios, que procesan los datos solo para darnos ese servicio:</p>
-          <ul className="list-disc pl-6">
+          <ul>
             <li>
               <b>Meta (WhatsApp)</b>, Estados Unidos: por donde llegan los mensajes.
             </li>
@@ -90,7 +110,7 @@ export function Privacidad() {
           </p>
         </Seccion>
 
-        <Seccion titulo="Cuánto tiempo los guardamos">
+        <Seccion titulo="Cuánto tiempo los guardamos" id="cuanto">
           <p>
             Mientras el local use Anotado, como historial de sus pedidos. Hoy no se borran solos con el tiempo: se borran
             cuando el local deja de usar Anotado y lo pide, o cuando una persona pide que se borren sus datos (ver abajo).
@@ -101,7 +121,7 @@ export function Privacidad() {
           <p>
             Según la Ley 18.331 de Protección de Datos Personales, podés pedir ver qué datos tuyos hay, corregirlos o
             que se borren. Escribile al local donde hiciste el pedido, o directamente a{' '}
-            <a href={`mailto:${CONTACTO}`} className="font-bold text-indigo-700 underline">
+            <a href={`mailto:${CONTACTO}`} className="enlace">
               {CONTACTO}
             </a>{' '}
             con tu número de teléfono y qué querés hacer. Podemos pedirte que confirmes que el número es tuyo.
@@ -118,18 +138,30 @@ export function Privacidad() {
           </p>
         </Seccion>
 
-        <Seccion titulo="Cambios">
+        <Seccion titulo="Cambios" id="cambios">
           <p>Si cambia esta política, actualizamos la fecha de arriba.</p>
         </Seccion>
       </article>
-    </main>
+      </div>
+    </div>
   );
 }
 
+/** Índice de la columna izquierda: id de la sección y su título. */
+const SECCIONES: [string, string][] = [
+  ['que-es', 'Qué es Anotado'],
+  ['datos', 'Qué datos guardamos'],
+  ['para-que', 'Para qué los usamos'],
+  ['quien', 'Quién más los procesa'],
+  ['cuanto', 'Cuánto tiempo'],
+  ['borrar', 'Tus derechos'],
+  ['cambios', 'Cambios'],
+];
+
 function Seccion({ titulo, id, children }: { titulo: string; id?: string; children: ReactNode }) {
   return (
-    <section id={id} className="flex flex-col gap-3">
-      <h2 className="text-xl font-black">{titulo}</h2>
+    <section id={id} className="flex scroll-mt-24 flex-col gap-3">
+      <h2 className="text-xl font-bold tracking-[-0.015em]">{titulo}</h2>
       {children}
     </section>
   );

@@ -24,7 +24,8 @@ type Caso = {
   id: string;
   categoria: string;
   menu: string;
-  mensajes: string[];
+  /** Lo que escribe el cliente; { bot } es una respuesta del bot en el medio (contexto). */
+  mensajes: (string | { bot: string })[];
   esperado: {
     items: ItemEsperado[];
     /** Omitido: no se chequea. null: no debe haber entrega. */
@@ -85,6 +86,10 @@ for (const caso of casos) {
 
   // Igual que parse-order: un mensaje a la vez, con el borrador acumulado.
   for (const mensaje of caso.mensajes) {
+    if (typeof mensaje !== 'string') {
+      historial.push({ rol: 'asistente', contenido: mensaje.bot });
+      continue;
+    }
     historial.push({ rol: 'cliente', contenido: mensaje });
     try {
       const r = await llamarIA(config, construirMensajes(texto, menu, borrador, historial.slice(-MAX_HISTORIAL)));

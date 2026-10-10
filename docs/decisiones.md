@@ -303,6 +303,40 @@ El cupo diario de IA se descuenta solo si el pedido pasó el límite por minuto:
 
 **Otros mails de Auth** (recuperar contraseña, magic link): van al mail de la cuenta, que en la demo es un `@demo.anotado.invalid` inventado, nunca a un tercero. Pedirlos para el mail de otra persona ya lo podía hacer cualquiera, con o sin demo: no es algo nuevo de la demo (revisión).
 
+## Rediseño y lo que el cliente pregunta (octubre 2026)
+
+### Diseño: "birome sobre comanda"
+Papel, tinta y un solo azul (el de la birome). Bricolage Grotesque y JetBrains Mono instaladas como paquetes, sin pedidos a Google. Sin degradés, brillos ni emojis. Sonidos de la interfaz generados en el navegador, con interruptor guardado; las alarmas de la cocina suenan siempre. Las pantallas de trabajo (Pedidos, Cocina) quedan separadas de Administrar. La demo va en tres pasos, una pantalla a la vez (pedido de Fran: "más separado y sencillo").
+
+### El bot contesta lo que el cliente pregunta, siempre con plantillas
+La IA solo **detecta** qué quiere el cliente; los datos los busca el servidor y el texto lo arma el bot (`shared/bot.ts`). Nunca va texto libre de la IA al cliente.
+- **Menú** (`consultar`): la IA dice qué productos responden ("¿qué pizzas tienen?") y el bot los nombra con el precio de la base. Es la primera vez que el bot dice precios: salen del menú, nunca de la IA. Si no hay, "Lo que preguntaste no lo tenemos en el menú".
+- **Cómo va su pedido** (`estado`): el último pedido del cliente de las últimas 12 horas.
+- **Formas de pago** (`pago`): las que marca el dueño en Administrar (`negocios.config.pagos`). **Solo los medios** (decisión de Fran): el alias o la cuenta para transferir los pasa el local a mano, así nadie que entre a la cuenta del dueño puede cambiarlos para quedarse con la plata.
+- **"Eso es todo"** (`listo_para_confirmar`, ya existía): si el pedido está completo, el bot avisa que el local lo revisa y confirma. La IA sigue sin confirmar sola.
+
+### Cancelar por WhatsApp (decisión de Fran)
+Si el cliente está armando un pedido, se vacía. Si no, habla de su último pedido confirmado: `cancelar_pedido_cliente` (solo `service_role`) lo cancela **solo si la cocina no tocó "Empezar"** (pendiente), con la fila bloqueada para que no choque con la cocina. Si ya empezó o se entregó, no se toca: el bot le dice al cliente que avisó al local y al cajero le queda un "Revisar" en la conversación. Si la vuelta de interpretación se repite, no se vuelve a pedir la cancelación.
+
+### Mensajes escritos rápido desde el celular
+Además del prompt, una red de seguridad sin IA (`shared/fonetica.ts`): si la IA deja algo como dudoso y **suena igual** a un solo producto activo (b=v, s=z=c, ll=y=l, x=ch, h muda, sin plurales), se agrega con su cantidad ("2 virras" = 2 birras). Solo la frase entera y un único candidato: nada de parecidos aproximados. Evals: 36 casos (7 de ortografía muy mala); lo que falla varía entre corridas del modelo.
+
+## Fase 7: stock y confirmación automática (pedido de Fran)
+
+"Si no hay nadie atendiendo sigue siendo lo mismo": los pedidos pueden confirmarse solos, pero con reglas que aplica la base, no la pantalla ni la IA.
+
+### El cliente confirma el resumen
+Cuando dice que terminó, el bot le manda el resumen con el total (sale de la base) y pregunta "¿Lo confirmo? Respondé SÍ". Recién con ese "sí" (lo marca la IA o, por las dudas, un sí corto reconocido sin IA) se intenta confirmar. Si la IA entendió mal, el cliente lo ve antes. El resumen vale para **esa versión** de la conversación: cualquier cambio (del cliente o del cajero) lo invalida y se vuelve a mandar; si el total cambió, también.
+
+### Una sola puerta para crear pedidos
+`crear_pedido_interno` tiene todas las validaciones de siempre más el stock. La usan `confirmar_pedido` (mostrador, exige dueño o cajero) y `confirmar_automatico` (solo `service_role`), que antes revisa, con la conversación bloqueada: prendida en el local, nada pendiente, entrega completa (delivery con zonas va a mano: la zona la elige el cajero), topes de total y por producto, tope de pedidos automáticos por cliente por jornada, tope de pedidos esperando en cocina, primer pedido de un cliente nuevo a mano (configurable), mismo total que el resumen. Los topes que cuentan pedidos se revisan de a una confirmación automática por local (advisory lock), así dos a la vez no pasan las dos por el último lugar. El horario lo mira el servidor justo antes de llamar a la base: si el local cierra en esos milisegundos, el pedido entra igual (aceptado en la revisión: los horarios de Anotado avisan, no bloquean). Cada pantalla de Administrar guarda solo su sección de `negocios.config` (`guardar_config`), sin pisar las otras. Si algo no cumple, queda para el cajero, que ve por qué (`motivo_manual`, no bloquea nada).
+
+### Stock del día
+Opcional por producto. Se descuenta dentro de la misma transacción que crea el pedido, con los productos bloqueados **siempre por id**: dos pedidos por la última unidad nunca pasan los dos (el segundo espera al primero y ve el stock real; probado con dos sesiones en paralelo). En 0 queda agotado solo (`agotado_por_stock`, que la reposición sí prende; lo agotado a mano no). Cada jornada vuelve al número del día (pg_cron cada 10 minutos, cada local según su corte). Un pedido cancelado devuelve lo que descontó si es de la misma jornada. Si algo del pedido se agota mientras el cliente arma, el bot le dice qué se terminó.
+
+### Si nadie atiende
+Si el cliente terminó y el pedido quedó para confirmar a mano, a los X minutos (configurable) el bot le avisa una vez que hay demora (pg_cron cada minuto). En la bandeja se ve hace cuánto espera cada cliente y van primero los que más esperan.
+
 ## Pendiente de decidir
 
 - **Clave de idempotencia para tarjetas nuevas de WhatsApp** (Fase 2). No bloquea.

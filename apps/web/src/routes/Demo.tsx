@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { PantallaCuenta } from '../components/Cuenta.tsx';
-import { Cargando, MensajeError } from '../components/Estado.tsx';
+import { BotonPrincipal, PantallaCuenta, TituloCuenta } from '../components/Cuenta.tsx';
+import { Cargando, MensajeError, Nota } from '../components/Estado.tsx';
+import { efecto } from '../lib/sonido.ts';
 import { useSesion } from '../hooks/useSesion.ts';
 import { mensajeDeFuncion } from '../lib/funciones.ts';
 import { supabase } from '../lib/supabase.ts';
@@ -52,6 +53,7 @@ export function Demo() {
     });
     if (errFuncion || !data) {
       setEntrando(false);
+      efecto('error');
       return setError(await mensajeDeFuncion(errFuncion, 'No se pudo abrir la demo. Probá de nuevo.'));
     }
     const { error: errOtp } = await supabase.auth.verifyOtp({ token_hash: data.token_hash, type: 'magiclink' });
@@ -66,43 +68,44 @@ export function Demo() {
 
   return (
     <PantallaCuenta>
-      <h2 className="text-2xl font-black">Probá la demo</h2>
-      <p className="text-stone-700">
-        Escribí como si fueras un cliente por WhatsApp. La IA arma el pedido, el bot te contesta, lo confirmás en el
-        mostrador y lo ves llegar a la cocina. Todo en una pantalla.
-      </p>
-      <p className="text-sm text-stone-500">
-        Sin registrarte. La demo es compartida y se borra cada noche: no escribas datos reales.
-      </p>
+      <TituloCuenta titulo="Probá Anotado">
+        Sos el cliente y sos el local, todo en una pantalla. Sin registrarte.
+      </TituloCuenta>
+      <ol className="flex flex-col">
+        {PASOS.map(([paso, texto], i) => (
+          <li key={paso} className="flex animate-entra gap-4 border-b border-dashed border-linea-fuerte py-3 last:border-b-0" style={{ animationDelay: `${i * 80}ms` }}>
+            <span className="num pt-0.5 text-xs font-extrabold text-birome">{paso}</span>
+            <span className="text-[0.9375rem] leading-snug">{texto}</span>
+          </li>
+        ))}
+      </ol>
       {cuentaReal ? (
         <>
-          <p className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3 font-medium text-amber-950">
-            Estás con tu cuenta. Para probar la demo, salí primero.
-          </p>
-          <button
-            type="button"
-            onClick={() => void supabase.auth.signOut().then(() => setCuentaReal(false))}
-            className="rounded-xl bg-stone-900 py-4 text-lg font-bold text-white"
-          >
-            Salir
-          </button>
-          <Link to="/" className="self-center text-stone-600 underline">
+          <Nota tono="alerta">Estás con tu cuenta. Para probar la demo, salí primero.</Nota>
+          <BotonPrincipal type="button" onClick={() => void supabase.auth.signOut().then(() => setCuentaReal(false))}>
+            Salir de mi cuenta
+          </BotonPrincipal>
+          <Link to="/" className="enlace self-center text-sm">
             Volver a mi local
           </Link>
         </>
       ) : (
         <>
           {error && <MensajeError>{error}</MensajeError>}
-          <button
-            type="button"
-            disabled={entrando}
-            onClick={() => void entrar()}
-            className="rounded-xl bg-indigo-600 py-4 text-lg font-bold text-white shadow-lg shadow-indigo-600/20 active:bg-indigo-700 disabled:opacity-50"
-          >
-            {entrando ? 'Abriendo la demo…' : 'Probar la demo'}
-          </button>
+          <BotonPrincipal type="button" disabled={entrando} onClick={() => void entrar()} className="btn-birome">
+            {entrando ? 'Abriendo la demo…' : 'Abrir la demo'}
+          </BotonPrincipal>
+          <p className="-mt-2 text-center text-sm text-tinta-3">
+            La demo es compartida y se borra cada noche: no escribas datos reales.
+          </p>
         </>
       )}
     </PantallaCuenta>
   );
 }
+
+const PASOS: [string, string][] = [
+  ['01', 'Le escribís al local como por WhatsApp, con faltas y todo.'],
+  ['02', 'La IA arma el pedido y el bot te contesta. En el mostrador lo revisás y lo confirmás.'],
+  ['03', 'La cocina lo ve llegar al instante, lo prepara y lo marca listo.'],
+];

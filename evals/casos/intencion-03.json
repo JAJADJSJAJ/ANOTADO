@@ -1,0 +1,13 @@
+{
+  "id": "intencion-03",
+  "menu": "demo",
+  "categoria": "cambio_de_opinion",
+  "mensajes": [
+    "mandame 2 completas",
+    "sabes que no, cancelá todo"
+  ],
+  "esperado": {
+    "items": [],
+    "entrega": null
+  }
+}

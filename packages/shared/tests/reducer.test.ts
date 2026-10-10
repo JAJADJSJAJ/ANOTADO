@@ -46,12 +46,19 @@ describe('agregar', () => {
     const r = aplicar([agregar('p1', 500), agregar('p1', 0), agregar('p1', -2), agregar('p2', 1)]);
     expect(r.borrador.items).toEqual([{ producto_id: 'id-coca', cantidad: 1 }]);
     expect(r.errores).toHaveLength(3);
+    // Solo lo que se pasa del máximo se le explica al cliente (0 o -2 es un error de la IA).
+    expect(r.excedidos).toEqual([{ nombre: 'Hamburguesa completa', cantidad: 500 }]);
+  });
+
+  it('un agotado con cantidad grande es agotado, no excedido', () => {
+    expect(aplicar([agregar('p3', 100)]).excedidos).toEqual([]);
   });
 
   it('rechaza si sumando se pasa del máximo', () => {
     const r = aplicar([agregar('p1', 15), agregar('p1', 10)]);
     expect(r.borrador.items).toEqual([{ producto_id: 'id-completa', cantidad: 15 }]);
     expect(r.errores).toHaveLength(1);
+    expect(r.excedidos).toEqual([{ nombre: 'Hamburguesa completa', cantidad: 25 }]);
   });
 
   it('rechaza notas demasiado largas', () => {
@@ -189,4 +196,42 @@ it('recorta dudosos y preguntas largos que vengan de la IA', () => {
   ]);
   expect(r.dudosos[0]).toHaveLength(300);
   expect(r.preguntas[0]).toHaveLength(300);
+});
+
+describe('consultar', () => {
+  it('devuelve los productos activos que responden, sin repetir y sin tocar el pedido', () => {
+    const r = aplicar([{ tipo: 'consultar', productos: ['p2', 'p1', 'p2', 'p3', 'p99'] }]);
+    expect(r.consulta).toEqual(['id-coca', 'id-completa']);
+    expect(r.borrador).toEqual(borradorVacio());
+    expect(r.errores).toEqual([]);
+  });
+
+  it('sin coincidencias queda vacía (no hay), y sin consultar es null', () => {
+    expect(aplicar([{ tipo: 'consultar', productos: [] }]).consulta).toEqual([]);
+    expect(aplicar([agregar('p1', 1)]).consulta).toBeNull();
+  });
+});
+
+describe('dudoso que suena igual a un producto', () => {
+  const conClaves: ProductoMenu[] = [
+    { id: 'id-birra', ref: 'p1', nombre: 'Cerveza Pilsen 1 L', activo: true, claves: ['Cerveza Pilsen 1 L', 'birra'] },
+    { id: 'id-muzza', ref: 'p2', nombre: 'Pizza muzzarella', activo: true, claves: ['Pizza muzzarella', 'muzza'] },
+    { id: 'id-pascua', ref: 'p3', nombre: 'Pascualina', activo: false, claves: ['Pascualina'] },
+  ];
+  const aplicarCon = (acciones: AccionIA[]) => aplicarAcciones(borradorVacio(), acciones, conClaves);
+
+  it('lo agrega con su cantidad en vez de dejarlo dudoso', () => {
+    const r = aplicarCon([{ tipo: 'dudoso', texto_original: '2 virras' }]);
+    expect(r.borrador.items).toEqual([{ producto_id: 'id-birra', cantidad: 2 }]);
+    expect(r.dudosos).toEqual([]);
+  });
+
+  it('lo que no suena a nada, o suena a un agotado, sigue dudoso', () => {
+    const r = aplicarCon([
+      { tipo: 'dudoso', texto_original: 'lo de siempre' },
+      { tipo: 'dudoso', texto_original: 'pascualina' },
+    ]);
+    expect(r.borrador.items).toEqual([]);
+    expect(r.dudosos).toEqual(['lo de siempre', 'pascualina']);
+  });
 });

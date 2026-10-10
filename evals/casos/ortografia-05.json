@@ -1,0 +1,20 @@
+{
+  "id": "ortografia-05",
+  "menu": "demo",
+  "categoria": "ortografia",
+  "mensajes": [
+    "2 xivitos al plato y una virra"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Chivito canadiense al plato",
+        "cantidad": 2
+      },
+      {
+        "producto": "Cerveza Pilsen 1 L",
+        "cantidad": 1
+      }
+    ]
+  }
+}

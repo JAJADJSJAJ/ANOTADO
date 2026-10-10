@@ -32,6 +32,10 @@ export type Conversacion = {
   mensajes: MensajeConversacion[];
   /** La IA la está interpretando ahora (tiene el turno). */
   interpretando: boolean;
+  /** El cliente dijo que terminó y espera que el local confirme (desde cuándo). */
+  listoAt: string | null;
+  /** Por qué no se confirmó sola (confirmación automática). */
+  motivoManual: string | null;
 };
 
 const SIN_PENDIENTES: Pendientes = { dudosos: [], preguntas: [], errores: [] };
@@ -59,7 +63,7 @@ export function useConversaciones(negocioId: string) {
         otraPendiente.current = false;
         const { data: convs, error: errConvs } = await supabase
           .from('conversaciones')
-          .select('id, version, etiqueta, borrador, pendientes, interpretando_hasta, clientes(nombre, telefono)')
+          .select('id, version, etiqueta, borrador, pendientes, interpretando_hasta, listo_at, motivo_manual, clientes(nombre, telefono)')
           .eq('negocio_id', negocioId)
           .eq('estado', 'abierta')
           .order('created_at');
@@ -99,6 +103,8 @@ export function useConversaciones(negocioId: string) {
             cliente: c.clientes ? { nombre: c.clientes.nombre, telefono: c.clientes.telefono } : null,
             mensajes: porConversacion.get(c.id) ?? [],
             interpretando: !!c.interpretando_hasta && new Date(c.interpretando_hasta).getTime() > ahora,
+            listoAt: c.listo_at,
+            motivoManual: c.motivo_manual,
           })),
         );
         setError(null);

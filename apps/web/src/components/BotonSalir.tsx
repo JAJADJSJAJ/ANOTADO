@@ -1,13 +1,17 @@
 import { supabase } from '../lib/supabase.ts';
+import { Icono } from './Icono.tsx';
 
-export function BotonSalir({ className = 'text-stone-600' }: { className?: string }) {
+export function BotonSalir({ className = 'btn-fantasma', conTexto = true }: { className?: string; conTexto?: boolean }) {
   return (
     <button
       type="button"
       onClick={() => void supabase.auth.signOut()}
-      className={`rounded-lg px-3 py-2 font-medium underline ${className}`}
+      aria-label={conTexto ? undefined : 'Salir'}
+      title={conTexto ? undefined : 'Salir'}
+      className={`btn ${conTexto ? '' : 'btn-icono'} ${className}`}
     >
-      Salir
+      <Icono nombre="salir" />
+      {conTexto && 'Salir'}
     </button>
   );
 }

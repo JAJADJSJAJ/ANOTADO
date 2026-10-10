@@ -1,0 +1,12 @@
+{
+  "id": "intencion-01",
+  "menu": "demo",
+  "categoria": "no_es_pedido",
+  "mensajes": [
+    "che como viene mi pedido? hace media hora que espero"
+  ],
+  "esperado": {
+    "items": [],
+    "entrega": null
+  }
+}

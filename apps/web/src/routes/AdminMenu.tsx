@@ -1,18 +1,20 @@
 import { formatearPrecio, parsearPrecio } from '@anotado/shared';
 import { type FormEvent, useState } from 'react';
-import { Cargando, MensajeError } from '../components/Estado.tsx';
+import { Cargando, MensajeError, Nota } from '../components/Estado.tsx';
+import { Icono } from '../components/Icono.tsx';
+import { Interruptor } from '../components/Interruptor.tsx';
 import { type Categoria, type Producto, useMenu } from '../hooks/useMenu.ts';
 import { useNegocio } from '../hooks/useNegocio.ts';
+import { usePreguntar } from '../lib/dialogos.ts';
+import { efecto } from '../lib/sonido.ts';
 import { supabase } from '../lib/supabase.ts';
-
-const input = 'rounded-lg border-2 border-stone-300 px-3 py-2 text-lg';
-const botonPrimario = 'rounded-lg bg-stone-900 px-4 py-2 font-bold text-white disabled:opacity-50';
-const botonLink = 'font-medium underline';
+import { Encabezado } from './AdminLayout.tsx';
 
 /** Categorías, productos, precios, alias y agotados. Solo dueño (lo exige también RLS). */
 export function AdminMenu() {
   const negocio = useNegocio();
   const menu = useMenu(negocio.id);
+  const preguntar = usePreguntar();
   const [error, setError] = useState<string | null>(null);
 
   /** Corre una escritura, muestra el error si falla y recarga el menú. */
@@ -20,10 +22,9 @@ export function AdminMenu() {
     setError(null);
     const { error } = await accion;
     if (error) {
+      efecto('error');
       setError(
-        error.code === '23503'
-          ? 'Este producto ya tiene pedidos: marcalo como agotado en vez de borrarlo.'
-          : error.message,
+        error.code === '23503' ? 'Este producto ya tiene pedidos: marcalo como agotado en vez de borrarlo.' : error.message,
       );
       return false;
     }
@@ -32,7 +33,7 @@ export function AdminMenu() {
   }
 
   if (menu.cargando) return <Cargando />;
-  if (menu.error) return <div className="p-4"><MensajeError>{menu.error}</MensajeError></div>;
+  if (menu.error) return <MensajeError>{menu.error}</MensajeError>;
 
   const grupos: { categoria: Categoria | null; productos: Producto[] }[] = [
     ...menu.categorias.map((c) => ({ categoria: c, productos: menu.productos.filter((p) => p.categoria_id === c.id) })),
@@ -40,70 +41,84 @@ export function AdminMenu() {
   ];
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
-      <h1 className="text-2xl font-bold">Menú</h1>
-      {menu.categorias.length === 0 && (
-        <p className="rounded-xl border-2 border-indigo-200 bg-indigo-50 p-4 text-lg text-indigo-950">
-          Empezá creando una categoría (por ejemplo, <strong>Pizzas</strong>) y después agregale sus productos con el
-          precio. Cuando tengas el menú, ya podés tomar pedidos en <strong>Mostrador</strong>.
-        </p>
-      )}
-      {negocio.esDemo && (
-        <p className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-amber-950">
-          En la demo, el menú base no se edita. Podés agregar hasta 3 productos tuyos para probar (se borran a la noche)
-          y marcar agotados.
-        </p>
-      )}
-      {error && <MensajeError>{error}</MensajeError>}
+    <>
+      <Encabezado titulo="Menú">
+        Lo que se puede pedir, con su precio. La IA usa estos nombres para entender a los clientes.
+      </Encabezado>
+      <div className="flex flex-col gap-4">
+        {negocio.esDemo && (
+          <Nota tono="alerta">
+            En la demo el menú base no se edita. Podés agregar hasta 3 productos tuyos para probar (se borran a la noche)
+            y marcar agotados.
+          </Nota>
+        )}
+        {menu.categorias.length === 0 && !negocio.esDemo && (
+          <Nota>
+            Empezá creando una categoría (por ejemplo, <strong className="font-semibold">Pizzas</strong>) y agregale sus
+            productos con el precio. Con el menú cargado ya podés tomar pedidos.
+          </Nota>
+        )}
+        {!negocio.esDemo && (
+          <NuevaCategoria
+            onCrear={(nombre) =>
+              guardar(
+                supabase.from('categorias').insert({
+                  negocio_id: negocio.id,
+                  nombre,
+                  orden: Math.max(0, ...menu.categorias.map((c) => c.orden)) + 1,
+                }),
+              )
+            }
+          />
+        )}
+        {error && <MensajeError>{error}</MensajeError>}
 
-      {!negocio.esDemo && <NuevaCategoria
-        onCrear={(nombre) =>
-          guardar(
-            supabase.from('categorias').insert({
-              negocio_id: negocio.id,
-              nombre,
-              orden: Math.max(0, ...menu.categorias.map((c) => c.orden)) + 1,
-            }),
-          )
-        }
-      />}
-
-      {grupos.map(({ categoria, productos }) =>
-        !categoria && productos.length === 0 ? null : (
-          <section key={categoria?.id ?? 'sin'} className="flex flex-col gap-2 rounded-xl bg-white p-4">
-            <EncabezadoCategoria
-              categoria={categoria}
-              onRenombrar={(nombre) => guardar(supabase.from('categorias').update({ nombre }).eq('id', categoria!.id))}
-              onBorrar={() => {
-                if (!confirm(`¿Borrar la categoría "${categoria!.nombre}"? Sus productos quedan en "Sin categoría".`)) return;
-                void guardar(supabase.from('categorias').delete().eq('id', categoria!.id));
-              }}
-            />
-            <ul className="divide-y divide-stone-200">
-              {productos.map((p) => (
-                <FilaProducto
-                  key={p.id}
-                  producto={p}
-                  categorias={menu.categorias}
-                  onGuardar={(datos) => guardar(supabase.from('productos').update(datos).eq('id', p.id))}
-                  onBorrar={() => {
-                    if (!confirm(`¿Borrar "${p.nombre}"?`)) return;
-                    void guardar(supabase.from('productos').delete().eq('id', p.id));
-                  }}
-                />
-              ))}
-            </ul>
-            {categoria && (
-              <NuevoProducto
+        {grupos.map(({ categoria, productos }) =>
+          !categoria && productos.length === 0 ? null : (
+            <section key={categoria?.id ?? 'sin'} className="tarjeta animate-entra">
+              <EncabezadoCategoria
                 categoria={categoria}
-                categorias={menu.categorias}
-                onCrear={(datos) => guardar(supabase.from('productos').insert({ ...datos, negocio_id: negocio.id }))}
+                editable={!negocio.esDemo}
+                cantidad={productos.length}
+                onRenombrar={(nombre) => guardar(supabase.from('categorias').update({ nombre }).eq('id', categoria!.id))}
+                onBorrar={async () => {
+                  const ok = await preguntar({
+                    titulo: `¿Borrar la categoría "${categoria!.nombre}"?`,
+                    texto: 'Sus productos no se borran: quedan en "Sin categoría".',
+                    aceptar: 'Borrar categoría',
+                    peligro: true,
+                  });
+                  if (ok !== null) void guardar(supabase.from('categorias').delete().eq('id', categoria!.id));
+                }}
               />
-            )}
-          </section>
-        ),
-      )}
-    </main>
+              <ul className="divide-y divide-linea">
+                {productos.map((p) => (
+                  <FilaProducto
+                    key={p.id}
+                    producto={p}
+                    categorias={menu.categorias}
+                    onGuardar={(datos) => guardar(supabase.from('productos').update(datos).eq('id', p.id))}
+                    // Disponible/agotado va por la misma función que Agotados: vale también en la demo.
+                    onDisponible={(v) => guardar(supabase.rpc('marcar_agotado', { p_producto_id: p.id, p_agotado: !v }))}
+                    onBorrar={async () => {
+                      const ok = await preguntar({ titulo: `¿Borrar "${p.nombre}"?`, aceptar: 'Borrar', peligro: true });
+                      if (ok !== null) void guardar(supabase.from('productos').delete().eq('id', p.id));
+                    }}
+                  />
+                ))}
+              </ul>
+              {categoria && (
+                <NuevoProducto
+                  categoria={categoria}
+                  categorias={menu.categorias}
+                  onCrear={(datos) => guardar(supabase.from('productos').insert({ ...datos, negocio_id: negocio.id }))}
+                />
+              )}
+            </section>
+          ),
+        )}
+      </div>
+    </>
   );
 }
 
@@ -111,20 +126,24 @@ function NuevaCategoria({ onCrear }: { onCrear: (nombre: string) => Promise<bool
   const [nombre, setNombre] = useState('');
   async function enviar(e: FormEvent) {
     e.preventDefault();
-    if (nombre.trim() && (await onCrear(nombre.trim()))) setNombre('');
+    if (nombre.trim() && (await onCrear(nombre.trim()))) {
+      efecto('ok');
+      setNombre('');
+    }
   }
   return (
     <form onSubmit={enviar} className="flex gap-2">
       <input
         value={nombre}
         onChange={(e) => setNombre(e.target.value)}
-        placeholder="Nueva categoría"
+        placeholder="Nueva categoría, por ejemplo Bebidas"
         maxLength={60}
         aria-label="Nombre de la nueva categoría"
-        className={`${input} flex-1`}
+        className="campo flex-1"
       />
-      <button type="submit" className={botonPrimario} disabled={!nombre.trim()}>
-        Agregar
+      <button type="submit" className="btn btn-tinta h-11" disabled={!nombre.trim()} data-sonido="no">
+        <Icono nombre="mas" />
+        Categoría
       </button>
     </form>
   );
@@ -132,44 +151,80 @@ function NuevaCategoria({ onCrear }: { onCrear: (nombre: string) => Promise<bool
 
 function EncabezadoCategoria(p: {
   categoria: Categoria | null;
+  cantidad: number;
+  editable: boolean;
   onRenombrar: (nombre: string) => Promise<boolean>;
   onBorrar: () => void;
 }) {
   const [editando, setEditando] = useState(false);
   const [nombre, setNombre] = useState(p.categoria?.nombre ?? '');
 
-  if (!p.categoria) return <h2 className="text-xl font-bold text-stone-500">Sin categoría</h2>;
+  if (!p.categoria) {
+    return (
+      <header className="flex items-center gap-3 border-b border-linea px-5 py-3.5">
+        <h2 className="font-bold text-tinta-2">Sin categoría</h2>
+      </header>
+    );
+  }
 
   if (editando) {
     return (
       <form
-        className="flex gap-2"
+        className="flex gap-2 border-b border-linea px-5 py-3"
         onSubmit={async (e) => {
           e.preventDefault();
           if (nombre.trim() && (await p.onRenombrar(nombre.trim()))) setEditando(false);
         }}
       >
-        <input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={60} className={`${input} flex-1`} autoFocus />
-        <button type="submit" className={botonPrimario}>Guardar</button>
-        <button type="button" className={botonLink} onClick={() => setEditando(false)}>Cancelar</button>
+        <input
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          maxLength={60}
+          aria-label="Nombre de la categoría"
+          className="campo campo-chico flex-1"
+          autoFocus
+        />
+        <button type="button" className="btn btn-fantasma btn-chico h-9" onClick={() => setEditando(false)}>
+          Cancelar
+        </button>
+        <button type="submit" className="btn btn-tinta btn-chico h-9">
+          Guardar
+        </button>
       </form>
     );
   }
   return (
-    <div className="flex items-center gap-3">
-      <h2 className="flex-1 text-xl font-bold">{p.categoria.nombre}</h2>
-      <button type="button" className={botonLink} onClick={() => setEditando(true)}>Renombrar</button>
-      <button type="button" className={`${botonLink} text-red-700`} onClick={p.onBorrar}>Borrar</button>
-    </div>
+    <header className="group flex items-center gap-2 border-b border-linea px-5 py-3">
+      <h2 className="font-bold">{p.categoria.nombre}</h2>
+      <span className="num text-sm text-tinta-3">{p.cantidad}</span>
+      {p.editable && (
+        <div className="ml-auto flex gap-0.5">
+          <button type="button" className="btn btn-fantasma btn-icono" aria-label="Renombrar categoría" title="Renombrar" onClick={() => setEditando(true)}>
+            <Icono nombre="lapiz" className="size-4" />
+          </button>
+          <button type="button" className="btn btn-quitar btn-icono" aria-label="Borrar categoría" title="Borrar" onClick={p.onBorrar}>
+            <Icono nombre="cerrar" className="size-4" />
+          </button>
+        </div>
+      )}
+    </header>
   );
 }
 
-type DatosProducto = { nombre: string; precio_centavos: number; alias: string[]; categoria_id: string | null };
+type DatosProducto = {
+  nombre: string;
+  precio_centavos: number;
+  alias: string[];
+  categoria_id: string | null;
+  /** Unidades por jornada; null = sin control de stock. */
+  stock_dia: number | null;
+};
 
 function FilaProducto(p: {
   producto: Producto;
   categorias: Categoria[];
-  onGuardar: (datos: Partial<DatosProducto> & { activo?: boolean }) => Promise<boolean>;
+  onGuardar: (datos: Partial<DatosProducto>) => Promise<boolean>;
+  onDisponible: (disponible: boolean) => void;
   onBorrar: () => void;
 }) {
   const [editando, setEditando] = useState(false);
@@ -177,7 +232,7 @@ function FilaProducto(p: {
 
   if (editando) {
     return (
-      <li className="py-3">
+      <li className="bg-papel/50 px-5 py-4">
         <FormProducto
           inicial={prod}
           categorias={p.categorias}
@@ -191,23 +246,29 @@ function FilaProducto(p: {
     );
   }
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3">
-      <div className="min-w-40 flex-1">
-        <p className={`text-lg font-bold ${prod.activo ? '' : 'text-stone-400 line-through'}`}>{prod.nombre}</p>
-        {prod.alias.length > 0 && <p className="text-sm text-stone-500">También: {prod.alias.join(', ')}</p>}
+    <li className="flex items-center gap-3 px-5 py-3">
+      <div className="min-w-0 flex-1">
+        <p className={`font-semibold ${prod.activo ? '' : 'text-tinta-3'}`}>
+          {prod.nombre}
+          {!prod.activo && <span className="chip chip-alerta ml-2 align-[1px]">Agotado</span>}
+        </p>
+        {prod.alias.length > 0 && <p className="truncate text-sm text-tinta-3">También: {prod.alias.join(', ')}</p>}
+        {prod.stock_dia !== null && (
+          <p className={`num text-sm ${prod.quedan === 0 ? 'text-peligro' : 'text-tinta-2'}`}>
+            Quedan {prod.quedan ?? prod.stock_dia} de {prod.stock_dia} hoy
+          </p>
+        )}
       </div>
-      <span className="text-lg font-medium">{formatearPrecio(prod.precio_centavos)}</span>
-      <button
-        type="button"
-        onClick={() => void p.onGuardar({ activo: !prod.activo })}
-        className={`rounded-lg border-2 px-3 py-2 font-bold ${
-          prod.activo ? 'border-emerald-600 text-emerald-700' : 'border-amber-500 bg-amber-50 text-amber-800'
-        }`}
-      >
-        {prod.activo ? 'Disponible' : 'Agotado'}
-      </button>
-      <button type="button" className={botonLink} onClick={() => setEditando(true)}>Editar</button>
-      <button type="button" className={`${botonLink} text-red-700`} onClick={p.onBorrar}>Borrar</button>
+      <span className={`num font-semibold ${prod.activo ? '' : 'text-tinta-3'}`}>{formatearPrecio(prod.precio_centavos)}</span>
+      <Interruptor prendido={prod.activo} onCambio={p.onDisponible} etiqueta={`${prod.nombre} disponible`} />
+      <div className="flex gap-0.5">
+        <button type="button" className="btn btn-fantasma btn-icono" aria-label={`Editar ${prod.nombre}`} title="Editar" onClick={() => setEditando(true)}>
+          <Icono nombre="lapiz" className="size-4" />
+        </button>
+        <button type="button" className="btn btn-quitar btn-icono" aria-label={`Borrar ${prod.nombre}`} title="Borrar" onClick={p.onBorrar}>
+          <Icono nombre="cerrar" className="size-4" />
+        </button>
+      </div>
     </li>
   );
 }
@@ -220,26 +281,34 @@ function NuevoProducto(p: {
   const [abierto, setAbierto] = useState(false);
   if (!abierto) {
     return (
-      <button type="button" className={`${botonLink} self-start`} onClick={() => setAbierto(true)}>
-        + Producto en {p.categoria.nombre}
-      </button>
+      <div className="border-t border-linea px-3 py-2">
+        <button type="button" className="btn btn-fantasma btn-chico" onClick={() => setAbierto(true)}>
+          <Icono nombre="mas" className="size-4" />
+          Producto en {p.categoria.nombre}
+        </button>
+      </div>
     );
   }
   return (
-    <FormProducto
-      inicial={{ nombre: '', precio_centavos: null, alias: [], categoria_id: p.categoria.id }}
-      categorias={p.categorias}
-      textoBoton="Agregar"
-      onGuardar={async (datos) => {
-        if (await p.onCrear(datos)) setAbierto(false);
-      }}
-      onCancelar={() => setAbierto(false)}
-    />
+    <div className="border-t border-linea bg-papel/50 px-5 py-4">
+      <FormProducto
+        inicial={{ nombre: '', precio_centavos: null, alias: [], categoria_id: p.categoria.id, stock_dia: null }}
+        categorias={p.categorias}
+        textoBoton="Agregar"
+        onGuardar={async (datos) => {
+          if (await p.onCrear(datos)) {
+            efecto('ok');
+            setAbierto(false);
+          }
+        }}
+        onCancelar={() => setAbierto(false)}
+      />
+    </div>
   );
 }
 
 function FormProducto(p: {
-  inicial: { nombre: string; precio_centavos: number | null; alias: string[]; categoria_id: string | null };
+  inicial: { nombre: string; precio_centavos: number | null; alias: string[]; categoria_id: string | null; stock_dia: number | null };
   categorias: Categoria[];
   textoBoton: string;
   onGuardar: (datos: DatosProducto) => Promise<void>;
@@ -251,6 +320,7 @@ function FormProducto(p: {
   );
   const [alias, setAlias] = useState(p.inicial.alias.join(', '));
   const [categoriaId, setCategoriaId] = useState(p.inicial.categoria_id ?? '');
+  const [stock, setStock] = useState(p.inicial.stock_dia === null ? '' : String(p.inicial.stock_dia));
   const [error, setError] = useState<string | null>(null);
 
   async function enviar(e: FormEvent) {
@@ -264,43 +334,69 @@ function FormProducto(p: {
     if (centavos === null) return setError('Precio inválido. Ej: 280 o 125,50');
     if (listaAlias.length > 20) return setError('Hasta 20 nombres alternativos.');
     if (listaAlias.some((a) => a.length > 60)) return setError('Cada nombre alternativo puede tener hasta 60 caracteres.');
+    const stockDia = stock.trim() === '' ? null : Number(stock);
+    if (stockDia !== null && (!Number.isInteger(stockDia) || stockDia < 0 || stockDia > 10000)) {
+      return setError('El stock del día es un número entero de 0 a 10000, o vacío si no llevás la cuenta.');
+    }
     setError(null);
     await p.onGuardar({
       nombre: nombre.trim(),
       precio_centavos: centavos,
       alias: listaAlias,
       categoria_id: categoriaId || null,
+      stock_dia: stockDia,
     });
   }
 
   return (
-    <form onSubmit={enviar} className="grid gap-2 rounded-lg bg-stone-50 p-3 sm:grid-cols-2">
-      <label className="flex flex-col gap-1 font-medium">
-        Nombre
-        <input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={120} className={input} autoFocus />
+    <form onSubmit={enviar} className="grid animate-entra gap-3 sm:grid-cols-[1fr_9rem]">
+      <label>
+        <span className="etiqueta">Nombre</span>
+        <input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={120} className="campo" autoFocus />
       </label>
-      <label className="flex flex-col gap-1 font-medium">
-        Precio ($)
-        <input value={precio} onChange={(e) => setPrecio(e.target.value)} inputMode="decimal" className={input} />
+      <label>
+        <span className="etiqueta">Precio</span>
+        <span className="relative block">
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-tinta-3">$</span>
+          <input value={precio} onChange={(e) => setPrecio(e.target.value)} inputMode="decimal" className="campo num pl-7" />
+        </span>
       </label>
-      <label className="flex flex-col gap-1 font-medium sm:col-span-2">
-        Otros nombres que usan los clientes (separados por coma)
-        <input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="completa, compl" className={input} />
+      <label className="sm:col-span-2">
+        <span className="etiqueta">Otros nombres que usan los clientes</span>
+        <input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="completa, compl" className="campo" />
+        <span className="mt-1.5 block text-sm text-tinta-3">Separados por coma. Ayudan a la IA a reconocer el producto.</span>
       </label>
-      <label className="flex flex-col gap-1 font-medium">
-        Categoría
-        <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} className={input}>
+      <label>
+        <span className="etiqueta">Categoría</span>
+        <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} className="campo">
           <option value="">Sin categoría</option>
           {p.categorias.map((c) => (
-            <option key={c.id} value={c.id}>{c.nombre}</option>
+            <option key={c.id} value={c.id}>
+              {c.nombre}
+            </option>
           ))}
         </select>
       </label>
-      <div className="flex items-end gap-3">
-        <button type="submit" className={botonPrimario}>{p.textoBoton}</button>
-        <button type="button" className={botonLink} onClick={p.onCancelar}>Cancelar</button>
+      <label>
+        <span className="etiqueta">Stock del día</span>
+        <input value={stock} onChange={(e) => setStock(e.target.value)} inputMode="numeric" placeholder="Sin límite" className="campo num" />
+      </label>
+      <p className="text-sm text-tinta-3 sm:col-span-2">
+        Con stock, cada pedido descuenta y en 0 pasa a agotado solo. Vuelve a este número al empezar cada jornada.
+      </p>
+      <div className="flex items-end justify-end gap-2 sm:col-span-2">
+        <button type="button" className="btn btn-fantasma h-11" onClick={p.onCancelar}>
+          Cancelar
+        </button>
+        <button type="submit" className="btn btn-tinta h-11" data-sonido="no">
+          {p.textoBoton}
+        </button>
       </div>
-      {error && <div className="sm:col-span-2"><MensajeError>{error}</MensajeError></div>}
+      {error && (
+        <div className="sm:col-span-2">
+          <MensajeError>{error}</MensajeError>
+        </div>
+      )}
     </form>
   );
 }

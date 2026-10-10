@@ -1,0 +1,28 @@
+{
+  "id": "gracias-01",
+  "menu": "demo",
+  "categoria": "no_es_pedido",
+  "mensajes": [
+    "hola",
+    {
+      "bot": "¡Hola! Te atiende el asistente de El Ceibo.\n¿Qué te gustaría pedir?"
+    },
+    "HOLA",
+    {
+      "bot": "¡Hola!\n¿Qué te gustaría pedir?"
+    },
+    "2 completas",
+    {
+      "bot": "Anoté: 2 Hamburguesa completa.\n¿Es para retirar o te lo mandamos?"
+    },
+    "gracias!!"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Hamburguesa completa",
+        "cantidad": 2
+      }
+    ]
+  }
+}

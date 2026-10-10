@@ -8,11 +8,15 @@ import {
   quitarItem,
   totalEstimado,
 } from '@anotado/shared';
-import { useState } from 'react';
-import type { Producto } from '../hooks/useMenu.ts';
+import { type ReactNode, useState } from 'react';
+import type { Categoria, Producto } from '../hooks/useMenu.ts';
 import type { Zona } from '../hooks/useZonas.ts';
 import type { DatosEntrega, ModoEntrega } from '../lib/pedidos.ts';
-import { MensajeError } from './Estado.tsx';
+import { Catalogo } from './Catalogo.tsx';
+import { Dialogo } from './Dialogo.tsx';
+import { MensajeError, Vacio } from './Estado.tsx';
+import { Icono } from './Icono.tsx';
+import { Segmentado } from './Segmentado.tsx';
 
 type Props = {
   titulo?: string;
@@ -32,6 +36,10 @@ type Props = {
   onConfirmar: () => void;
   enviando: boolean;
   error: string | null;
+  /** Algo para mostrar entre los productos y la entrega (dudas de la IA). */
+  extra?: ReactNode;
+  /** Si viene, se pueden sumar productos a mano desde el menú (pedidos de WhatsApp). */
+  agregar?: { categorias: Categoria[]; onAgregar: (producto: Producto) => void };
 };
 
 const ORIGENES: { valor: Origen; texto: string }[] = [
@@ -46,104 +54,187 @@ const MODOS: { valor: ModoEntrega; texto: string }[] = [
   { valor: 'mesa', texto: 'Mesa' },
 ];
 
+/**
+ * El pedido que se está armando, como una comanda: productos con su cantidad, cómo se
+ * entrega, notas y el total. Sin caja propia: lo pone el que lo usa.
+ */
 export function PanelPedido(p: Props) {
   const precios = new Map([...p.productos].map(([id, prod]) => [id, prod.precio_centavos]));
   const zona = p.entrega.modo === 'delivery' ? p.zonas.find((z) => z.id === p.entrega.zonaId) : undefined;
   const total = totalEstimado(p.borrador, precios) + (zona?.costo_centavos ?? 0);
   const vacio = p.borrador.items.length === 0;
+  const unidades = p.borrador.items.reduce((s, it) => s + it.cantidad, 0);
+  // Origen y notas se usan poco: quedan plegados (abiertos si ya hay algo distinto de lo normal).
+  const [masAbierto, setMasAbierto] = useState(false);
+  const [eligiendo, setEligiendo] = useState(false);
+  const enPedido = new Map<string, number>();
+  for (const it of p.borrador.items) enPedido.set(it.producto_id, (enPedido.get(it.producto_id) ?? 0) + it.cantidad);
+  const mas = masAbierto || p.notas.trim() !== '' || (p.origen !== undefined && p.origen !== 'mostrador');
 
   return (
-    <section aria-label={p.titulo ?? 'Pedido'} className="flex flex-col gap-4 rounded-xl bg-white p-4">
-      <h2 className="text-xl font-bold">{p.titulo ?? 'Pedido'}</h2>
+    <section aria-label={p.titulo ?? 'Pedido'} className="flex h-full min-h-0 flex-col">
+      <header className="flex items-baseline gap-2 border-b border-linea px-4 py-3.5">
+        <h2 className="truncate font-bold">{p.titulo ?? 'Pedido'}</h2>
+        {!vacio && (
+          <span className="num ml-auto shrink-0 text-sm text-tinta-3">
+            {unidades} {unidades === 1 ? 'producto' : 'productos'}
+          </span>
+        )}
+      </header>
 
-      {vacio ? (
-        <p className="text-stone-500">{p.vacio ?? 'Tocá los productos para agregarlos.'}</p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {p.borrador.items.map((it, i) => (
-            <LineaItem
-              key={`${it.producto_id}|${it.notas ?? ''}|${i}`}
-              nombre={p.productos.get(it.producto_id)?.nombre ?? 'Producto'}
-              precio={p.productos.get(it.producto_id)?.precio_centavos ?? 0}
-              cantidad={it.cantidad}
-              notas={it.notas ?? ''}
-              onCantidad={(c) => p.onBorrador(cambiarCantidad(p.borrador, i, c))}
-              onNotas={(n) => p.onBorrador(cambiarNotas(p.borrador, i, n))}
-              onQuitar={() => p.onBorrador(quitarItem(p.borrador, i))}
-            />
-          ))}
-        </ul>
-      )}
-
-      {p.origen && p.onOrigen && (
-        <Segmentado titulo="Origen" opciones={ORIGENES} valor={p.origen} onCambio={p.onOrigen} />
-      )}
-      <Segmentado
-        titulo="Entrega"
-        opciones={MODOS}
-        valor={p.entrega.modo}
-        onCambio={(modo) => p.onEntrega({ ...p.entrega, modo })}
-      />
-      {p.entrega.modo === 'delivery' && (
-        <CampoTexto
-          etiqueta="Dirección"
-          valor={p.entrega.direccion}
-          onCambio={(direccion) => p.onEntrega({ ...p.entrega, direccion })}
-        />
-      )}
-      {p.entrega.modo === 'delivery' && p.zonas.length > 0 && (
-        <fieldset className="flex flex-col gap-1">
-          <legend className="mb-1 font-medium">Zona de envío</legend>
-          <div className="grid grid-cols-2 gap-2">
-            {p.zonas.map((z) => (
-              <button
-                key={z.id}
-                type="button"
-                aria-pressed={z.id === p.entrega.zonaId}
-                onClick={() => p.onEntrega({ ...p.entrega, zonaId: z.id })}
-                className={`flex flex-col rounded-lg border-2 px-2 py-2 text-left ${
-                  z.id === p.entrega.zonaId ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-300'
-                }`}
-              >
-                <span className="font-bold leading-tight">{z.nombre}</span>
-                <span className="text-sm">{formatearPrecio(z.costo_centavos)}</span>
-              </button>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-3">
+        {vacio ? (
+          <Vacio icono="ticket" titulo="Pedido vacío">
+            {p.vacio ?? 'Tocá los productos para agregarlos.'}
+          </Vacio>
+        ) : (
+          <ul className="flex flex-col">
+            {p.borrador.items.map((it, i) => (
+              <LineaItem
+                key={`${it.producto_id}|${it.notas ?? ''}|${i}`}
+                nombre={p.productos.get(it.producto_id)?.nombre ?? 'Producto'}
+                precio={p.productos.get(it.producto_id)?.precio_centavos ?? 0}
+                cantidad={it.cantidad}
+                notas={it.notas ?? ''}
+                onCantidad={(c) => p.onBorrador(cambiarCantidad(p.borrador, i, c))}
+                onNotas={(n) => p.onBorrador(cambiarNotas(p.borrador, i, n))}
+                onQuitar={() => p.onBorrador(quitarItem(p.borrador, i))}
+              />
             ))}
-          </div>
-        </fieldset>
-      )}
-      {p.entrega.modo === 'mesa' && (
-        <CampoTexto
-          etiqueta="Número de mesa"
-          valor={p.entrega.mesa}
-          onCambio={(mesa) => p.onEntrega({ ...p.entrega, mesa })}
-          inputMode="numeric"
-        />
-      )}
-      <CampoTexto etiqueta="Notas del pedido (opcional)" valor={p.notas} onCambio={p.onNotas} />
+          </ul>
+        )}
+        {p.agregar && (
+          <button type="button" onClick={() => setEligiendo(true)} className="btn btn-chico -mt-1 self-start" data-sonido="abrir">
+            <Icono nombre="mas" className="size-4" />
+            Agregar producto
+          </button>
+        )}
+        {p.agregar && eligiendo && (
+          <Dialogo
+            titulo="Agregar al pedido"
+            descripcion="Cada toque suma uno. Las cantidades y las notas se cambian después en el pedido."
+            onCerrar={() => setEligiendo(false)}
+            ancho="max-w-3xl"
+          >
+            <div className="@container max-h-[60dvh] overflow-x-hidden overflow-y-auto px-1">
+              <Catalogo
+                categorias={p.agregar.categorias}
+                productos={[...p.productos.values()]}
+                enPedido={enPedido}
+                onElegir={p.agregar.onAgregar}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="num text-sm text-tinta-3">
+                {unidades} {unidades === 1 ? 'producto' : 'productos'} en el pedido
+              </span>
+              <button type="button" onClick={() => setEligiendo(false)} className="btn btn-tinta">
+                Listo
+              </button>
+            </div>
+          </Dialogo>
+        )}
 
-      {zona && (
-        <div className="flex items-baseline justify-between border-t-2 border-stone-200 pt-3 text-stone-600">
-          <span>Envío · {zona.nombre}</span>
-          <span className="font-medium">{formatearPrecio(zona.costo_centavos)}</span>
-        </div>
-      )}
-      <div className="flex items-baseline justify-between border-t-2 border-stone-200 pt-3">
-        <span className="text-lg font-medium">Total</span>
-        <span className="text-3xl font-black">{formatearPrecio(total)}</span>
+        {p.extra}
+
+        <Grupo titulo="Entrega">
+          <Segmentado
+            etiqueta="Entrega"
+            opciones={MODOS}
+            valor={p.entrega.modo}
+            onCambio={(modo) => p.onEntrega({ ...p.entrega, modo })}
+          />
+        </Grupo>
+        {p.entrega.modo === 'delivery' && (
+          <CampoTexto
+            etiqueta="Dirección"
+            valor={p.entrega.direccion}
+            onCambio={(direccion) => p.onEntrega({ ...p.entrega, direccion })}
+          />
+        )}
+        {p.entrega.modo === 'delivery' && p.zonas.length > 0 && (
+          <Grupo titulo="Zona de envío">
+            <div className="grid grid-cols-2 gap-1.5">
+              {p.zonas.map((z) => {
+                const elegida = z.id === p.entrega.zonaId;
+                return (
+                  <button
+                    key={z.id}
+                    type="button"
+                    aria-pressed={elegida}
+                    data-sonido="llave"
+                    onClick={() => p.onEntrega({ ...p.entrega, zonaId: z.id })}
+                    className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                      elegida ? 'border-tinta bg-tinta text-white' : 'border-linea-fuerte hover:border-tinta-3'
+                    }`}
+                  >
+                    <span className="truncate font-semibold">{z.nombre}</span>
+                    <span className={`num shrink-0 ${elegida ? 'text-white/75' : 'text-tinta-3'}`}>{formatearPrecio(z.costo_centavos)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </Grupo>
+        )}
+        {p.entrega.modo === 'mesa' && (
+          <CampoTexto
+            etiqueta="Número de mesa"
+            valor={p.entrega.mesa}
+            onCambio={(mesa) => p.onEntrega({ ...p.entrega, mesa })}
+            inputMode="numeric"
+          />
+        )}
+        {mas ? (
+          <div className="flex animate-entra flex-col gap-4">
+            {p.origen && p.onOrigen && (
+              <Grupo titulo="Origen">
+                <Segmentado etiqueta="Origen" opciones={ORIGENES} valor={p.origen} onCambio={p.onOrigen} />
+              </Grupo>
+            )}
+            <CampoTexto etiqueta="Notas del pedido" opcional valor={p.notas} onCambio={p.onNotas} />
+          </div>
+        ) : (
+          <button type="button" onClick={() => setMasAbierto(true)} className="btn btn-fantasma btn-chico -ml-2 self-start">
+            <Icono nombre="mas" className="size-4" />
+            {p.origen ? 'Origen y notas' : 'Agregar una nota'}
+          </button>
+        )}
       </div>
 
-      {p.error && <MensajeError>{p.error}</MensajeError>}
-
-      <button
-        type="button"
-        onClick={p.onConfirmar}
-        disabled={vacio || p.enviando}
-        className="rounded-xl bg-emerald-600 py-5 text-2xl font-black text-white active:bg-emerald-700 disabled:bg-stone-300"
-      >
-        {p.enviando ? 'Confirmando…' : 'Confirmar'}
-      </button>
+      <footer className="flex flex-col gap-3 border-t border-linea px-4 pt-3 pb-4">
+        {zona && (
+          <div className="flex items-baseline justify-between text-sm text-tinta-2">
+            <span>Envío · {zona.nombre}</span>
+            <span className="num">{formatearPrecio(zona.costo_centavos)}</span>
+          </div>
+        )}
+        <div className="flex items-baseline justify-between">
+          <span className="font-semibold text-tinta-2">Total</span>
+          <span key={total} className="num animate-aparece text-[1.75rem] leading-none font-extrabold">
+            {formatearPrecio(total)}
+          </span>
+        </div>
+        {p.error && <MensajeError>{p.error}</MensajeError>}
+        <button
+          type="button"
+          onClick={p.onConfirmar}
+          disabled={vacio || p.enviando}
+          data-sonido="no"
+          className="btn btn-birome btn-grande w-full"
+        >
+          {p.enviando ? 'Confirmando…' : 'Confirmar pedido'}
+        </button>
+      </footer>
     </section>
+  );
+}
+
+function Grupo({ titulo, children }: { titulo: string; children: ReactNode }) {
+  return (
+    <fieldset>
+      <legend className="etiqueta">{titulo}</legend>
+      {children}
+    </fieldset>
   );
 }
 
@@ -160,26 +251,24 @@ function LineaItem(p: {
   // guardara en cada tecla, no se podrían escribir espacios.
   const [editandoNota, setEditandoNota] = useState(false);
   const [texto, setTexto] = useState(p.notas);
-  const boton = 'size-11 rounded-lg border-2 border-stone-300 text-2xl font-bold disabled:opacity-40';
+  const paso = 'grid size-8 place-items-center text-tinta-2 transition-colors hover:bg-papel hover:text-tinta disabled:text-linea-fuerte disabled:hover:bg-transparent';
 
   return (
-    <li className="flex flex-col gap-2 rounded-lg border-2 border-stone-200 p-2">
-      <div className="flex items-center gap-2">
-        <button type="button" className={boton} aria-label="Uno menos" onClick={() => p.onCantidad(p.cantidad - 1)}>
-          −
-        </button>
-        <span className="w-8 text-center text-xl font-black">{p.cantidad}</span>
-        <button
-          type="button"
-          className={boton}
-          aria-label="Uno más"
-          disabled={p.cantidad >= MAX_CANTIDAD}
-          onClick={() => p.onCantidad(p.cantidad + 1)}
-        >
-          +
-        </button>
-        <span className="flex-1 leading-tight font-bold">{p.nombre}</span>
-        <span className="font-medium">{formatearPrecio(p.precio * p.cantidad)}</span>
+    <li className="group flex animate-entra flex-col gap-2 border-b border-dashed border-linea-fuerte py-3 first:pt-1 last:border-b-0">
+      <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center overflow-hidden rounded-lg border border-linea-fuerte">
+          <button type="button" className={paso} aria-label={p.cantidad === 1 ? `Quitar ${p.nombre}` : 'Uno menos'} onClick={() => p.onCantidad(p.cantidad - 1)}>
+            <Icono nombre="menos" className="size-3.5" />
+          </button>
+          <span key={p.cantidad} className="num w-6 animate-aparece text-center text-sm font-bold">
+            {p.cantidad}
+          </span>
+          <button type="button" className={paso} aria-label="Uno más" disabled={p.cantidad >= MAX_CANTIDAD} onClick={() => p.onCantidad(p.cantidad + 1)}>
+            <Icono nombre="mas" className="size-3.5" />
+          </button>
+        </div>
+        <span className="min-w-0 flex-1 leading-tight font-semibold">{p.nombre}</span>
+        <span className="num shrink-0 text-[0.9375rem] font-semibold">{formatearPrecio(p.precio * p.cantidad)}</span>
       </div>
       {editandoNota || p.notas ? (
         <input
@@ -192,48 +281,22 @@ function LineaItem(p: {
             p.onNotas(texto);
           }}
           placeholder="Ej: sin tomate"
-          className="rounded-lg border-2 border-amber-300 bg-amber-50 px-3 py-2"
+          aria-label={`Nota de ${p.nombre}`}
+          className="campo campo-chico border-alerta/40 bg-alerta-suave/60 text-alerta-tinta placeholder:text-alerta-tinta/50 focus:border-alerta focus:shadow-[0_0_0_3px_var(--color-alerta-suave)]"
         />
       ) : null}
-      <div className="flex gap-3 text-sm font-medium">
+      <div className="flex gap-1 opacity-100 transition-opacity sm:opacity-60 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
         {!p.notas && !editandoNota && (
-          <button type="button" className="text-stone-600 underline" onClick={() => setEditandoNota(true)}>
-            + Nota
+          <button type="button" className="btn btn-fantasma btn-chico h-7 px-2" onClick={() => setEditandoNota(true)}>
+            <Icono nombre="lapiz" className="size-3.5" />
+            Nota
           </button>
         )}
-        <button type="button" className="ml-auto text-red-700 underline" onClick={p.onQuitar}>
+        <button type="button" className="btn btn-quitar btn-chico ml-auto h-7 px-2" onClick={p.onQuitar}>
           Quitar
         </button>
       </div>
     </li>
-  );
-}
-
-function Segmentado<T extends string>(p: {
-  titulo: string;
-  opciones: { valor: T; texto: string }[];
-  valor: T | null;
-  onCambio: (v: T) => void;
-}) {
-  return (
-    <fieldset className="flex flex-col gap-1">
-      <legend className="mb-1 font-medium">{p.titulo}</legend>
-      <div className="grid grid-cols-3 gap-2">
-        {p.opciones.map((o) => (
-          <button
-            key={o.valor}
-            type="button"
-            aria-pressed={o.valor === p.valor}
-            onClick={() => p.onCambio(o.valor)}
-            className={`rounded-lg border-2 py-3 font-bold ${
-              o.valor === p.valor ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-300'
-            }`}
-          >
-            {o.texto}
-          </button>
-        ))}
-      </div>
-    </fieldset>
   );
 }
 
@@ -242,16 +305,15 @@ function CampoTexto(p: {
   valor: string;
   onCambio: (v: string) => void;
   inputMode?: 'numeric' | 'text';
+  opcional?: boolean;
 }) {
   return (
-    <label className="flex flex-col gap-1 font-medium">
-      {p.etiqueta}
-      <input
-        value={p.valor}
-        inputMode={p.inputMode}
-        onChange={(e) => p.onCambio(e.target.value)}
-        className="rounded-lg border-2 border-stone-300 px-3 py-3 text-lg"
-      />
+    <label className="block">
+      <span className="etiqueta">
+        {p.etiqueta}
+        {p.opcional && <span className="ml-1.5 font-normal text-tinta-3">opcional</span>}
+      </span>
+      <input value={p.valor} inputMode={p.inputMode} onChange={(e) => p.onCambio(e.target.value)} className="campo" />
     </label>
   );
 }

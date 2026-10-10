@@ -1,0 +1,23 @@
+{
+  "id": "cambio-04",
+  "menu": "demo",
+  "categoria": "cambio_de_opinion",
+  "mensajes": [
+    "quiero 2 fainas para retirar, eso es todo",
+    {
+      "bot": "¡Hola! Te atiende el asistente de El Ceibo (demo).\nAnoté: 2 Fainá (porción), para retirar.\nPerdón: de Fainá (porción) quedan 1. ¿Querés cambiarlo por otra cosa?"
+    },
+    "bueno, que sea una sola entonces"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Fainá (porción)",
+        "cantidad": 1
+      }
+    ],
+    "entrega": {
+      "modo": "retiro"
+    }
+  }
+}
