@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type DatosRespuesta, preguntaSegura, respuestaBot, telefonoDemo } from '../src/index.ts';
+import { type DatosRespuesta, esCortesia, preguntaSegura, respuestaBot, telefonoDemo } from '../src/index.ts';
 
 const COMPLETA = '11111111-1111-4111-8111-111111111111';
 const COCA = '22222222-2222-4222-8222-222222222222';
@@ -52,7 +52,29 @@ describe('respuestaBot', () => {
   });
 
   it('un "gracias" que no cambió nada no se contesta', () => {
-    expect(respuestaBot(datos({ borrador: { items: [{ producto_id: COMPLETA, cantidad: 1 }], entrega: { modo: 'retiro' } } }))).toBeNull();
+    const borrador = { items: [{ producto_id: COMPLETA, cantidad: 1 }], entrega: { modo: 'retiro' as const } };
+    expect(respuestaBot(datos({ borrador }))).toBeNull();
+    for (const mensaje of ['gracias!!', 'Ok dale', 'joya, muchas gracias', '👍']) {
+      expect(respuestaBot(datos({ borrador, mensaje }))).toBeNull();
+    }
+  });
+
+  it('cortesía: sin números ni palabras de pedido', () => {
+    expect(esCortesia('Muchas gracias!! 🙌')).toBe(true);
+    expect(esCortesia('de 1,5')).toBe(false);
+    expect(esCortesia('dale, 2 más')).toBe(false);
+    expect(esCortesia('gracias, sumame papas')).toBe(false);
+  });
+
+  it('un saludo con la conversación ya empezada se contesta', () => {
+    expect(respuestaBot(datos({ mensaje: 'HOLA' }))).toBe('¡Hola!\n¿Qué te gustaría pedir?');
+    expect(respuestaBot(datos({ mensaje: 'ho la' }))).toBe('¡Hola!\n¿Qué te gustaría pedir?');
+  });
+
+  it('lo que no cambió nada y no es cortesía se contesta con lo que falta', () => {
+    expect(respuestaBot(datos({ mensaje: 'La de 1,5' }))).toBe('No te entendí bien.\n¿Qué te gustaría pedir?');
+    const borrador = { items: [{ producto_id: COMPLETA, cantidad: 1 }], entrega: null };
+    expect(respuestaBot(datos({ borrador, mensaje: 'mmm a ver' }))).toBe('No te entendí bien.\n¿Es para retirar o te lo mandamos?');
   });
 
   it('resume lo anotado con notas y pregunta la entrega si falta', () => {

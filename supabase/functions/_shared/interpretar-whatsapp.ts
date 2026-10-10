@@ -28,6 +28,7 @@ import {
   type Confirmacion,
   ErrorIA,
   esAfirmacion,
+  esCortesia,
   estadoHorario,
   historialWhatsApp,
   leerConfigAuto,
@@ -250,7 +251,13 @@ async function vueltas(
       return 'error_ia';
     }
 
-    const aplicado = aplicarAcciones(borradorInicial, respuesta.respuesta.acciones, menu);
+    // Un "gracias" o un "ok" no toca productos, diga lo que diga la IA (una vez volvió a agregar
+    // lo que ya estaba en el pedido).
+    const soloCortesia = esCortesia(nuevos.map((m) => m.contenido).join(' '));
+    const acciones = soloCortesia
+      ? respuesta.respuesta.acciones.filter((a) => a.tipo !== 'agregar' && a.tipo !== 'quitar' && a.tipo !== 'modificar')
+      : respuesta.respuesta.acciones;
+    const aplicado = aplicarAcciones(borradorInicial, acciones, menu);
 
     // Respuesta al cliente: solo en conversaciones de WhatsApp (las pegadas a mano no tienen a
     // quién contestarle). Saluda la primera vez que el bot le escribe en esta conversación.
@@ -415,6 +422,7 @@ async function vueltas(
         ],
         cambio: JSON.stringify(aplicado.borrador) !== JSON.stringify(borradorInicial),
         primera: (count ?? 0) === 0,
+        mensaje: nuevos.map((m) => m.contenido).join(' '),
         consulta: aplicado.consulta,
         precios: new Map(productos.map((p) => [p.id, p.precio_centavos])),
         listo: respuesta.respuesta.listo_para_confirmar || afirma,

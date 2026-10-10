@@ -31,6 +31,8 @@ export type DatosRespuesta = {
   cambio: boolean;
   /** El bot todavía no le escribió nada en esta conversación. */
   primera: boolean;
+  /** Lo que escribió el cliente en esta tanda: solo para reconocer un "gracias" o un saludo, nunca se cita. */
+  mensaje?: string;
   /** Productos que responden una pregunta sobre el menú (ids); null si no preguntó. */
   consulta?: readonly string[] | null;
   /** Precio de cada producto del menú (centavos), para contestar la consulta. */
@@ -152,7 +154,12 @@ export function respuestaBot(d: DatosRespuesta): string | null {
     if (avisos.length) return [...saludo, ...avisos].join('\n');
     // Ya se canceló un pedido confirmado: el aviso lo mandó la base, no hace falta saludar.
     if (typeof d.cancelacion === 'object' && d.cancelacion?.cancelado) return null;
-    return d.primera ? [...saludo, '¿Qué te gustaría pedir?'].join('\n') : null;
+    if (d.primera) return [...saludo, '¿Qué te gustaría pedir?'].join('\n');
+    // Un "gracias" o un "ok" no se contesta. Cualquier otra cosa que no cambió nada ("hola" con
+    // la conversación ya empezada, algo que la IA no entendió) sí: el cliente no puede quedar
+    // escribiéndole a la nada.
+    if (d.mensaje === undefined || esCortesia(d.mensaje)) return null;
+    return [esSaludo(d.mensaje) ? '¡Hola!' : 'No te entendí bien.', siguientePaso(d.borrador)].join('\n');
   }
 
   const lineas: string[] = [...saludo, ...avisos];
@@ -208,6 +215,46 @@ export function respuestaBot(d: DatosRespuesta): string | null {
     else lineas.push('¿Algo más? Cuando esté todo, el local te confirma el total.');
   }
   return lineas.join('\n');
+}
+
+/** Lo que falta para seguir con el pedido, como pregunta. */
+function siguientePaso(b: Borrador): string {
+  if (!b.items.length) return '¿Qué te gustaría pedir?';
+  if (!b.entrega) return '¿Es para retirar o te lo mandamos?';
+  if (b.entrega.modo === 'delivery' && !b.entrega.direccion) return '¿A qué dirección te lo mandamos?';
+  return '¿Algo más? Cuando esté todo, el local te confirma el total.';
+}
+
+/** El mensaje en minúsculas, sin tildes ni signos (solo para reconocer, nunca para citar). */
+function normalizarMensaje(texto: string): string {
+  return texto
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-z ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const CORTESIA = new Set([
+  'gracias', 'grac', 'graciass', 'muchas', 'mil', 'ok', 'oka', 'okey', 'dale', 'listo', 'genial', 'perfecto',
+  'joya', 'buenisimo', 'bien', 'barbaro', 'de', 'nada', 'chau', 'saludos', 'bueno', 'va', 're', 'muy', 'amable',
+]);
+
+/**
+ * "gracias", "ok dale", "joya", un emoji solo: nada que contestar, y nada que cambie el pedido
+ * (el intérprete descarta lo que la IA quiera agregar o sacar con esto). Con números nunca: "de 1,5".
+ */
+export function esCortesia(texto: string): boolean {
+  if (/\d/.test(texto)) return false;
+  const t = normalizarMensaje(texto);
+  return t.length <= 40 && t.split(' ').every((p) => p === '' || CORTESIA.has(p));
+}
+
+/** "hola", "ho la", "buenas", "buen día". */
+function esSaludo(texto: string): boolean {
+  const t = normalizarMensaje(texto).replace(/ /g, '');
+  return /^(hola|ola|buenas|buendia|buenastardes|buenasnoches|hey)/.test(t);
 }
 
 /** ", para retirar", ", para enviar a Blandengues 450", ", para la mesa 4" o nada. */
