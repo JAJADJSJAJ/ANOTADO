@@ -250,18 +250,6 @@
     height: 2.25rem;
     padding: 0;
   }
-  /* En la cocina oscura. */
-  .btn-noche {
-    --fondo: var(--color-noche-3);
-    --texto: var(--color-noche-tinta);
-    --borde: var(--color-noche-linea);
-    --hover: #30302d;
-  }
-  .btn-noche:disabled {
-    --fondo: var(--color-noche-2);
-    --texto: var(--color-noche-tinta-2);
-    --borde: var(--color-noche-linea);
-  }
 
   /* Un link de texto: subrayado fino que se engrosa al pasar. */
   .enlace {

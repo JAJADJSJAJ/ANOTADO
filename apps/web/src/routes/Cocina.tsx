@@ -8,11 +8,9 @@ import {
   puedeRetroceder,
   textoEntrega,
 } from '@anotado/shared';
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Agotados } from '../components/Agotados.tsx';
 import { ListaAvisos } from '../components/Avisos.tsx';
-import { BotonSalir } from '../components/BotonSalir.tsx';
 import { Dialogo } from '../components/Dialogo.tsx';
 import { Cargando, Vacio } from '../components/Estado.tsx';
 import { Icono } from '../components/Icono.tsx';
@@ -37,10 +35,10 @@ const SALIDA_MS = 320;
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Pantalla de cocina, pensada para una tablet horizontal. Arranca con un toque (el
- * navegador exige un gesto para el sonido y la pantalla completa) y desde ahí se maneja sola.
- * Incrustada (simulador de la demo): ocupa su caja, sin pantalla de inicio ni pantalla completa,
- * y los tickets van uno abajo del otro.
+ * Pantalla de cocina, pensada para una tablet horizontal, debajo de la barra del local como las
+ * demás. Arranca con un toque (el navegador exige un gesto para el sonido) y desde ahí se maneja
+ * sola; la pantalla completa es opcional, con un botón. Incrustada (simulador de la demo): ocupa
+ * su caja, sin pantalla de inicio, y los tickets van uno abajo del otro.
  */
 /** `apilada` = tickets uno abajo del otro (columna angosta); si no, en fila como en la tablet. */
 export function Cocina({ incrustada = false, apilada = incrustada }: { incrustada?: boolean; apilada?: boolean }) {
@@ -84,6 +82,16 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
   });
   const wakeLock = useWakeLock(iniciada && !incrustada);
   const ahora = useAhora(desfase);
+
+  // Pantalla completa, solo si la piden (en una tablet esconde la barra del navegador).
+  const [completa, setCompleta] = useState(() => document.fullscreenElement !== null);
+  useEffect(() => {
+    const cambio = () => setCompleta(document.fullscreenElement !== null);
+    document.addEventListener('fullscreenchange', cambio);
+    return () => document.removeEventListener('fullscreenchange', cambio);
+  }, []);
+  const alternarCompleta = () =>
+    void (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.())?.catch(() => undefined);
 
   const marcar = (set: typeof setOcupados, id: string, si: boolean) =>
     set((o) => {
@@ -131,8 +139,6 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
 
   async function empezar() {
     setConSonido(await activarSonido());
-    // Pantalla completa: en una tablet esconde la barra del navegador. Si no se puede, sigue igual.
-    await document.documentElement.requestFullscreen?.().catch(() => undefined);
     setIniciada(true);
     sonarPedidoNuevo();
   }
@@ -147,13 +153,9 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
   const listos = lista.filter((p) => p.estado === 'listo' && !enMano(p));
 
   return (
-    <div className={`${incrustada ? 'relative h-full' : 'fixed inset-0 z-40'} flex flex-col bg-noche text-noche-tinta select-none`}>
-      <header className={`flex items-center gap-3 border-b border-noche-linea ${incrustada ? 'px-3.5 py-2.5' : 'px-4 py-3 sm:px-5'}`}>
-        {!incrustada && <Logo claro className="size-8" />}
-        <div className="min-w-0">
-          <p className="rotulo text-noche-tinta-2">Cocina</p>
-          {!incrustada && <p className="truncate text-lg font-bold tracking-[-0.015em]">{negocio.nombre}</p>}
-        </div>
+    <div className={`relative flex min-h-0 flex-1 flex-col bg-papel text-tinta select-none ${incrustada ? 'h-full' : ''}`}>
+      <header className={`flex items-center gap-3 border-b border-linea bg-hoja ${incrustada ? 'px-3.5 py-2.5' : 'px-4 py-2.5 sm:px-5'}`}>
+        <p className="rotulo text-tinta-2">Cocina</p>
         <Reloj ahora={ahora} grande={!incrustada} />
         <div className="ml-auto flex items-center gap-1.5">
           <IndicadorConexion conexion={conexion} />
@@ -164,7 +166,7 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
                 void menu.recargar();
                 setVerAgotados(true);
               }}
-              className="btn btn-noche btn-chico"
+              className="btn btn-chico"
             >
               Agotados
             </button>
@@ -173,20 +175,23 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
             <button
               type="button"
               onClick={() => void activarSonido().then((ok) => (setConSonido(ok), ok && sonarPedidoNuevo()))}
-              className={`btn btn-chico ${conSonido ? 'btn-noche' : 'border-alerta bg-alerta text-tinta hover:bg-alerta'}`}
+              className={`btn btn-chico ${conSonido ? '' : 'border-alerta bg-alerta-suave text-alerta-tinta hover:bg-alerta-suave'}`}
               title="Probar el sonido de pedido nuevo"
             >
               <Icono nombre={conSonido ? 'sonido' : 'silencio'} className="size-4" />
               {conSonido ? 'Sonido' : 'Activar sonido'}
             </button>
           )}
-          {incrustada ? null : negocio.rol === 'cocina' ? (
-            <BotonSalir conTexto={false} className="btn-noche" />
-          ) : (
-            <Link to="../mostrador" className="btn btn-noche btn-chico">
-              <Icono nombre="volver" className="size-4" />
-              Volver
-            </Link>
+          {!incrustada && document.fullscreenEnabled && (
+            <button
+              type="button"
+              onClick={alternarCompleta}
+              className="btn btn-chico max-sm:w-9 max-sm:px-0"
+              title={completa ? 'Salir de pantalla completa' : 'Pantalla completa (para una tablet)'}
+            >
+              <Icono nombre="pantalla" className="size-4" />
+              <span className="max-sm:sr-only">{completa ? 'Salir de pantalla completa' : 'Pantalla completa'}</span>
+            </button>
           )}
         </div>
       </header>
@@ -222,17 +227,17 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
 
       <main className="relative flex min-h-0 flex-1 flex-col">
         {/* La ranura de la impresora: los tickets salen de acá. */}
-        <div aria-hidden className="relative z-10 h-3 shrink-0 bg-noche">
-          <span className="absolute inset-x-4 bottom-0 h-1 rounded-b-[3px] bg-black/70" />
+        <div aria-hidden className="relative z-10 h-3 shrink-0 bg-papel">
+          <span className="absolute inset-x-4 bottom-0 h-1 rounded-b-[3px] bg-tinta/80" />
         </div>
         {pedidos === null ? (
           error ? (
-            <p className="m-auto max-w-md p-6 text-center text-lg text-noche-tinta-2">{error}</p>
+            <p className="m-auto max-w-md p-6 text-center text-lg text-tinta-2">{error}</p>
           ) : (
-            <Cargando oscuro />
+            <Cargando />
           )
         ) : enCurso.length === 0 ? (
-          <Vacio oscuro icono="ticket" titulo="Sin pedidos por ahora">
+          <Vacio icono="ticket" titulo="Sin pedidos por ahora">
             Los nuevos aparecen acá solos{incrustada ? '' : ', con sonido'}.
           </Vacio>
         ) : (
@@ -263,14 +268,14 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
       </main>
 
       <footer
-        className={`flex gap-3 border-t border-noche-linea bg-noche-2 ${
+        className={`flex gap-3 border-t border-linea bg-hoja ${
           apilada ? 'min-h-20 flex-col px-3.5 py-3' : 'min-h-24 items-center gap-4 px-4 py-3 sm:px-5'
         }`}
       >
         <section aria-label="Listos para entregar" className="min-w-0 flex-1">
-          <p className="rotulo mb-2 text-noche-ok">Listos para entregar</p>
+          <p className="rotulo mb-2 text-ok">Listos para entregar</p>
           {listos.length === 0 ? (
-            <p className="text-sm text-noche-tinta-2">Nada por ahora.</p>
+            <p className="text-sm text-tinta-3">Nada por ahora.</p>
           ) : (
             <div className="flex gap-2 overflow-x-auto sin-barra">
               {listos.map((p) => {
@@ -282,10 +287,10 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
                     type="button"
                     disabled={ocupados.has(p.id) || (!puedeEntregar && !puedeVolver)}
                     onClick={() => setAConfirmar(p)}
-                    className="flex h-11 shrink-0 animate-burbuja items-baseline gap-2 rounded-lg border border-[#2c5640] bg-[#1f3a2b] px-3 pt-2 text-left transition-colors hover:bg-[#25452f] disabled:opacity-70"
+                    className="flex h-11 shrink-0 animate-burbuja items-baseline gap-2 rounded-lg border border-ok/35 bg-ok-suave px-3 pt-2 text-left transition-colors hover:border-ok disabled:opacity-70"
                   >
-                    <span className="num text-xl font-extrabold text-[#d7f0df]">#{p.numero}</span>
-                    <span className="text-xs font-semibold text-noche-ok">{textoEntrega(p)}</span>
+                    <span className="num text-xl font-extrabold text-tinta">#{p.numero}</span>
+                    <span className="text-xs font-semibold text-ok">{textoEntrega(p)}</span>
                   </button>
                 );
               })}
@@ -297,7 +302,6 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
 
       {aConfirmar && (
         <Dialogo
-          oscuro
           titulo={`Pedido #${aConfirmar.numero}`}
           descripcion={`${textoEntrega(aConfirmar)} · listo para entregar`}
           onCerrar={() => setAConfirmar(null)}
@@ -313,7 +317,7 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
                   setAConfirmar(null);
                   void mover(p, 'avanzar');
                 }}
-                className="btn btn-grande w-full border-noche-tinta bg-noche-tinta text-noche hover:bg-white"
+                className="btn btn-ok btn-grande w-full"
               >
                 <Icono nombre="check" />
                 Entregado
@@ -327,7 +331,7 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
                   setAConfirmar(null);
                   void mover(p, 'retroceder');
                 }}
-                className="btn btn-noche btn-grande w-full"
+                className="btn btn-grande w-full"
               >
                 <Icono nombre="volver" />
                 Volver a cocina
@@ -339,17 +343,16 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
 
       {verAgotados && (
         <Dialogo
-          oscuro
           titulo="Agotados"
           descripcion="Tocá lo que se terminó. Desde ese momento el mostrador ya no lo puede confirmar."
           onCerrar={() => setVerAgotados(false)}
           ancho="max-w-3xl"
         >
           <div className="max-h-[60dvh] overflow-y-auto">
-            <Agotados oscuro categorias={menu.categorias} productos={menu.productos} onCambio={() => void menu.recargar()} />
+            <Agotados categorias={menu.categorias} productos={menu.productos} onCambio={() => void menu.recargar()} />
           </div>
           <div className="flex justify-end">
-            <button type="button" onClick={() => setVerAgotados(false)} className="btn btn-grande border-noche-tinta bg-noche-tinta px-8 text-noche hover:bg-white">
+            <button type="button" onClick={() => setVerAgotados(false)} className="btn btn-tinta btn-grande px-8">
               Listo
             </button>
           </div>
@@ -370,8 +373,8 @@ function Reloj({ ahora, grande }: { ahora: number; grande: boolean }) {
 
 function IndicadorConexion({ conexion }: { conexion: Conexion }) {
   const estilos: Record<Conexion, [string, string]> = {
-    conectando: ['text-noche-tinta-2', 'Conectando'],
-    en_linea: ['text-noche-ok', 'En línea'],
+    conectando: ['text-tinta-3', 'Conectando'],
+    en_linea: ['text-ok', 'En línea'],
     sin_conexion: ['text-peligro', 'Sin conexión'],
   };
   const [clase, texto] = estilos[conexion];
@@ -388,12 +391,12 @@ function IndicadorConexion({ conexion }: { conexion: Conexion }) {
 
 function PantallaInicio({ nombre, onEmpezar }: { nombre: string; onEmpezar: () => void }) {
   return (
-    <div className="absolute inset-0 z-50 flex animate-aparece items-center justify-center bg-noche p-6">
+    <div className="absolute inset-0 z-20 flex animate-aparece items-center justify-center bg-papel p-6">
       <div className="w-full max-w-md text-center">
-        <Logo claro className="mx-auto mb-6 size-14" />
-        <p className="rotulo text-noche-tinta-2">Anotado · Cocina</p>
+        <Logo className="mx-auto mb-6 size-14" />
+        <p className="rotulo text-tinta-2">Anotado · Cocina</p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-0.03em]">{nombre}</h1>
-        <p className="mt-4 text-lg leading-snug text-noche-tinta-2">
+        <p className="mt-4 text-lg leading-snug text-tinta-2">
           Los pedidos aparecen solos, del más viejo (izquierda) al más nuevo. Suena cuando llega uno.
         </p>
         <button
@@ -404,7 +407,7 @@ function PantallaInicio({ nombre, onEmpezar }: { nombre: string; onEmpezar: () =
         >
           Empezar
         </button>
-        <p className="mt-4 text-sm text-noche-tinta-2">Activa el sonido y mantiene la pantalla encendida.</p>
+        <p className="mt-4 text-sm text-tinta-3">Activa el sonido y mantiene la pantalla encendida.</p>
       </div>
     </div>
   );

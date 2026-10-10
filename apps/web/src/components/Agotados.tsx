@@ -6,18 +6,16 @@ import { MensajeError, Vacio } from './Estado.tsx';
 
 /**
  * Marcar y desmarcar agotados, para cualquier rol del local (RPC marcar_agotado). Precios y
- * nombres siguen siendo cosa del dueño, en Menú. `oscuro` = en la pantalla de cocina.
+ * nombres siguen siendo cosa del dueño, en Menú.
  */
 export function Agotados({
   categorias,
   productos,
   onCambio,
-  oscuro = false,
 }: {
   categorias: Categoria[];
   productos: Producto[];
   onCambio: () => void;
-  oscuro?: boolean;
 }) {
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,19 +37,17 @@ export function Agotados({
     { nombre: 'Otros', productos: productos.filter((p) => !p.categoria_id) },
   ].filter((g) => g.productos.length > 0);
 
-  if (productos.length === 0) return <Vacio icono="menu" oscuro={oscuro} titulo="Todavía no hay productos en el menú" />;
+  if (productos.length === 0) return <Vacio icono="menu" titulo="Todavía no hay productos en el menú" />;
 
-  const hay = oscuro
-    ? 'border-noche-linea bg-noche-2 hover:border-noche-tinta-2'
-    : 'border-linea bg-hoja shadow-papel hover:border-tinta-3';
-  const agotado = oscuro ? 'border-alerta bg-alerta/15 text-noche-tinta' : 'border-alerta bg-alerta-suave';
+  const hay = 'border-linea bg-hoja shadow-papel hover:border-tinta-3';
+  const agotado = 'border-alerta bg-alerta-suave';
 
   return (
     <div className="flex flex-col gap-5">
       {error && <MensajeError>{error}</MensajeError>}
       {grupos.map((g) => (
         <section key={g.nombre}>
-          <h3 className={`rotulo mb-2.5 ${oscuro ? 'text-noche-tinta-2' : ''}`}>{g.nombre}</h3>
+          <h3 className="rotulo mb-2.5">{g.nombre}</h3>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {g.productos.map((p) => (
               <button
@@ -67,9 +63,7 @@ export function Agotados({
               >
                 <span className="leading-tight font-semibold">{p.nombre}</span>
                 <span
-                  className={`chip chip-punto self-start ${
-                    p.activo ? (oscuro ? 'bg-noche-ok/10 text-noche-ok' : 'chip-ok') : oscuro ? 'bg-alerta/25 text-alerta-suave' : 'chip-alerta'
-                  }`}
+                  className={`chip chip-punto self-start ${p.activo ? 'chip-ok' : 'chip-alerta'}`}
                 >
                   {p.activo ? 'Hay' : 'Agotado'}
                 </span>
@@ -78,7 +72,7 @@ export function Agotados({
           </div>
         </section>
       ))}
-      <p className={`text-sm ${oscuro ? 'text-noche-tinta-2' : 'text-tinta-3'}`}>
+      <p className="text-sm text-tinta-3">
         Lo que el dueño sacó del menú también aparece como agotado. Si lo pasás a "Hay", se vuelve a ofrecer.
       </p>
     </div>

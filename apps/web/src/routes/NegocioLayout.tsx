@@ -22,6 +22,8 @@ export function NegocioLayout() {
   const [negocio, setNegocio] = useState<NegocioActual | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
+  // La cocina ocupa justo el alto de la pantalla (los tickets se desplazan adentro, no la página).
+  const enCocina = useMatch('/:negocio/cocina') !== null;
 
   useEffect(() => {
     if (!slug || !userId) return;
@@ -78,7 +80,7 @@ export function NegocioLayout() {
 
   return (
     <NegocioContext value={negocio}>
-      <div className="flex min-h-dvh flex-col">
+      <div className={`flex flex-col ${enCocina ? 'h-dvh' : 'min-h-dvh'}`}>
         <Barra negocio={negocio} email={sesion?.user.email ?? ''} />
         <Outlet />
       </div>

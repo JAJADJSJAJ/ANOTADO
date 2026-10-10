@@ -3,11 +3,11 @@ import { Icono, type NombreIcono } from './Icono.tsx';
 import { Logo } from './Marca.tsx';
 
 /** Barra fina que corre: se ve que algo pasa sin tapar la pantalla con un spinner. */
-export function Cargando({ oscuro = false }: { oscuro?: boolean }) {
+export function Cargando() {
   return (
     <div role="status" aria-label="Cargando" className="flex flex-1 items-center justify-center p-10">
-      <span className={`relative block h-0.5 w-24 overflow-hidden rounded-full ${oscuro ? 'bg-noche-linea' : 'bg-linea'}`}>
-        <span className={`absolute inset-y-0 left-0 w-2/5 animate-carga rounded-full ${oscuro ? 'bg-noche-tinta' : 'bg-tinta'}`} />
+      <span className="relative block h-0.5 w-24 overflow-hidden rounded-full bg-linea">
+        <span className="absolute inset-y-0 left-0 w-2/5 animate-carga rounded-full bg-tinta" />
       </span>
     </div>
   );
@@ -70,20 +70,18 @@ export function Vacio({
   icono = 'ticket',
   titulo,
   children,
-  oscuro = false,
   className = '',
 }: {
   icono?: NombreIcono;
   titulo: string;
   children?: ReactNode;
-  oscuro?: boolean;
   className?: string;
 }) {
   return (
     <div className={`m-auto flex max-w-xs animate-aparece flex-col items-center gap-2 p-6 text-center ${className}`}>
-      <Icono nombre={icono} className={`mb-1 size-9 stroke-[1.4] ${oscuro ? 'text-noche-linea' : 'text-linea-fuerte'}`} />
-      <p className={`font-semibold ${oscuro ? 'text-noche-tinta' : 'text-tinta'}`}>{titulo}</p>
-      {children && <p className={`text-sm ${oscuro ? 'text-noche-tinta-2' : 'text-tinta-3'}`}>{children}</p>}
+      <Icono nombre={icono} className="mb-1 size-9 stroke-[1.4] text-linea-fuerte" />
+      <p className="font-semibold text-tinta">{titulo}</p>
+      {children && <p className="text-sm text-tinta-3">{children}</p>}
     </div>
   );
 }

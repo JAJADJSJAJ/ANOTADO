@@ -13,14 +13,12 @@ export function Dialogo({
   onCerrar,
   children,
   ancho = 'max-w-md',
-  oscuro = false,
 }: {
   titulo: string;
   descripcion?: ReactNode;
   onCerrar: () => void;
   children?: ReactNode;
   ancho?: string;
-  oscuro?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const cerrar = useRef(onCerrar);
@@ -52,17 +50,15 @@ export function Dialogo({
       aria-label={titulo}
       // Click en el fondo (fuera de la caja) cierra.
       onMouseDown={(e) => e.target === ref.current && onCerrar()}
-      className={`m-auto w-[calc(100%-2rem)] ${ancho} animate-entra rounded-2xl border p-0 shadow-alta backdrop:animate-aparece ${
-        oscuro ? 'border-noche-linea bg-noche-2 text-noche-tinta' : 'border-linea bg-hoja text-tinta'
-      }`}
+      className={`m-auto w-[calc(100%-2rem)] ${ancho} animate-entra rounded-2xl border border-linea bg-hoja p-0 text-tinta shadow-alta backdrop:animate-aparece`}
     >
       <div className="flex flex-col gap-5 p-6">
         <header className="flex items-start gap-4">
           <div className="min-w-0 flex-1">
             <h2 className="text-xl leading-tight font-bold tracking-[-0.01em]">{titulo}</h2>
-            {descripcion && <div className={`mt-1.5 text-[0.9375rem] ${oscuro ? 'text-noche-tinta-2' : 'text-tinta-2'}`}>{descripcion}</div>}
+            {descripcion && <div className="mt-1.5 text-[0.9375rem] text-tinta-2">{descripcion}</div>}
           </div>
-          <button type="button" onClick={onCerrar} aria-label="Cerrar" className={`btn btn-icono -mt-1 -mr-2 ${oscuro ? 'btn-noche border-transparent bg-transparent' : 'btn-fantasma'}`}>
+          <button type="button" onClick={onCerrar} aria-label="Cerrar" className="btn btn-fantasma btn-icono -mt-1 -mr-2">
             <Icono nombre="cerrar" />
           </button>
         </header>
