@@ -321,6 +321,22 @@ Si el cliente está armando un pedido, se vacía. Si no, habla de su último ped
 ### Mensajes escritos rápido desde el celular
 Además del prompt, una red de seguridad sin IA (`shared/fonetica.ts`): si la IA deja algo como dudoso y **suena igual** a un solo producto activo (b=v, s=z=c, ll=y=l, x=ch, h muda, sin plurales), se agrega con su cantidad ("2 virras" = 2 birras). Solo la frase entera y un único candidato: nada de parecidos aproximados. Evals: 36 casos (7 de ortografía muy mala); lo que falla varía entre corridas del modelo.
 
+## Fase 7: stock y confirmación automática (pedido de Fran)
+
+"Si no hay nadie atendiendo sigue siendo lo mismo": los pedidos pueden confirmarse solos, pero con reglas que aplica la base, no la pantalla ni la IA.
+
+### El cliente confirma el resumen
+Cuando dice que terminó, el bot le manda el resumen con el total (sale de la base) y pregunta "¿Lo confirmo? Respondé SÍ". Recién con ese "sí" (lo marca la IA o, por las dudas, un sí corto reconocido sin IA) se intenta confirmar. Si la IA entendió mal, el cliente lo ve antes. El resumen vale para **esa versión** de la conversación: cualquier cambio (del cliente o del cajero) lo invalida y se vuelve a mandar; si el total cambió, también.
+
+### Una sola puerta para crear pedidos
+`crear_pedido_interno` tiene todas las validaciones de siempre más el stock. La usan `confirmar_pedido` (mostrador, exige dueño o cajero) y `confirmar_automatico` (solo `service_role`), que antes revisa, con la conversación bloqueada: prendida en el local, nada pendiente, entrega completa (delivery con zonas va a mano: la zona la elige el cajero), topes de total y por producto, tope de pedidos automáticos por cliente por jornada, tope de pedidos esperando en cocina, primer pedido de un cliente nuevo a mano (configurable), mismo total que el resumen. El horario lo mira el servidor. Si algo no cumple, queda para el cajero, que ve por qué (`motivo_manual`, no bloquea nada).
+
+### Stock del día
+Opcional por producto. Se descuenta dentro de la misma transacción que crea el pedido, con los productos bloqueados **siempre por id**: dos pedidos por la última unidad nunca pasan los dos (el segundo espera al primero y ve el stock real; probado con dos sesiones en paralelo). En 0 queda agotado solo (`agotado_por_stock`, que la reposición sí prende; lo agotado a mano no). Cada jornada vuelve al número del día (pg_cron cada 10 minutos, cada local según su corte). Un pedido cancelado devuelve lo que descontó si es de la misma jornada. Si algo del pedido se agota mientras el cliente arma, el bot le dice qué se terminó.
+
+### Si nadie atiende
+Si el cliente terminó y el pedido quedó para confirmar a mano, a los X minutos (configurable) el bot le avisa una vez que hay demora (pg_cron cada minuto). En la bandeja se ve hace cuánto espera cada cliente y van primero los que más esperan.
+
 ## Pendiente de decidir
 
 - **Clave de idempotencia para tarjetas nuevas de WhatsApp** (Fase 2). No bloquea.
