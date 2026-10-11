@@ -70,6 +70,17 @@ export function aConfigGuardada(c: ConfigAuto): z.infer<typeof ConfigAutoSchema>
 }
 
 /**
+ * "Eso es todo", "nada más", "con eso estoy": el cliente terminó de pedir. Red de seguridad por si
+ * la IA no lo marca (una vez lo tomó como "¿cómo va mi pedido?"). Una pregunta no cuenta: "¿es todo
+ * lo que tienen?".
+ */
+export function dijoQueTermino(texto: string): boolean {
+  if (texto.includes('?')) return false;
+  const t = texto.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  return /\b(eso es todo|es todo|eso seria todo|seria todo|nada mas|eso nomas|eso solo|con eso (estoy|esta|alcanza))\b/.test(t);
+}
+
+/**
  * Un "sí" corto a "¿Lo confirmo?": red de seguridad por si la IA no lo marca. Solo frases enteras
  * de afirmación ("sí", "dale", "sí, confirmalo", "ok gracias"); cualquier otra cosa la ve la IA.
  */
