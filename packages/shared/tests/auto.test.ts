@@ -3,6 +3,7 @@ import {
   aConfigGuardada,
   CONFIG_AUTO_DEFECTO,
   type DatosRespuesta,
+  dijoQueTermino,
   esAfirmacion,
   leerConfigAuto,
   motivoManual,
@@ -24,6 +25,19 @@ const datos = (extra: Partial<DatosRespuesta> = {}): DatosRespuesta => ({
   primera: false,
   listo: true,
   ...extra,
+});
+
+describe('dijoQueTermino', () => {
+  it('reconoce que terminó de pedir', () => {
+    for (const t of ['sumame una musarela y eso es todo', 'Eso es todo!', 'no, nada más gracias', 'eso nomás', 'con eso estoy', 'eso sería todo']) {
+      expect(dijoQueTermino(t), t).toBe(true);
+    }
+  });
+  it('una pregunta o un pedido sin cierre no', () => {
+    for (const t of ['¿es todo lo que tienen?', 'eso es todo?', 'quiero 2 completas', 'todo bien?', 'nadamas']) {
+      expect(dijoQueTermino(t), t).toBe(false);
+    }
+  });
 });
 
 describe('esAfirmacion', () => {

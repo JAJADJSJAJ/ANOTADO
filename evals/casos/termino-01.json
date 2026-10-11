@@ -1,0 +1,35 @@
+{
+  "id": "termino-01",
+  "menu": "demo",
+  "categoria": "varios_mensajes",
+  "mensajes": [
+    "hola! kiero 2 amburgesas completas sin tomate y una coca chica, paso a buscar",
+    {
+      "bot": "¡Hola! Te atiende el asistente de El Ceibo.\nAnoté: 2 Hamburguesa completa (sin tomate) y 1 Coca-Cola 600 ml, para retirar.\n¿Algo más? Cuando esté todo, el local te confirma el total."
+    },
+    "q pizzas tienen?",
+    {
+      "bot": "Tenemos Pizza especial ($ 520) y Pizza muzzarella ($ 420).\n¿Querés agregar algo?"
+    },
+    "sumame una musarela y eso es todo"
+  ],
+  "esperado": {
+    "items": [
+      {
+        "producto": "Hamburguesa completa",
+        "cantidad": 2
+      },
+      {
+        "producto": "Coca-Cola 600 ml",
+        "cantidad": 1
+      },
+      {
+        "producto": "Pizza muzzarella",
+        "cantidad": 1
+      }
+    ],
+    "entrega": {
+      "modo": "retiro"
+    }
+  }
+}

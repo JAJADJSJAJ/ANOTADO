@@ -29,6 +29,7 @@ import {
   ErrorIA,
   esAfirmacion,
   esCortesia,
+  dijoQueTermino,
   estadoHorario,
   historialWhatsApp,
   leerConfigAuto,
@@ -254,6 +255,8 @@ async function vueltas(
     // Un "gracias" o un "ok" no toca productos, diga lo que diga la IA (una vez volvió a agregar
     // lo que ya estaba en el pedido).
     const soloCortesia = esCortesia(nuevos.map((m) => m.contenido).join(' '));
+    // "Eso es todo" es terminar de pedir, no preguntar cómo va el pedido (la IA a veces lo confunde).
+    const dijoFin = dijoQueTermino(nuevos.map((m) => m.contenido).join(' '));
     const acciones = soloCortesia
       ? respuesta.respuesta.acciones.filter((a) => a.tipo !== 'agregar' && a.tipo !== 'quitar' && a.tipo !== 'modificar')
       : respuesta.respuesta.acciones;
@@ -298,7 +301,7 @@ async function vueltas(
 
       // Cómo va su pedido: el último de las últimas 12 horas.
       let estadoPedido: PedidoDelCliente | null | undefined;
-      if (aplicado.estado) {
+      if (aplicado.estado && !dijoFin) {
         const { data: ultimo, error: errUltimo } = await admin
           .from('pedidos')
           .select('numero, estado, entrega')
@@ -333,7 +336,7 @@ async function vueltas(
       const texto = nuevos.map((m) => m.contenido).join(' ');
       // Un "gracias" con el resumen ya mandado no es "terminé": no se le vuelve a mandar.
       const yaPreguntado = conv.resumen_version !== null && conv.resumen_version === conv.version;
-      const listoIA = respuesta.respuesta.listo_para_confirmar && !(soloCortesia && yaPreguntado);
+      const listoIA = (respuesta.respuesta.listo_para_confirmar || dijoFin) && !(soloCortesia && yaPreguntado);
       const afirma =
         auto.activa &&
         conv.resumen_version !== null &&
