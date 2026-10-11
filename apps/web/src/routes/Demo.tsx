@@ -61,7 +61,10 @@ export function Demo() {
       setEntrando(false);
       return setError('No se pudo abrir la demo. Probá de nuevo.');
     }
-    navigate(`/${data.slug}/simulador`, { replace: true });
+    // Carga completa, no navigate: recién iniciada la sesión, Realtime todavía no tiene el
+    // token nuevo y la cocina quedaba suscripta sin recibir avisos (los pedidos llegaban con
+    // la recarga de cada 30 s). Medido en producción: con la página recién cargada, al instante.
+    window.location.replace(`/${data.slug}/simulador`);
   }
 
   if (sesion === undefined || (userId && !cuentaReal)) return <Cargando />;
