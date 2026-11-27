@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 // Escena de la pantalla de entrada: un celular donde se tipea un pedido de WhatsApp, el mensaje
-// viaja como tinta de birome y se imprime en una comanda que termina con tilde y sello LISTO.
+// viaja como tinta de birome y se imprime en una comanda que termina marcada como lista.
 // Todo se arma con geometrías y CanvasTexture (nada remoto, por la CSP).
 
 const COLOR = {
@@ -31,8 +31,7 @@ const T = {
   viaje: 3.75,
   leido: 4.9,
   imprime: [4.7, 7.0],
-  tilde: [7.4, 8.1],
-  sello: [8.4, 8.85],
+  sello: [7.4, 7.8],
   sale: [11.0, 12],
   final: 10,
 } as const;
@@ -119,6 +118,11 @@ const CEL_PY = 1056;
 
 function dibujarCelular(ctx: CanvasRenderingContext2D, letras: number, enviado: boolean, leido: boolean, cursor: boolean) {
   const W = CEL_PX;
+  ctx.clearRect(0, 0, W, CEL_PY);
+  ctx.save();
+  // Esquinas de pantalla de iPhone: el resto queda transparente.
+  rectRedondo(ctx, 0, 0, W, CEL_PY, 66);
+  ctx.clip();
   ctx.fillStyle = COLOR.waFondo;
   ctx.fillRect(0, 0, W, CEL_PY);
 
@@ -130,7 +134,7 @@ function dibujarCelular(ctx: CanvasRenderingContext2D, letras: number, enviado: 
   ctx.fillStyle = COLOR.wa;
   ctx.fillRect(0, 0, W, 158);
   ctx.fillStyle = '#0b0b0a';
-  rectRedondo(ctx, W / 2 - 62, 16, 124, 32, 16);
+  rectRedondo(ctx, W / 2 - 74, 18, 148, 42, 21);
   ctx.fill();
   ctx.fillStyle = COLOR.waPropio;
   ctx.beginPath();
@@ -220,6 +224,7 @@ function dibujarCelular(ctx: CanvasRenderingContext2D, letras: number, enviado: 
   ctx.lineTo(453, 987);
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
 }
 
 // ---------------------------------------------------------------- comanda
@@ -227,11 +232,12 @@ function dibujarCelular(ctx: CanvasRenderingContext2D, letras: number, enviado: 
 function dibujarComanda(ctx: CanvasRenderingContext2D) {
   const W = TK_PX;
   const H = TK_PY;
-  const diente = 14;
-  const paso = 24;
+  const diente = 12;
+  const paso = 22;
+  const m = 34;
   ctx.clearRect(0, 0, W, H);
 
-  // Papel con el borde de abajo dentado (lo transparente se descarta con alphaTest).
+  // Papel liso con el borde de abajo dentado (lo transparente se descarta con alphaTest).
   ctx.beginPath();
   ctx.moveTo(0, 0);
   ctx.lineTo(W, 0);
@@ -244,89 +250,89 @@ function dibujarComanda(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = COLOR.ticket;
   ctx.fill();
 
-  // Grano de papel.
-  for (let i = 0; i < 2200; i++) {
-    ctx.fillStyle = `rgba(21,21,19,${Math.random() * 0.035})`;
-    ctx.fillRect(Math.random() * W, Math.random() * (H - diente), 1.5, 1.5);
-  }
-
-  ctx.fillStyle = COLOR.ok;
-  ctx.fillRect(0, 0, W, 13);
-
   ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = COLOR.tinta;
-  ctx.font = `800 128px ${MONO}`;
-  ctx.fillText('#42', 30, 160);
 
-  ctx.font = `600 25px ${MONO}`;
-  ctx.fillStyle = COLOR.tinta2;
-  ctx.fillText('RETIRA · WHATSAPP', 36, 212);
-
-  const punteada = (y: number) => {
-    ctx.save();
-    ctx.strokeStyle = COLOR.linea;
-    ctx.lineWidth = 3;
-    ctx.setLineDash([11, 9]);
-    ctx.beginPath();
-    ctx.moveTo(30, y);
-    ctx.lineTo(W - 30, y);
-    ctx.stroke();
-    ctx.restore();
-  };
-  punteada(250);
-
-  const item = (cant: string, nombre: string, y: number) => {
-    ctx.fillStyle = COLOR.tinta;
-    ctx.font = `800 42px ${MONO}`;
-    ctx.fillText(cant, 34, y);
-    ctx.font = `700 46px ${SANS}`;
-    ctx.fillText(nombre, 82, y);
-  };
-  item('2', 'Completa', 326);
-  ctx.font = `600 33px ${SANS}`;
-  ctx.fillStyle = COLOR.alertaTinta;
-  ctx.fillText('— sin tomate', 84, 374);
-  item('1', 'Coca-Cola 1,5 L', 446);
-
-  punteada(492);
-  ctx.font = `500 22px ${MONO}`;
+  // Cabecera: número y, abajo, los datos en mono. El chip de LISTO va aparte (arriba a la derecha).
   ctx.fillStyle = COLOR.tinta3;
-  ctx.fillText('21:04 · anotado por IA', 34, 534);
+  ctx.font = `600 22px ${MONO}`;
+  ctx.fillText('PEDIDO', m, 66);
+  ctx.fillStyle = COLOR.tinta;
+  ctx.font = `800 112px ${SANS}`;
+  ctx.fillText('42', m - 4, 172);
+
+  const linea = (y: number) => {
+    ctx.fillStyle = COLOR.linea;
+    ctx.fillRect(m, y, W - m * 2, 2);
+  };
+  linea(206);
+
+  // Dos módulos de datos lado a lado.
+  const dato = (x: number, rotulo: string, valor: string) => {
+    ctx.fillStyle = COLOR.tinta3;
+    ctx.font = `600 19px ${MONO}`;
+    ctx.fillText(rotulo, x, 246);
+    ctx.fillStyle = COLOR.tinta;
+    ctx.font = `700 30px ${SANS}`;
+    ctx.fillText(valor, x, 284);
+  };
+  dato(m, 'ENTREGA', 'Retira');
+  dato(W / 2 + 6, 'CANAL', 'WhatsApp');
+  linea(314);
+
+  // Ítems: cantidad en una cajita, nombre y nota.
+  const item = (cant: string, nombre: string, y: number, nota?: string) => {
+    ctx.fillStyle = '#efede6';
+    rectRedondo(ctx, m, y - 40, 52, 52, 12);
+    ctx.fill();
+    ctx.fillStyle = COLOR.tinta;
+    ctx.font = `800 32px ${MONO}`;
+    ctx.textAlign = 'center';
+    ctx.fillText(cant, m + 26, y - 2);
+    ctx.textAlign = 'left';
+    ctx.font = `700 38px ${SANS}`;
+    ctx.fillText(nombre, m + 72, y - 2);
+    if (nota) {
+      ctx.fillStyle = COLOR.tinta2;
+      ctx.font = `500 26px ${SANS}`;
+      ctx.fillText(nota, m + 72, y + 36);
+    }
+  };
+  item('2', 'Completa', 388, 'sin tomate');
+  item('1', 'Coca-Cola 1,5 L', 500);
+
+  linea(560);
+  ctx.font = `500 20px ${MONO}`;
+  ctx.fillStyle = COLOR.tinta3;
+  ctx.fillText('21:04', m, 600);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = COLOR.birome;
+  ctx.fillText('anotado por IA', W - m, 600);
+  ctx.textAlign = 'left';
 }
 
+/** Chip de estado: una pastilla tinta con un tilde birome y "Listo". */
 function dibujarSello(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.clearRect(0, 0, w, h);
-  ctx.strokeStyle = COLOR.ok;
-  ctx.fillStyle = COLOR.ok;
-  ctx.lineWidth = 12;
-  rectRedondo(ctx, 10, 10, w - 20, h - 20, 22);
+  ctx.fillStyle = COLOR.tinta;
+  rectRedondo(ctx, 0, 0, w, h, h / 2);
+  ctx.fill();
+  ctx.strokeStyle = '#8fa2ff';
+  ctx.lineWidth = 7;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(h * 0.36, h * 0.52);
+  ctx.lineTo(h * 0.5, h * 0.66);
+  ctx.lineTo(h * 0.74, h * 0.36);
   ctx.stroke();
-  ctx.lineWidth = 4;
-  rectRedondo(ctx, 26, 26, w - 52, h - 52, 12);
-  ctx.stroke();
-  ctx.font = `800 118px ${SANS}`;
-  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fff';
+  ctx.font = `700 ${Math.round(h * 0.42)}px ${SANS}`;
   ctx.textBaseline = 'middle';
-  ctx.fillText('LISTO', w / 2, h / 2 + 6);
-  // Tinta despareja de sello de goma.
-  ctx.globalCompositeOperation = 'destination-out';
-  for (let i = 0; i < 900; i++) {
-    ctx.fillStyle = `rgba(0,0,0,${0.25 + Math.random() * 0.6})`;
-    const r = Math.random() * 3.2;
-    ctx.beginPath();
-    ctx.arc(Math.random() * w, Math.random() * h, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillText('Listo', h * 0.92, h * 0.53);
 }
 
 function dibujarSombra(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  // Charco de luz tenue sobre la mesa y, encima, las dos sombras blandas.
-  const luz = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
-  luz.addColorStop(0, 'rgba(255,255,250,0.075)');
-  luz.addColorStop(1, 'rgba(255,255,250,0)');
-  ctx.fillStyle = luz;
-  ctx.fillRect(0, 0, w, h);
+  // Dos sombras blandas sobre la mesa, sin charco de luz.
   for (const [cx, rx] of [
     [w * 0.24, w * 0.15],
     [w * 0.74, w * 0.16],
@@ -354,29 +360,6 @@ function superficie(x: number, y: number, t: number) {
     0.045 * borde * borde * Math.sin(t * 2.1 + x * 3.1)
   );
 }
-
-// ---------------------------------------------------------------- tinta viajera
-
-const VERTEX_TINTA = /* glsl */ `
-attribute float aAlfa;
-attribute float aTam;
-uniform float uEscala;
-varying float vAlfa;
-void main() {
-  vAlfa = aAlfa;
-  vec4 mv = modelViewMatrix * vec4(position, 1.0);
-  gl_PointSize = aTam * uEscala / -mv.z;
-  gl_Position = projectionMatrix * mv;
-}`;
-const FRAGMENT_TINTA = /* glsl */ `
-uniform vec3 uColor;
-varying float vAlfa;
-void main() {
-  float d = length(gl_PointCoord - 0.5);
-  float a = smoothstep(0.5, 0.12, d) * vAlfa;
-  if (a < 0.01) discard;
-  gl_FragColor = vec4(uColor, a);
-}`;
 
 // ---------------------------------------------------------------- montaje
 
@@ -444,32 +427,60 @@ function armarEscena(renderer: THREE.WebGLRenderer, host: HTMLElement, op: Opcio
   celular.position.set(-1.38, 0, 0);
   celular.rotation.set(0.04, 0.38, -0.03);
   raiz.add(celular);
-  const cuerpo = new THREE.Mesh(
-    new RoundedBoxGeometry(1.5, 2.96, 0.16, 6, 0.17),
-    new THREE.MeshStandardMaterial({ color: 0x1f1f1c, roughness: 0.38, metalness: 0.35 }),
-  );
-  celular.add(cuerpo);
+  // Cuerpo de iPhone: rectángulo con esquinas bien redondas, cantos biselados y marco de titanio.
+  const forma = (w: number, h: number, r: number) => {
+    const f = new THREE.Shape();
+    f.moveTo(-w / 2 + r, -h / 2);
+    f.lineTo(w / 2 - r, -h / 2);
+    f.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r);
+    f.lineTo(w / 2, h / 2 - r);
+    f.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2);
+    f.lineTo(-w / 2 + r, h / 2);
+    f.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r);
+    f.lineTo(-w / 2, -h / 2 + r);
+    f.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
+    return f;
+  };
+  const marcoGeo = new THREE.ExtrudeGeometry(forma(1.44, 2.96, 0.24), {
+    depth: 0.1,
+    bevelEnabled: true,
+    bevelThickness: 0.03,
+    bevelSize: 0.03,
+    bevelSegments: 6,
+    curveSegments: 24,
+  });
+  marcoGeo.translate(0, 0, -0.05);
   const marco = new THREE.Mesh(
-    new RoundedBoxGeometry(1.52, 2.98, 0.1, 4, 0.05),
-    new THREE.MeshStandardMaterial({ color: 0x3b3a35, roughness: 0.3, metalness: 0.7 }),
+    marcoGeo,
+    new THREE.MeshStandardMaterial({ color: 0x8d8a83, roughness: 0.32, metalness: 0.85 }),
   );
-  marco.position.z = -0.01;
   celular.add(marco);
+  // Vidrio negro del frente: el borde fino alrededor de la pantalla.
+  const frente = new THREE.Mesh(
+    new THREE.ShapeGeometry(forma(1.44, 2.96, 0.23), 24),
+    new THREE.MeshStandardMaterial({ color: 0x0b0b0a, roughness: 0.15, metalness: 0.2 }),
+  );
+  frente.position.z = 0.081;
+  celular.add(frente);
+  // Botones laterales.
+  const metal = marco.material;
+  for (const [x, y, alto] of [
+    [-0.755, 0.78, 0.14],
+    [-0.755, 0.5, 0.26],
+    [-0.755, 0.18, 0.26],
+    [0.755, 0.45, 0.4],
+  ] as const) {
+    const b = new THREE.Mesh(new RoundedBoxGeometry(0.03, alto, 0.06, 2, 0.012), metal);
+    b.position.set(x, y, 0);
+    celular.add(b);
+  }
   const pantallaCv = lienzo(CEL_PX, CEL_PY);
   const pantallaTx = textura(pantallaCv.c, aniso);
   texturas.push(pantallaTx);
-  const pantallaMat = new THREE.MeshBasicMaterial({ map: pantallaTx, toneMapped: false });
+  const pantallaMat = new THREE.MeshBasicMaterial({ map: pantallaTx, toneMapped: false, transparent: true });
   const pantalla = new THREE.Mesh(new THREE.PlaneGeometry(1.36, (1.36 * CEL_PY) / CEL_PX), pantallaMat);
-  pantalla.position.z = 0.082;
+  pantalla.position.z = 0.083;
   celular.add(pantalla);
-  // Reflejo de vidrio, apenas.
-  const vidrio = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.36, 2.82),
-    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.05, metalness: 1, transparent: true, opacity: 0.06 }),
-  );
-  vidrio.position.z = 0.084;
-  celular.add(vidrio);
-
   // Comanda.
   const comanda = new THREE.Group();
   comanda.position.set(1.28, 0.06, 0.1);
@@ -490,64 +501,34 @@ function armarEscena(renderer: THREE.WebGLRenderer, host: HTMLElement, op: Opcio
   comanda.add(papel);
   const indicesFila = TK_SX * 6;
 
-  // Tilde de birome sobre la comanda (a la derecha del número).
   const aLocal = (px: number, py: number) => new THREE.Vector3(px / PX_POR_U - TK_W / 2, TK_H / 2 - py / PX_POR_U, 0);
-  const trazo = new THREE.CatmullRomCurve3([aLocal(372, 100), aLocal(398, 132), aLocal(414, 150), aLocal(445, 104), aLocal(482, 52)]);
-  const tildeSeg = 60;
-  const tildeRad = 6;
-  const tildeGeo = new THREE.TubeGeometry(trazo, tildeSeg, 0.02, tildeRad, false);
-  const tildeMat = new THREE.MeshBasicMaterial({ color: COLOR.birome, transparent: true });
-  const tilde = new THREE.Mesh(tildeGeo, tildeMat);
-  comanda.add(tilde);
-  const tildeTotal = tildeGeo.index!.count;
-  const tildeBloque = tildeRad * 6;
-  const centroTilde = aLocal(425, 100);
 
-  // Sello LISTO.
-  const selloCv = lienzo(512, 220);
+  // Chip "Listo", arriba a la derecha, sin pisar el número.
+  const selloCv = lienzo(320, 96);
   const selloTx = textura(selloCv.c, aniso);
   texturas.push(selloTx);
   const selloMat = new THREE.MeshBasicMaterial({ map: selloTx, transparent: true, depthWrite: false, toneMapped: false });
-  const sello = new THREE.Mesh(new THREE.PlaneGeometry(1.08, 1.08 * (220 / 512)), selloMat);
-  const selloXY = aLocal(300, 650);
+  const selloAncho = 190 / PX_POR_U;
+  const sello = new THREE.Mesh(new THREE.PlaneGeometry(selloAncho, selloAncho * (96 / 320)), selloMat);
+  const selloXY = aLocal(TK_PX - 34 - 95, 58);
   comanda.add(sello);
 
-  // Tinta que viaja del celular a la comanda.
-  const cantidad = op.compacta ? 90 : 190;
-  const posiciones = new Float32Array(cantidad * 3);
-  const alfas = new Float32Array(cantidad);
-  const tamanos = new Float32Array(cantidad);
-  const demoras = new Float32Array(cantidad);
-  const desvio = new Float32Array(cantidad * 3);
-  for (let i = 0; i < cantidad; i++) {
-    demoras[i] = (i / cantidad) * 0.7 + Math.random() * 0.12;
-    tamanos[i] = 16 + Math.random() * 26;
-    desvio[i * 3] = (Math.random() - 0.5) * 0.35;
-    desvio[i * 3 + 1] = (Math.random() - 0.5) * 0.35;
-    desvio[i * 3 + 2] = (Math.random() - 0.5) * 0.35;
-  }
-  const tintaGeo = new THREE.BufferGeometry();
-  tintaGeo.setAttribute('position', new THREE.BufferAttribute(posiciones, 3));
-  tintaGeo.setAttribute('aAlfa', new THREE.BufferAttribute(alfas, 1));
-  tintaGeo.setAttribute('aTam', new THREE.BufferAttribute(tamanos, 1));
-  const tintaMat = new THREE.ShaderMaterial({
-    vertexShader: VERTEX_TINTA,
-    fragmentShader: FRAGMENT_TINTA,
-    // El shader escribe el color tal cual, así que va en sRGB (sin pasar a lineal).
-    uniforms: { uColor: { value: new THREE.Vector3(0x4f / 255, 0x6b / 255, 0xff / 255) }, uEscala: { value: 1 } },
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
-  const tinta = new THREE.Points(tintaGeo, tintaMat);
-  tinta.frustumCulled = false;
-  raiz.add(tinta);
+  // Trazo de birome que viaja del celular a la comanda: una línea fina, sin brillo.
   const curva = new THREE.CubicBezierCurve3(
-    new THREE.Vector3(-1.1, 0.55, 0.35),
-    new THREE.Vector3(-0.6, 1.9, 1.1),
-    new THREE.Vector3(0.6, 1.8, 0.9),
-    new THREE.Vector3(1.0, 0.95, 0.25),
+    new THREE.Vector3(-0.75, 0.55, 0.3),
+    new THREE.Vector3(-0.35, 1.5, 0.8),
+    new THREE.Vector3(0.35, 1.45, 0.7),
+    new THREE.Vector3(0.62, 0.95, 0.25),
   );
+  const trazoSeg = 120;
+  const trazoRad = 6;
+  const trazoGeo = new THREE.TubeGeometry(curva, trazoSeg, 0.012, trazoRad, false);
+  const trazoMat = new THREE.MeshBasicMaterial({ color: COLOR.birome, transparent: true });
+  const trazo = new THREE.Mesh(trazoGeo, trazoMat);
+  raiz.add(trazo);
+  const trazoBloque = trazoRad * 6;
+  const cabeza = new THREE.Mesh(new THREE.SphereGeometry(0.032, 16, 12), trazoMat);
+  raiz.add(cabeza);
   const punto = new THREE.Vector3();
 
   // ------------------------------------------------------------ estado por cuadro
@@ -584,19 +565,17 @@ function armarEscena(renderer: THREE.WebGLRenderer, host: HTMLElement, op: Opcio
     const brillo = Math.min(fase(t, 0, 0.6), 1 - fase(t, T.sale[0] + 0.3, T.sale[1])) * 0.85 + 0.15;
     pantallaMat.color.setScalar(brillo);
 
-    // Tinta.
-    for (let i = 0; i < cantidad; i++) {
-      const a = T.viaje + demoras[i]!;
-      const p = fase(t, a, a + 1.05);
-      const s = Math.sin(p * Math.PI);
-      curva.getPoint(suave(p), punto);
-      posiciones[i * 3] = punto.x + desvio[i * 3]! * s;
-      posiciones[i * 3 + 1] = punto.y + desvio[i * 3 + 1]! * s + Math.sin(reloj * 3 + i) * 0.02 * s;
-      posiciones[i * 3 + 2] = punto.z + desvio[i * 3 + 2]! * s;
-      alfas[i] = p > 0 && p < 1 ? Math.min(1, s * 2.2) * 0.9 : 0;
-    }
-    tintaGeo.attributes.position!.needsUpdate = true;
-    tintaGeo.attributes.aAlfa!.needsUpdate = true;
+    // Trazo: la punta avanza y la cola la sigue.
+    const pv = fase(t, T.viaje, T.viaje + 1.3);
+    const punta = salida(Math.min(1, pv * 1.25));
+    const cola = suave(Math.max(0, pv * 1.25 - 0.25));
+    trazo.visible = pv > 0 && pv < 1;
+    cabeza.visible = trazo.visible;
+    const desde = Math.floor(cola * trazoSeg) * trazoBloque;
+    const hasta = Math.ceil(punta * trazoSeg) * trazoBloque;
+    trazoGeo.setDrawRange(desde, Math.max(0, hasta - desde));
+    curva.getPoint(punta, punto);
+    cabeza.position.copy(punto);
 
     // Comanda: se imprime de arriba hacia abajo, flota y gira suave.
     const imp = fase(t, T.imprime[0], T.imprime[1]);
@@ -616,21 +595,12 @@ function armarEscena(renderer: THREE.WebGLRenderer, host: HTMLElement, op: Opcio
     comanda.rotation.z = 0.02 + Math.sin(reloj * 0.33) * 0.015;
     ondular(reloj);
 
-    // Tilde.
-    const pt = fase(t, T.tilde[0], T.tilde[1]);
-    tilde.visible = pt > 0;
-    tildeGeo.setDrawRange(0, Math.ceil((salida(pt) * tildeTotal) / tildeBloque) * tildeBloque);
-    tilde.position.z = superficie(centroTilde.x, centroTilde.y, reloj) + 0.012;
-    tildeMat.opacity = 1 - suave(fuera);
-
-    // Sello: cae desde la cámara y se asienta torcido.
+    // Chip Listo: aparece con un pop chico en su lugar.
     const ps = fase(t, T.sello[0], T.sello[1]);
     sello.visible = ps > 0;
-    const caida = rebote(ps);
-    sello.scale.setScalar(1 + (1 - caida) * 0.9);
-    sello.position.set(selloXY.x, selloXY.y, superficie(selloXY.x, selloXY.y, reloj) + 0.015 + (1 - salida(ps)) * 1.3);
-    sello.rotation.z = -0.2 + (1 - salida(ps)) * 0.4;
-    selloMat.opacity = Math.min(1, ps * 2.5) * 0.92 * (1 - suave(fuera));
+    sello.scale.setScalar(0.6 + 0.4 * rebote(ps));
+    sello.position.set(selloXY.x, selloXY.y, superficie(selloXY.x, selloXY.y, reloj) + 0.012);
+    selloMat.opacity = Math.min(1, ps * 3) * (1 - suave(fuera));
   }
 
   // ------------------------------------------------------------ tamaño y cámara
@@ -645,7 +615,6 @@ function armarEscena(renderer: THREE.WebGLRenderer, host: HTMLElement, op: Opcio
     camara.position.set(0, 0.35, distancia + 0.6);
     camara.lookAt(mirar);
     camara.updateProjectionMatrix();
-    tintaMat.uniforms.uEscala!.value = h * renderer.getPixelRatio() * 0.06;
   }
 
   // ------------------------------------------------------------ bucle
@@ -732,7 +701,7 @@ function armarEscena(renderer: THREE.WebGLRenderer, host: HTMLElement, op: Opcio
       if (destruido) return;
       dibujarComanda(papelCv.ctx);
       papelTx.needsUpdate = true;
-      dibujarSello(selloCv.ctx, 512, 220);
+      dibujarSello(selloCv.ctx, 320, 96);
       selloTx.needsUpdate = true;
       dibujarSombra(sombraCv.ctx, 512, 256);
       sombraTx.needsUpdate = true;
