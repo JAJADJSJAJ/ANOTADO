@@ -599,7 +599,12 @@ function armarEscena(renderer: THREE.WebGLRenderer, host: HTMLElement, op: Opcio
     const ps = fase(t, T.sello[0], T.sello[1]);
     sello.visible = ps > 0;
     sello.scale.setScalar(0.6 + 0.4 * rebote(ps));
-    sello.position.set(selloXY.x, selloXY.y, superficie(selloXY.x, selloXY.y, reloj) + 0.012);
+    // El papel está curvado: el chip se apoya sobre el punto más alto debajo de él, así no lo atraviesa.
+    const sx = selloAncho / 2;
+    const sy = (selloAncho * 0.3) / 2;
+    let alto = -Infinity;
+    for (const dx of [-sx, 0, sx]) for (const dy of [-sy, sy]) alto = Math.max(alto, superficie(selloXY.x + dx, selloXY.y + dy, reloj));
+    sello.position.set(selloXY.x, selloXY.y, alto + 0.025);
     selloMat.opacity = Math.min(1, ps * 3) * (1 - suave(fuera));
   }
 
