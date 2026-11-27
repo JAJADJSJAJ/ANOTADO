@@ -86,6 +86,12 @@ const PASOS: Paso[] = [
     pantalla: 'cocina',
   },
   {
+    titulo: 'Listo para entregar',
+    texto: 'El pedido pasó a Listos para entregar y al cliente le llegó el aviso por WhatsApp. Ese es todo el viaje.',
+    objetivo: 'cocina-lista',
+    pantalla: 'cocina',
+  },
+  {
     titulo: 'También a mano',
     texto: 'Si te piden por teléfono o en el mostrador, lo cargás acá en segundos.',
     objetivo: 'nuevo-pedido',
