@@ -415,7 +415,7 @@ function PantallaInicio({ nombre, onEmpezar }: { nombre: string; onEmpezar: () =
           data-tutorial="cocina-activar"
           className="btn btn-birome mt-10 h-20 w-full rounded-2xl text-3xl font-extrabold"
         >
-          Empezar
+          Abrir la cocina
         </button>
         <p className="mt-4 text-sm text-tinta-3">Activa el sonido y mantiene la pantalla encendida.</p>
       </div>
