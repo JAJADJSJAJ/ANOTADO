@@ -1,11 +1,13 @@
 import { leerHorarios } from '@anotado/shared';
-import { useEffect, useState } from 'react';
-import { Link, Navigate, NavLink, Outlet, useMatch, useParams } from 'react-router';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, Navigate, NavLink, Outlet, useMatch, useParams, useSearchParams } from 'react-router';
 import { BotonSalir } from '../components/BotonSalir.tsx';
 import { BotonSonido } from '../components/BotonSonido.tsx';
-import { Cargando, MensajeError, PantallaMensaje } from '../components/Estado.tsx';
+import { EsqueletoPagina } from '../components/Esqueletos.tsx';
+import { MensajeError, PantallaMensaje } from '../components/Estado.tsx';
 import { Icono } from '../components/Icono.tsx';
 import { Logo } from '../components/Marca.tsx';
+import { Tutorial } from '../components/Tutorial.tsx';
 import { useNegocio as useNegocioActual } from '../hooks/useNegocio.ts';
 import { useSesion } from '../hooks/useSesion.ts';
 import { type NegocioActual, NegocioContext, NOMBRE_ROL } from '../lib/contextos.ts';
@@ -24,6 +26,21 @@ export function NegocioLayout() {
   const [version, setVersion] = useState(0);
   // La cocina ocupa justo el alto de la pantalla (los tickets se desplazan adentro, no la página).
   const enCocina = useMatch('/:negocio/cocina') !== null;
+  // Tutorial de la demo: se monta acá para sobrevivir al cambio de pantalla.
+  const [tutorial, setTutorial] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const [oferta, setOferta] = useState(() => params.get('tutorial') === '1');
+  const salirTutorial = useCallback(() => setTutorial(false), []);
+  useEffect(() => {
+    if (params.get('tutorial') !== '1') return;
+    setParams(
+      (p) => {
+        p.delete('tutorial');
+        return p;
+      },
+      { replace: true },
+    );
+  }, [params, setParams]);
 
   useEffect(() => {
     if (!slug || !userId) return;
@@ -63,7 +80,7 @@ export function NegocioLayout() {
       </PantallaMensaje>
     );
   }
-  if (negocio === undefined) return <Cargando />;
+  if (negocio === undefined) return <EsqueletoPagina />;
   if (negocio === null) {
     return (
       <PantallaMensaje titulo="Local no encontrado">
@@ -81,9 +98,20 @@ export function NegocioLayout() {
   return (
     <NegocioContext value={negocio}>
       <div className={`flex flex-col ${enCocina ? 'h-dvh' : 'min-h-dvh'}`}>
-        <Barra negocio={negocio} email={sesion?.user.email ?? ''} />
+        <Barra negocio={negocio} email={sesion?.user.email ?? ''} onTutorial={() => setTutorial(true)} />
         <Outlet />
       </div>
+      {negocio.esDemo && negocio.rol !== 'cocina' && oferta && !tutorial && (
+        <OfertaTutorial
+          onEmpezar={() => {
+            setOferta(false);
+            setTutorial(true);
+          }}
+          onCerrar={() => setOferta(false)}
+        />
+      )}
+      {/* El recorrido pasa por el mostrador: con rol cocina no se ofrece ni se monta. */}
+      {negocio.esDemo && negocio.rol !== 'cocina' && tutorial && <Tutorial slug={negocio.slug} onSalir={salirTutorial} />}
     </NegocioContext>
   );
 }
@@ -97,12 +125,10 @@ const pestana =
  * Arriba de todo: a la izquierda el local, en el medio las pantallas de trabajo (las que se
  * usan durante el servicio) y a la derecha, separado, Administrar y la cuenta.
  */
-function Barra({ negocio, email }: { negocio: NegocioActual; email: string }) {
+function Barra({ negocio, email, onTutorial }: { negocio: NegocioActual; email: string; onTutorial: () => void }) {
   const { rol, esDemo } = negocio;
-  // En la demo guiada la barra queda limpia: el resto del local aparece al terminar.
-  const guiada = useMatch('/:negocio/simulador') !== null && esDemo;
   return (
-    <header className="sticky top-0 z-30 border-b border-linea bg-hoja/95 backdrop-blur-[2px]">
+    <header data-tutorial="barra" className="sticky top-0 z-30 border-b border-linea bg-hoja/95 backdrop-blur-[2px]">
       <div className="flex h-14 items-center gap-3 px-3 sm:gap-5 sm:px-5">
         <Link to={`/${negocio.slug}`} className="flex min-w-0 items-center gap-2.5 rounded-lg">
           <Logo className="size-[26px]" />
@@ -110,16 +136,13 @@ function Barra({ negocio, email }: { negocio: NegocioActual; email: string }) {
           {esDemo && <span className="chip chip-alerta hidden sm:inline-flex">Demo</span>}
         </Link>
 
-        {guiada ? (
-          <span className="hidden text-sm text-tinta-3 sm:inline">Probalo en tres pasos</span>
-        ) : (
-          <nav aria-label="Pantallas de trabajo" className="hidden h-full items-stretch sm:flex">
-            <PestanasTrabajo rol={rol} esDemo={esDemo} />
-          </nav>
-        )}
+        <nav aria-label="Pantallas de trabajo" className="hidden h-full items-stretch sm:flex">
+          <PestanasTrabajo rol={rol} />
+        </nav>
 
         <div className="ml-auto flex items-center gap-1">
-          {rol === 'dueno' && !guiada && (
+          {esDemo && rol !== 'cocina' && <BotonTutorial onClick={onTutorial} />}
+          {rol === 'dueno' && (
             <NavLink to="admin" className={({ isActive }) => `btn btn-chico ${isActive ? 'btn-tinta' : 'btn-fantasma'} max-sm:w-9 max-sm:px-0`}>
               <Icono nombre="ajustes" />
               <span className="max-sm:sr-only">Administrar</span>
@@ -130,30 +153,23 @@ function Barra({ negocio, email }: { negocio: NegocioActual; email: string }) {
         </div>
       </div>
       {/* En el celular las pantallas de trabajo van en una segunda fila. */}
-      {!guiada && (
-        <nav aria-label="Pantallas de trabajo" className="flex h-11 items-stretch overflow-x-auto sin-barra border-t border-linea px-1 sm:hidden">
-          <PestanasTrabajo rol={rol} esDemo={esDemo} />
-        </nav>
-      )}
+      <nav aria-label="Pantallas de trabajo" className="flex h-11 items-stretch overflow-x-auto sin-barra border-t border-linea px-1 sm:hidden">
+        <PestanasTrabajo rol={rol} />
+      </nav>
     </header>
   );
 }
 
-function PestanasTrabajo({ rol, esDemo }: { rol: NegocioActual['rol']; esDemo: boolean }) {
+function PestanasTrabajo({ rol }: { rol: NegocioActual['rol'] }) {
   return (
     <>
-      {esDemo && rol !== 'cocina' && (
-        <NavLink to="simulador" className={pestana}>
-          Demo
-        </NavLink>
-      )}
       {rol !== 'cocina' && (
         <NavLink to="mostrador" className={pestana}>
           Pedidos
         </NavLink>
       )}
       {rol !== 'cajero' && (
-        <NavLink to="cocina" className={pestana}>
+        <NavLink to="cocina" data-tutorial="cocina" className={pestana}>
           Cocina
         </NavLink>
       )}
@@ -195,9 +211,66 @@ function Cuenta({ email, rol }: { email: string; rol: string }) {
   );
 }
 
-/** /:negocio a secas: cada rol a su pantalla principal (en la demo, el simulador). */
+/** /:negocio a secas: cada rol a su pantalla principal (en la demo también, el local completo). */
 export function InicioNegocio() {
-  const { rol, esDemo } = useNegocioActual();
-  if (esDemo && rol !== 'cocina') return <Navigate to="simulador" replace />;
+  const { rol } = useNegocioActual();
   return <Navigate to={rol === 'cocina' ? 'cocina' : 'mostrador'} replace />;
+}
+
+const CLAVE_VISTO = 'anotado:tutorial-visto';
+
+/** Botón de la barra en la demo: late suave hasta que se usa por primera vez. */
+function BotonTutorial({ onClick }: { onClick: () => void }) {
+  const [nuevo, setNuevo] = useState(() => {
+    try {
+      return localStorage.getItem(CLAVE_VISTO) === null;
+    } catch {
+      return false;
+    }
+  });
+  return (
+    <button
+      type="button"
+      data-tutorial="boton-tutorial"
+      onClick={() => {
+        setNuevo(false);
+        try {
+          localStorage.setItem(CLAVE_VISTO, '1');
+        } catch {
+          // Sin almacenamiento: vuelve a latir la próxima vez, nada más.
+        }
+        onClick();
+      }}
+      className={`btn btn-birome btn-chico max-sm:w-9 max-sm:px-0 ${nuevo ? 'animate-pulse' : ''}`}
+    >
+      <Icono nombre="info" />
+      <span className="max-sm:sr-only">Tutorial</span>
+    </button>
+  );
+}
+
+/** Cartel chico al llegar con ?tutorial=1: ofrece el recorrido sin imponerlo. */
+function OfertaTutorial({ onEmpezar, onCerrar }: { onEmpezar: () => void; onCerrar: () => void }) {
+  return (
+    <div
+      role="dialog"
+      aria-labelledby="oferta-tutorial"
+      className="fixed inset-x-4 bottom-20 z-50 animate-entra rounded-2xl border border-linea bg-hoja p-4 shadow-alta sm:inset-x-auto sm:top-[4.5rem] sm:right-5 sm:bottom-auto sm:w-80"
+    >
+      <p id="oferta-tutorial" className="font-bold tracking-[-0.015em]">
+        ¿Te muestro cómo funciona?
+      </p>
+      <p className="mt-0.5 text-sm text-tinta-3">
+        <span className="num">40</span> segundos
+      </p>
+      <div className="mt-3 flex justify-end gap-2">
+        <button type="button" onClick={onCerrar} className="btn btn-fantasma btn-chico">
+          Ahora no
+        </button>
+        <button type="button" onClick={onEmpezar} className="btn btn-birome btn-chico" autoFocus>
+          Empezar
+        </button>
+      </div>
+    </div>
+  );
 }

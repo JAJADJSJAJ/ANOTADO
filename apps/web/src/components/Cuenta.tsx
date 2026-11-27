@@ -1,20 +1,34 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
+import { useSyncExternalStore, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
 import { Link } from 'react-router';
+import { Escena3D } from './Escena3D.tsx';
 import { Icono } from './Icono.tsx';
 import { Logo, Marca } from './Marca.tsx';
 
 // Piezas de las pantallas sin local: entrar, registrarse, la demo y aceptar una invitación.
 
+const ANCHO = '(min-width: 1024px)';
+const suscribirAncho = (avisar: () => void) => {
+  const mq = window.matchMedia(ANCHO);
+  mq.addEventListener('change', avisar);
+  return () => mq.removeEventListener('change', avisar);
+};
+/** Si la pantalla es ancha (lg): decide qué escena montar, para no tener dos WebGL a la vez. */
+function useAncho() {
+  return useSyncExternalStore(suscribirAncho, () => window.matchMedia(ANCHO).matches, () => true);
+}
+
 /**
- * Pantalla partida: a la izquierda (en pantallas anchas) qué es Anotado, con un mensaje de
- * WhatsApp que se convierte en comanda; a la derecha el formulario.
+ * Pantalla partida: a la izquierda (en pantallas anchas) qué es Anotado, con la escena 3D de un
+ * mensaje de WhatsApp que se convierte en comanda; a la derecha el formulario. Con `escenaMovil`,
+ * en pantallas angostas se muestra una versión chica de la escena arriba del formulario.
  */
-export function PantallaCuenta({ children }: { children: ReactNode }) {
+export function PantallaCuenta({ children, escenaMovil = false }: { children: ReactNode; escenaMovil?: boolean }) {
+  const ancho = useAncho();
   return (
     <div className="grid min-h-dvh lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-tinta p-10 text-white lg:flex xl:p-14">
-        <Marca claro className="text-lg" />
-        <div className="max-w-md">
+      <aside className="relative hidden flex-col overflow-hidden bg-tinta p-10 text-white lg:flex xl:p-14">
+        <Marca claro className="relative z-10 text-lg" />
+        <div className="relative z-10 mt-12 max-w-md">
           <h1 className="text-[2.75rem] leading-[1.02] font-bold tracking-[-0.035em] xl:text-5xl">
             Los pedidos de WhatsApp, anotados solos.
           </h1>
@@ -22,13 +36,25 @@ export function PantallaCuenta({ children }: { children: ReactNode }) {
             La IA lee el mensaje y arma el pedido. El mostrador lo revisa, lo confirma y la cocina lo ve al instante.
           </p>
         </div>
-        <Ilustracion />
+        <div className="relative -mx-10 -mb-10 min-h-[340px] flex-1 xl:-mx-14 xl:-mb-14">
+          {ancho && (
+            <Escena3D
+              className="absolute inset-0 flex items-end px-10 pb-10 xl:px-14 xl:pb-14"
+              respaldo={<Ilustracion />}
+            />
+          )}
+        </div>
       </aside>
 
       <main className="flex flex-col px-5 py-8 sm:px-8">
         <Link to="/login" className="self-start lg:hidden">
           <Marca />
         </Link>
+        {escenaMovil && !ancho && (
+          <div className="-mx-5 mt-4 h-56 overflow-hidden rounded-none bg-tinta sm:mx-0 sm:rounded-2xl">
+            <Escena3D compacta className="size-full" />
+          </div>
+        )}
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 py-10">{children}</div>
         <footer className="flex items-center justify-between gap-4 text-sm text-tinta-3">
           <span className="lg:hidden">Los pedidos de WhatsApp, anotados solos.</span>
@@ -41,7 +67,7 @@ export function PantallaCuenta({ children }: { children: ReactNode }) {
   );
 }
 
-/** Un mensaje de cliente que entra y, abajo, la comanda que sale impresa. */
+/** Respaldo sin WebGL: un mensaje de cliente que entra y, abajo, la comanda que sale impresa. */
 function Ilustracion() {
   return (
     <div aria-hidden className="relative max-w-sm select-none">

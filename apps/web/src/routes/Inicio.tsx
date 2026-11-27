@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router';
 import { BotonSalir } from '../components/BotonSalir.tsx';
-import { Cargando, MensajeError, Nota, PantallaMensaje } from '../components/Estado.tsx';
+import { EsqueletoLocales } from '../components/Esqueletos.tsx';
+import { useCargaMinima } from '../hooks/useCargaMinima.ts';
+import { MensajeError, Nota, PantallaMensaje } from '../components/Estado.tsx';
 import { Icono } from '../components/Icono.tsx';
 import { Marca } from '../components/Marca.tsx';
 import { useSesion } from '../hooks/useSesion.ts';
@@ -40,6 +42,8 @@ export function Inicio() {
     void cargarInicio(userId).then((r) => (typeof r === 'string' ? setError(r) : setDatos(r)));
   }, [userId]);
 
+  const listo = useCargaMinima(datos !== null);
+
   if (error) {
     return (
       <PantallaMensaje titulo="No se pudo cargar">
@@ -47,7 +51,7 @@ export function Inicio() {
       </PantallaMensaje>
     );
   }
-  if (!datos) return <Cargando />;
+  if (!datos || !listo) return <EsqueletoLocales />;
   const { membresias, suspendidos, operador } = datos;
 
   if (membresias.length === 1 && !operador && suspendidos.length === 0) {

@@ -1,11 +1,13 @@
-import { agregarItem, type Borrador, borradorVacio, formatearPrecio, type Origen } from '@anotado/shared';
+import { agregarItem, type Borrador, borradorVacio, formatearPrecio, type Origen, telefonoDemo } from '@anotado/shared';
 import { useMemo, useState } from 'react';
 import { Agotados } from '../components/Agotados.tsx';
 import { ListaAvisos } from '../components/Avisos.tsx';
 import { Catalogo } from '../components/Catalogo.tsx';
 import { Dialogo } from '../components/Dialogo.tsx';
 import { Entregas } from '../components/Entregas.tsx';
-import { Cargando, MensajeError, Nota } from '../components/Estado.tsx';
+import { MensajeError, Nota } from '../components/Estado.tsx';
+import { EsqueletoMostrador } from '../components/Esqueletos.tsx';
+import { useCargaMinima } from '../hooks/useCargaMinima.ts';
 import { EstadoLocal } from '../components/EstadoLocal.tsx';
 import { PanelPedido } from '../components/PanelPedido.tsx';
 import { PedidosWhatsApp } from '../components/PedidosWhatsApp.tsx';
@@ -16,7 +18,9 @@ import { useConversaciones } from '../hooks/useConversaciones.ts';
 import { useMenu } from '../hooks/useMenu.ts';
 import { useNegocio } from '../hooks/useNegocio.ts';
 import { usePedidosCocina } from '../hooks/usePedidosCocina.ts';
+import { useSesion } from '../hooks/useSesion.ts';
 import { useZonas } from '../hooks/useZonas.ts';
+import { TelefonoFlotante } from '../components/TelefonoFlotante.tsx';
 import { confirmarPedido, type DatosEntrega, ENTREGA_RETIRO, type PedidoConfirmado } from '../lib/pedidos.ts';
 import { efecto } from '../lib/sonido.ts';
 
@@ -44,7 +48,17 @@ export function Mostrador() {
   const listos = cocina.pedidos?.filter((p) => p.estado === 'listo').length ?? 0;
   // Conversaciones de WhatsApp en tiempo real: alimentan la pestaña WhatsApp y su contador.
   const whatsapp = useConversaciones(negocio.id);
-  const enCurso = whatsapp.conversaciones?.length ?? 0;
+  // La demo es compartida: cada visitante ve solo su conversación (y las que pegó a mano).
+  const userId = useSesion()?.user.id;
+  const telefono = negocio.esDemo && userId ? telefonoDemo(userId) : null;
+  const conversaciones = useMemo(
+    () =>
+      negocio.esDemo
+        ? (whatsapp.conversaciones?.filter((c) => !c.cliente || c.cliente.telefono === telefono) ?? null)
+        : whatsapp.conversaciones,
+    [negocio.esDemo, whatsapp.conversaciones, telefono],
+  );
+  const enCurso = conversaciones?.length ?? 0;
 
   // Carga manual.
   const [borrador, setBorrador] = useState<Borrador>(borradorVacio);
@@ -95,7 +109,8 @@ export function Mostrador() {
     setNotas('');
   }
 
-  if (menu.cargando) return <Cargando />;
+  const menuListo = useCargaMinima(!menu.cargando);
+  if (menu.cargando || !menuListo) return <EsqueletoMostrador />;
   if (menu.error) {
     return (
       <div className="p-5">
@@ -117,7 +132,7 @@ export function Mostrador() {
           className="min-w-0 flex-1 @3xl:flex-none"
           opciones={[
             { valor: 'whatsapp', texto: <>WhatsApp{enCurso > 0 && <Contador n={enCurso} />}</> },
-            { valor: 'manual', texto: 'Nuevo pedido' },
+            { valor: 'manual', texto: <span data-tutorial="nuevo-pedido">Nuevo pedido</span> },
             { valor: 'entregas', texto: <>Entregas{listos > 0 && <Contador n={listos} />}</> },
           ]}
         />
@@ -149,7 +164,7 @@ export function Mostrador() {
         )}
         <PedidosWhatsApp
           negocioId={negocio.id}
-          conversaciones={whatsapp.conversaciones}
+          conversaciones={conversaciones}
           error={whatsapp.error}
           onRecargar={() => void whatsapp.recargar()}
           productos={productos}
@@ -210,6 +225,7 @@ export function Mostrador() {
         </Dialogo>
       )}
       <ListaAvisos avisos={avisos} onCerrar={quitar} />
+      {negocio.esDemo && <TelefonoFlotante />}
     </main>
   );
 }

@@ -1,6 +1,6 @@
 import { formatearPrecio, parsearPrecio } from '@anotado/shared';
 import { type FormEvent, useState } from 'react';
-import { type Zona, useZonas } from '../hooks/useZonas.ts';
+import { type Zona, type useZonas } from '../hooks/useZonas.ts';
 import { usePreguntar } from '../lib/dialogos.ts';
 import { efecto } from '../lib/sonido.ts';
 import { supabase } from '../lib/supabase.ts';
@@ -12,8 +12,9 @@ import { Interruptor } from './Interruptor.tsx';
  * Zonas de envío del local (dueño). El costo se suma al total al confirmar un delivery; lo
  * pone la base, no la pantalla. Si hay zonas activas, todo delivery tiene que elegir una.
  */
-export function ZonasEnvio({ negocioId }: { negocioId: string }) {
-  const { zonas, error: errorCarga, recargar } = useZonas(negocioId);
+export function ZonasEnvio({ negocioId, datos }: { negocioId: string; datos: ReturnType<typeof useZonas> }) {
+  // La carga la hace la pantalla (así muestra el esqueleto mientras tanto).
+  const { zonas, error: errorCarga, recargar } = datos;
   const [error, setError] = useState<string | null>(null);
   const preguntar = usePreguntar();
 

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { BotonPrincipal, PantallaCuenta, TituloCuenta } from '../components/Cuenta.tsx';
-import { Cargando, MensajeError, Nota } from '../components/Estado.tsx';
+import { EsqueletoPagina } from '../components/Esqueletos.tsx';
+import { MensajeError, Nota } from '../components/Estado.tsx';
 import { efecto } from '../lib/sonido.ts';
 import { useSesion } from '../hooks/useSesion.ts';
 import { mensajeDeFuncion } from '../lib/funciones.ts';
@@ -37,7 +38,7 @@ export function Demo() {
     let vigente = true;
     void slugDeDemo(userId).then((slug) => {
       if (!vigente) return;
-      if (slug) navigate(`/${slug}/simulador`, { replace: true });
+      if (slug) navigate(`/${slug}/mostrador`, { replace: true });
       else setCuentaReal(true);
     });
     return () => {
@@ -64,24 +65,17 @@ export function Demo() {
     // Carga completa, no navigate: recién iniciada la sesión, Realtime todavía no tiene el
     // token nuevo y la cocina quedaba suscripta sin recibir avisos (los pedidos llegaban con
     // la recarga de cada 30 s). Medido en producción: con la página recién cargada, al instante.
-    window.location.replace(`/${data.slug}/simulador`);
+    // ?tutorial=1: el local abre ofreciendo el tutorial.
+    window.location.replace(`/${data.slug}/mostrador?tutorial=1`);
   }
 
-  if (sesion === undefined || (userId && !cuentaReal)) return <Cargando />;
+  if (sesion === undefined || (userId && !cuentaReal)) return <EsqueletoPagina />;
 
   return (
-    <PantallaCuenta>
+    <PantallaCuenta escenaMovil>
       <TituloCuenta titulo="Probá Anotado">
-        Sos el cliente y sos el local, todo en una pantalla. Sin registrarte.
+        Mandá un pedido como por WhatsApp y miralo llegar anotado al mostrador y a la cocina. Sin registrarte, en un minuto.
       </TituloCuenta>
-      <ol className="flex flex-col">
-        {PASOS.map(([paso, texto], i) => (
-          <li key={paso} className="flex animate-entra gap-4 border-b border-dashed border-linea-fuerte py-3 last:border-b-0" style={{ animationDelay: `${i * 80}ms` }}>
-            <span className="num pt-0.5 text-xs font-extrabold text-birome">{paso}</span>
-            <span className="text-[0.9375rem] leading-snug">{texto}</span>
-          </li>
-        ))}
-      </ol>
       {cuentaReal ? (
         <>
           <Nota tono="alerta">Estás con tu cuenta. Para probar la demo, salí primero.</Nota>
@@ -95,8 +89,17 @@ export function Demo() {
       ) : (
         <>
           {error && <MensajeError>{error}</MensajeError>}
-          <BotonPrincipal type="button" disabled={entrando} onClick={() => void entrar()} className="btn-birome">
-            {entrando ? 'Abriendo la demo…' : 'Abrir la demo'}
+          <BotonPrincipal type="button" disabled={entrando} onClick={() => void entrar()} className="btn-birome group">
+            {entrando ? (
+              'Abriendo la demo…'
+            ) : (
+              <>
+                Abrir la demo
+                <span aria-hidden className="inline-block transition-transform duration-200 ease-out group-hover:translate-x-1 group-active:translate-x-0.5">
+                  →
+                </span>
+              </>
+            )}
           </BotonPrincipal>
           <p className="-mt-2 text-center text-sm text-tinta-3">
             La demo es compartida y se borra cada noche: no escribas datos reales.
@@ -106,9 +109,3 @@ export function Demo() {
     </PantallaCuenta>
   );
 }
-
-const PASOS: [string, string][] = [
-  ['01', 'Le escribís al local como por WhatsApp, con faltas y todo.'],
-  ['02', 'La IA arma el pedido y el bot te contesta. En el mostrador lo revisás y lo confirmás.'],
-  ['03', 'La cocina lo ve llegar al instante, lo prepara y lo marca listo.'],
-];

@@ -2,7 +2,8 @@ import { MIN_PASSWORD, PasswordSchema, rutaInterna } from '@anotado/shared';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { BotonPrincipal, Campo, PantallaCuenta, TituloCuenta } from '../components/Cuenta.tsx';
-import { Cargando, MensajeError } from '../components/Estado.tsx';
+import { EsqueletoPagina } from '../components/Esqueletos.tsx';
+import { MensajeError } from '../components/Estado.tsx';
 import { useSesion } from '../hooks/useSesion.ts';
 import { supabase } from '../lib/supabase.ts';
 
@@ -35,7 +36,7 @@ export function Bienvenida() {
     });
   }, [userId]);
 
-  if (sesion === undefined) return <Cargando />;
+  if (sesion === undefined) return <EsqueletoPagina />;
 
   // Con el error del link se avisa aunque haya otra sesión abierta en este navegador.
   if (!sesion || errorLink) {

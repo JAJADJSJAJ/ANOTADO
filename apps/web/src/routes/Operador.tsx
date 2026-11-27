@@ -3,7 +3,9 @@ import { Link } from 'react-router';
 import { BotonSalir } from '../components/BotonSalir.tsx';
 import { BotonSonido } from '../components/BotonSonido.tsx';
 import { Compartir } from '../components/Compartir.tsx';
-import { Cargando, MensajeError, PantallaMensaje, Vacio } from '../components/Estado.tsx';
+import { EsqueletoListaLocales, EsqueletoOperador } from '../components/Esqueletos.tsx';
+import { useCargaMinima } from '../hooks/useCargaMinima.ts';
+import { MensajeError, PantallaMensaje, Vacio } from '../components/Estado.tsx';
 import { Icono } from '../components/Icono.tsx';
 import { Interruptor } from '../components/Interruptor.tsx';
 import { Logo, Marca } from '../components/Marca.tsx';
@@ -63,6 +65,8 @@ export function Operador() {
     });
   }, []);
 
+  const listo = useCargaMinima(estado !== null);
+
   if (error) {
     return (
       <PantallaMensaje titulo="No se pudo cargar">
@@ -70,7 +74,7 @@ export function Operador() {
       </PantallaMensaje>
     );
   }
-  if (!estado) return <Cargando />;
+  if (!estado || !listo) return <EsqueletoOperador />;
   if (!estado.operador) {
     return (
       <PantallaMensaje titulo="No tenés acceso">
@@ -386,6 +390,7 @@ function Locales({
   onError: (e: string | null) => void;
 }) {
   const preguntar = usePreguntar();
+  const listos = useCargaMinima(locales !== null);
 
   async function accion(llamada: PromiseLike<{ error: { message: string } | null }>) {
     onError(null);
@@ -432,14 +437,14 @@ function Locales({
         <h2 className="font-bold">Locales</h2>
         {locales && <span className="num text-sm text-tinta-3">{locales.length}</span>}
       </header>
-      {!locales ? (
-        <Cargando />
+      {!locales || !listos ? (
+        <EsqueletoListaLocales />
       ) : locales.length === 0 ? (
         <Vacio icono="tienda" titulo="Todavía no hay locales">
           Generá un código de alta y mandáselo al dueño.
         </Vacio>
       ) : (
-        <ul className="divide-y divide-linea">
+        <ul className="escalonado divide-y divide-linea">
           {locales.map((l) => (
             <li key={l.id} className={`flex flex-col gap-3 px-5 py-4 ${l.activo ? '' : 'bg-peligro-suave/40'}`}>
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">

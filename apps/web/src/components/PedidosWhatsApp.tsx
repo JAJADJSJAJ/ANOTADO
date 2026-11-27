@@ -5,7 +5,8 @@ import type { Zona } from '../hooks/useZonas.ts';
 import { useAhora } from '../hooks/useAhora.ts';
 import type { PedidoConfirmado } from '../lib/pedidos.ts';
 import { efecto } from '../lib/sonido.ts';
-import { Cargando, MensajeError, Vacio } from './Estado.tsx';
+import { MensajeError, Vacio } from './Estado.tsx';
+import { EsqueletoBandejaWhatsApp } from './Esqueletos.tsx';
 import { Icono } from './Icono.tsx';
 import { formatearTelefono, nombreCliente } from '../lib/whatsapp.ts';
 import { TarjetaWhatsApp } from './TarjetaWhatsApp.tsx';
@@ -61,7 +62,7 @@ export function PedidosWhatsApp({
   }, [conversaciones]);
 
   if (error && !conversaciones) return <MensajeError>{error}</MensajeError>;
-  if (!conversaciones) return <Cargando />;
+  if (!conversaciones) return <EsqueletoBandejaWhatsApp />;
 
   // Una tarjeta nueva, apenas su conversación aparece en la lista del servidor, se muestra
   // desde ahí (con sus mensajes y al día). Hasta entonces, la de esta pantalla.
@@ -93,10 +94,10 @@ export function PedidosWhatsApp({
 
   return (
     <section aria-label="Pedidos de WhatsApp" className="flex min-h-0 flex-1 flex-col gap-3 @3xl:flex-row @3xl:items-start">
-      <aside className="flex shrink-0 flex-col gap-2 @3xl:sticky @3xl:top-[4.5rem] @3xl:w-64">
-        <button type="button" onClick={pegar} className="btn w-full justify-start">
+      <aside data-tutorial="bandeja" className="flex min-w-0 shrink-0 flex-col gap-2 @3xl:sticky @3xl:top-[4.5rem] @3xl:w-72">
+        <button type="button" onClick={pegar} data-tutorial="pegar" className="btn w-full min-w-0 justify-start">
           <Icono nombre="mas" />
-          Pegar mensajes de un cliente
+          <span className="truncate">Pegar mensaje de un cliente</span>
         </button>
         {error && <MensajeError>{error}</MensajeError>}
         {claves.length > 0 && (

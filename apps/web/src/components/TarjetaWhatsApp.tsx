@@ -280,6 +280,8 @@ export function TarjetaWhatsApp({
       return setError(r.error);
     }
     onCerrada(r.pedido, nombreCliente(clienteWhatsApp) ?? etiqueta);
+    // Avisa al tutorial (si está abierto) que se confirmó un pedido.
+    window.dispatchEvent(new CustomEvent('anotado:tutorial', { detail: 'pedido-confirmado' }));
   }
 
   async function descartar() {
@@ -302,7 +304,7 @@ export function TarjetaWhatsApp({
   const hayPendientes = pendientes.dudosos.length + pendientes.preguntas.length + pendientes.errores.length > 0 || aviso || error;
 
   return (
-    <article className="tarjeta @container/t animate-entra overflow-hidden">
+    <article data-tutorial="tarjeta" className="tarjeta @container/t animate-entra overflow-hidden">
       <header className="flex items-center gap-3 border-b border-linea px-4 py-3">
         <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-wa text-sm font-bold text-white">
           {(titulo || 'C').charAt(0).toUpperCase()}

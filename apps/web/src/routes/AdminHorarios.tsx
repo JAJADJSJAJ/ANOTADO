@@ -1,9 +1,11 @@
 import { DIAS, type Horarios, HorariosSchema } from '@anotado/shared';
 import { useState } from 'react';
 import { EditorHorarios } from '../components/EditorHorarios.tsx';
+import { EsqueletoAdmin } from '../components/Esqueletos.tsx';
 import { EstadoLocal } from '../components/EstadoLocal.tsx';
 import { MensajeError } from '../components/Estado.tsx';
 import { PieGuardar } from '../components/PieGuardar.tsx';
+import { useCargaMinima } from '../hooks/useCargaMinima.ts';
 import { useNegocio } from '../hooks/useNegocio.ts';
 import { efecto } from '../lib/sonido.ts';
 import { supabase } from '../lib/supabase.ts';
@@ -17,6 +19,8 @@ export function AdminHorarios() {
   const [guardadoEn, setGuardadoEn] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cambios = !mismosHorarios(horarios, negocio.horarios);
+  // Los horarios ya vienen con el negocio: el esqueleto solo se ve un instante, como en el resto.
+  const listo = useCargaMinima(true);
 
   async function guardar() {
     setError(null);
@@ -33,6 +37,7 @@ export function AdminHorarios() {
     negocio.recargar();
   }
 
+  if (!listo) return <EsqueletoAdmin forma="horarios" filas={7} />;
   return (
     <>
       <Encabezado titulo="Horarios" acciones={<EstadoLocal horarios={negocio.horarios} zonaHoraria={negocio.zonaHoraria} />}>

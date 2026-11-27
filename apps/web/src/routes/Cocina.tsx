@@ -12,11 +12,13 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Agotados } from '../components/Agotados.tsx';
 import { ListaAvisos } from '../components/Avisos.tsx';
 import { Dialogo } from '../components/Dialogo.tsx';
-import { Cargando, Vacio } from '../components/Estado.tsx';
+import { EsqueletoCocina } from '../components/Esqueletos.tsx';
+import { Vacio } from '../components/Estado.tsx';
 import { Icono } from '../components/Icono.tsx';
 import { Logo } from '../components/Marca.tsx';
 import { TarjetaCocina } from '../components/TarjetaCocina.tsx';
 import { useAhora } from '../hooks/useAhora.ts';
+import { useCargaMinima } from '../hooks/useCargaMinima.ts';
 import { useAvisos } from '../hooks/useAvisos.ts';
 import { useMenu } from '../hooks/useMenu.ts';
 import { useNegocio } from '../hooks/useNegocio.ts';
@@ -79,7 +81,9 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
       if (conSonidoRef.current) sonarCancelado();
       else efecto('error');
     },
-  });
+  });  // Un poquito de carga "por gusto" para que se vea el riel de comandas vacías.
+  const pedidosListos = useCargaMinima(pedidos !== null);
+
   const wakeLock = useWakeLock(iniciada && !incrustada);
   const ahora = useAhora(desfase);
 
@@ -124,6 +128,11 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
       return avisar({ tipo: 'error', clave: p.id, texto: r.error });
     }
     actualizarLocal(p.id, { estado: r.estado });
+    // Avisarle al tutorial de la demo (avanza solo al marcar Listo).
+    if (r.cambiado && accion === 'avanzar') {
+      const detalle = p.estado === 'pendiente' ? 'cocina-empezado' : p.estado === 'en_cocina' ? 'cocina-listo' : null;
+      if (detalle) window.dispatchEvent(new CustomEvent('anotado:tutorial', { detail: detalle }));
+    }
     if (!r.cambiado) {
       avisar({ tipo: 'info', clave: p.id, texto: `El #${p.numero} ya estaba en "${ETIQUETA_ESTADO[r.estado]}".` });
     } else if (accion === 'avanzar') {
@@ -230,11 +239,11 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
         <div aria-hidden className="relative z-10 h-3 shrink-0 bg-papel">
           <span className="absolute inset-x-4 bottom-0 h-1 rounded-b-[3px] bg-tinta/80" />
         </div>
-        {pedidos === null ? (
-          error ? (
+        {pedidos === null || !pedidosListos ? (
+          error && pedidos === null ? (
             <p className="m-auto max-w-md p-6 text-center text-lg text-tinta-2">{error}</p>
           ) : (
-            <Cargando />
+            <EsqueletoCocina apilada={apilada} />
           )
         ) : enCurso.length === 0 ? (
           <Vacio icono="ticket" titulo="Sin pedidos por ahora">
@@ -243,7 +252,7 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
         ) : (
           <section
             aria-label="Pedidos en curso"
-            className={`flex min-h-0 flex-1 gap-4 px-4 pb-4 ${apilada ? 'flex-col overflow-y-auto' : 'items-start overflow-x-auto sm:px-5'}`}
+            className={`flex min-h-0 flex-1 animate-aparece gap-4 px-4 pb-4 ${apilada ? 'flex-col overflow-y-auto' : 'items-start overflow-x-auto sm:px-5'}`}
           >
             {enCurso.map((p) => {
               const minutos = minutosDesde(p.created_at, ahora);
@@ -272,7 +281,7 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
           apilada ? 'min-h-20 flex-col px-3.5 py-3' : 'min-h-24 items-center gap-4 px-4 py-3 sm:px-5'
         }`}
       >
-        <section aria-label="Listos para entregar" className="min-w-0 flex-1">
+        <section aria-label="Listos para entregar" data-tutorial="cocina-lista" className="min-w-0 flex-1">
           <p className="rotulo mb-2 text-ok">Listos para entregar</p>
           {listos.length === 0 ? (
             <p className="text-sm text-tinta-3">Nada por ahora.</p>

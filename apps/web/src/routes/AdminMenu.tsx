@@ -1,6 +1,8 @@
 import { formatearPrecio, parsearPrecio } from '@anotado/shared';
 import { type FormEvent, useState } from 'react';
-import { Cargando, MensajeError, Nota } from '../components/Estado.tsx';
+import { EsqueletoAdmin } from '../components/Esqueletos.tsx';
+import { useCargaMinima } from '../hooks/useCargaMinima.ts';
+import { MensajeError, Nota } from '../components/Estado.tsx';
 import { Icono } from '../components/Icono.tsx';
 import { Interruptor } from '../components/Interruptor.tsx';
 import { type Categoria, type Producto, useMenu } from '../hooks/useMenu.ts';
@@ -16,6 +18,7 @@ export function AdminMenu() {
   const menu = useMenu(negocio.id);
   const preguntar = usePreguntar();
   const [error, setError] = useState<string | null>(null);
+  const listo = useCargaMinima(!menu.cargando);
 
   /** Corre una escritura, muestra el error si falla y recarga el menú. */
   async function guardar(accion: PromiseLike<{ error: { message: string; code?: string } | null }>) {
@@ -32,7 +35,7 @@ export function AdminMenu() {
     return true;
   }
 
-  if (menu.cargando) return <Cargando />;
+  if (!listo) return <EsqueletoAdmin forma="menu" filas={6} />;
   if (menu.error) return <MensajeError>{menu.error}</MensajeError>;
 
   const grupos: { categoria: Categoria | null; productos: Producto[] }[] = [
