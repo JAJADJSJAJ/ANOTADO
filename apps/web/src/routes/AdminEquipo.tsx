@@ -1,6 +1,8 @@
 import type { Tables } from '@anotado/shared';
 import { useCallback, useEffect, useState } from 'react';
-import { Cargando, MensajeError } from '../components/Estado.tsx';
+import { EsqueletoAdmin } from '../components/Esqueletos.tsx';
+import { useCargaMinima } from '../hooks/useCargaMinima.ts';
+import { MensajeError } from '../components/Estado.tsx';
 import { Compartir } from '../components/Compartir.tsx';
 import { Icono } from '../components/Icono.tsx';
 import { useNegocio } from '../hooks/useNegocio.ts';
@@ -49,6 +51,7 @@ export function AdminEquipo() {
   const [pendientes, setPendientes] = useState<InvitacionPendiente[]>([]);
   const [link, setLink] = useState<LinkNuevo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const listo = useCargaMinima(miembros !== null || error !== null);
 
   const aplicar = useCallback((r: Equipo | string) => {
     if (typeof r === 'string') return setError(r);
@@ -108,7 +111,7 @@ export function AdminEquipo() {
     if (m.user_id === yo) negocio.recargar();
   }
 
-  if (!miembros && !error) return <Cargando />;
+  if ((!miembros && !error) || !listo) return <EsqueletoAdmin forma="equipo" filas={3} />;
 
   return (
     <>

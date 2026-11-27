@@ -2,7 +2,8 @@ import { CodigoAltaSchema, NombreLocalSchema } from '@anotado/shared';
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { BotonPrincipal, Campo, MailEnviado, PantallaCuenta, TituloCuenta } from '../components/Cuenta.tsx';
-import { Cargando, MensajeError, Nota } from '../components/Estado.tsx';
+import { EsqueletoPagina } from '../components/Esqueletos.tsx';
+import { MensajeError, Nota } from '../components/Estado.tsx';
 import { useSesion } from '../hooks/useSesion.ts';
 import { pedirCuenta } from '../lib/funciones.ts';
 import { supabase } from '../lib/supabase.ts';
@@ -42,7 +43,7 @@ export function Registro() {
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  if (sesion === undefined) return <Cargando />;
+  if (sesion === undefined) return <EsqueletoPagina />;
 
   async function enviar(e: FormEvent) {
     e.preventDefault();

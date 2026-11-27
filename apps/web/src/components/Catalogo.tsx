@@ -52,7 +52,7 @@ export function Catalogo({
           );
         })}
       </div>
-      <div key={elegida} className="grid animate-aparece grid-cols-2 gap-2 @xl:grid-cols-3 @4xl:grid-cols-4">
+      <div key={elegida} className="escalonado grid grid-cols-2 gap-2 @xl:grid-cols-3 @4xl:grid-cols-4">
         {visibles.map((p) => {
           const cuantos = enPedido?.get(p.id) ?? 0;
           return (
@@ -61,7 +61,7 @@ export function Catalogo({
               type="button"
               disabled={!p.activo}
               onClick={() => onElegir(p)}
-              className={`group relative flex min-h-[5.5rem] flex-col justify-between gap-2 rounded-xl border bg-hoja p-3 text-left shadow-papel transition-[border-color,transform,box-shadow] duration-150 ease-salida hover:border-tinta-3 active:scale-[0.97] active:shadow-none disabled:border-dashed disabled:bg-transparent disabled:shadow-none ${
+              className={`group relative flex min-h-[5.5rem] flex-col justify-between gap-2 rounded-xl border bg-hoja p-3 text-left shadow-papel transition-[border-color,transform,box-shadow] duration-150 ease-salida hover:-translate-y-0.5 hover:border-tinta-3 hover:shadow-alta enabled:active:translate-y-0 active:scale-[0.97] active:shadow-none disabled:border-dashed disabled:bg-transparent disabled:shadow-none ${
                 cuantos > 0 ? 'border-tinta' : 'border-linea'
               }`}
             >

@@ -2,7 +2,8 @@ import { type RolMiembro, TokenInvitacionSchema } from '@anotado/shared';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { BotonPrincipal, Campo, MailEnviado, PantallaCuenta, TituloCuenta } from '../components/Cuenta.tsx';
-import { Cargando, MensajeError } from '../components/Estado.tsx';
+import { EsqueletoPagina } from '../components/Esqueletos.tsx';
+import { MensajeError } from '../components/Estado.tsx';
 import { useSesion } from '../hooks/useSesion.ts';
 import { NOMBRE_ROL } from '../lib/contextos.ts';
 import { pedirCuenta } from '../lib/funciones.ts';
@@ -26,7 +27,7 @@ export function Invitacion() {
       </PantallaCuenta>
     );
   }
-  if (sesion === undefined) return <Cargando />;
+  if (sesion === undefined) return <EsqueletoPagina />;
   return (
     <PantallaCuenta>
       {sesion ? <Aceptar token={token} email={sesion.user.email ?? ''} /> : <CrearCuenta token={token} />}
@@ -119,7 +120,7 @@ function Aceptar({ token, email }: { token: string; email: string }) {
       </>
     );
   }
-  if (!datos) return <Cargando />;
+  if (!datos) return <EsqueletoPagina />;
   if (datos.ya_es_miembro) {
     return (
       <>

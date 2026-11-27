@@ -18,7 +18,9 @@ import { cancelarPedido, moverPedido } from '../lib/estados.ts';
 import { efecto } from '../lib/sonido.ts';
 import { supabase } from '../lib/supabase.ts';
 import { ListaAvisos } from './Avisos.tsx';
-import { Cargando, MensajeError, Vacio } from './Estado.tsx';
+import { EsqueletoPedidos } from './Esqueletos.tsx';
+import { useCargaMinima } from '../hooks/useCargaMinima.ts';
+import { MensajeError, Vacio } from './Estado.tsx';
 import { Icono } from './Icono.tsx';
 
 type DatosMostrador = { direccion: string | null; total: number };
@@ -34,6 +36,7 @@ export function Entregas({ cocina }: { cocina: ReturnType<typeof usePedidosCocin
   const { avisos, avisar, quitar } = useAvisos();
   const preguntar = usePreguntar();
   const [ocupado, setOcupado] = useState<string | null>(null);
+  const listo = useCargaMinima(pedidos !== null);
   const datos = useDatosMostrador(pedidos);
 
   async function entregar(p: PedidoCocina, accion: 'avanzar' | 'retroceder') {
@@ -80,13 +83,14 @@ export function Entregas({ cocina }: { cocina: ReturnType<typeof usePedidosCocin
     void recargar();
   }
 
-  if (!pedidos) return error ? <MensajeError>{error}</MensajeError> : <Cargando />;
+  if (!pedidos) return error ? <MensajeError>{error}</MensajeError> : <EsqueletoPedidos />;
+  if (!listo) return <EsqueletoPedidos />;
 
   const listos = pedidos.filter((p) => p.estado === 'listo');
   const enCocina = pedidos.filter((p) => p.estado === 'pendiente' || p.estado === 'en_cocina');
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex animate-entra flex-col gap-8">
       <section aria-label="Listos para entregar">
         <Titulo texto="Listos para entregar" cantidad={listos.length} />
         {listos.length === 0 ? (

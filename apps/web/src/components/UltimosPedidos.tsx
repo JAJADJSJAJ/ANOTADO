@@ -27,9 +27,9 @@ export function UltimosPedidos({ negocioId, version }: { negocioId: string; vers
   if (pedidos.length === 0) return null;
 
   return (
-    <section aria-label="Últimos pedidos">
+    <section aria-label="Últimos pedidos" className="animate-entra">
       <h2 className="mb-3 font-bold tracking-[-0.01em]">Últimos pedidos</h2>
-      <ul className="tarjeta divide-y divide-linea">
+      <ul className="tarjeta escalonado divide-y divide-linea">
         {pedidos.map((p) => (
           <li key={p.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
             <span className="num w-14 text-base font-bold">#{p.numero}</span>

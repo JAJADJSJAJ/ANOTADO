@@ -123,6 +123,8 @@ export function SimuladorWhatsApp() {
     }
     await cargar();
     setSaliendo(null);
+    // Avisa al tutorial (si está abierto) que el cliente mandó un mensaje.
+    window.dispatchEvent(new CustomEvent('anotado:tutorial', { detail: 'mensaje-enviado' }));
   }
 
   function enviar(e: FormEvent) {
@@ -188,6 +190,7 @@ export function SimuladorWhatsApp() {
       <form onSubmit={enviar} className="flex gap-2 bg-[#f3f1ed] p-2">
         <input
           aria-label="Mensaje"
+          data-tutorial="telefono-input"
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           maxLength={500}

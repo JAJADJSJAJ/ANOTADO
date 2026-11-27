@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase.ts';
 
 export type Zona = Tables<'zonas_envio'>;
 
-type Resultado = { zonas: Zona[]; error: string | null };
+type Resultado = { zonas: Zona[]; error: string | null; cargado?: boolean };
 
 async function cargarZonas(negocioId: string): Promise<Resultado> {
   const { data, error } = await supabase
@@ -13,7 +13,7 @@ async function cargarZonas(negocioId: string): Promise<Resultado> {
     .eq('negocio_id', negocioId)
     .order('orden')
     .order('nombre');
-  return { zonas: data ?? [], error: error?.message ?? null };
+  return { zonas: data ?? [], error: error?.message ?? null, cargado: true };
 }
 
 /** Zonas de envío del local (activas e inactivas). Cocina no las ve: le llega una lista vacía. */
@@ -26,5 +26,5 @@ export function useZonas(negocioId: string) {
 
   const recargar = useCallback(async () => setEstado(await cargarZonas(negocioId)), [negocioId]);
 
-  return { ...estado, recargar };
+  return { zonas: estado.zonas, error: estado.error, cargado: !!estado.cargado, recargar };
 }

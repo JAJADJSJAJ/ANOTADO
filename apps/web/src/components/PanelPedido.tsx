@@ -138,12 +138,14 @@ export function PanelPedido(p: Props) {
         {p.extra}
 
         <Grupo titulo="Entrega">
+          <div data-tutorial="entrega">
           <Segmentado
             etiqueta="Entrega"
             opciones={MODOS}
             valor={p.entrega.modo}
             onCambio={(modo) => p.onEntrega({ ...p.entrega, modo })}
           />
+          </div>
         </Grupo>
         {p.entrega.modo === 'delivery' && (
           <CampoTexto
@@ -220,6 +222,7 @@ export function PanelPedido(p: Props) {
           onClick={p.onConfirmar}
           disabled={vacio || p.enviando}
           data-sonido="no"
+          data-tutorial="confirmar"
           className="btn btn-birome btn-grande w-full"
         >
           {p.enviando ? 'Confirmando…' : 'Confirmar pedido'}
