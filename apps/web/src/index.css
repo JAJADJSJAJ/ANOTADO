@@ -3,8 +3,8 @@
 @import 'tailwindcss';
 
 /*
- * "Birome sobre comanda": papel, tinta negra y una sola tinta de color, el azul de la birome
- * con la que se anota un pedido. Números en monoespaciada, como una impresora de tickets.
+ * Papel y tinta: blancos, grises y negro. El rojo (peligro) queda solo para errores y avisos graves.
+ * Números en monoespaciada, como una impresora de tickets.
  * Sin degradés ni brillos: superficies planas, líneas finas y una sombra corta de papel.
  * Verde, amarillo y rojo quedan solo para lo que significan (tiempo y estado).
  */
@@ -21,9 +21,9 @@
   --color-linea: #e3e3e3;
   --color-linea-fuerte: #cdcdcd;
 
-  --color-birome: #e0362c;
-  --color-birome-hondo: #c22a21;
-  --color-birome-suave: #fcebe9;
+  --color-birome: #141414;
+  --color-birome-hondo: #000000;
+  --color-birome-suave: #ececec;
 
   --color-ok: #17804a;
   --color-ok-suave: #e3f3e9;

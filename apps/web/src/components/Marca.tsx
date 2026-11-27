@@ -10,7 +10,7 @@ export function Logo({ className = 'size-7', claro = false }: { className?: stri
       <path
         d="m11.5 21 2.8 2.6 6.2-6.6"
         fill="none"
-        stroke={claro ? '#e0362c' : '#ff7a70'}
+        stroke={claro ? '#141414' : '#fcfcfc'}
         strokeWidth="2.6"
         strokeLinecap="round"
         strokeLinejoin="round"

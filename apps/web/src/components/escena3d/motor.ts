@@ -11,7 +11,7 @@ const COLOR = {
   tinta3: '#8a8a8a',
   linea: '#cdcdcd',
   ticket: '#fcfcfc',
-  birome: '#e0362c',
+  birome: '#d4d4d4',
   ok: '#17804a',
   okSuave: '#e3f3e9',
   alertaTinta: '#7a5300',
@@ -305,7 +305,7 @@ function dibujarComanda(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = COLOR.tinta3;
   ctx.fillText('21:04', m, 600);
   ctx.textAlign = 'right';
-  ctx.fillStyle = COLOR.birome;
+  ctx.fillStyle = COLOR.tinta3;
   ctx.fillText('anotado por IA', W - m, 600);
   ctx.textAlign = 'left';
 }
@@ -316,7 +316,7 @@ function dibujarSello(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.fillStyle = COLOR.tinta;
   rectRedondo(ctx, 0, 0, w, h, h / 2);
   ctx.fill();
-  ctx.strokeStyle = '#ff9a92';
+  ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 7;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';

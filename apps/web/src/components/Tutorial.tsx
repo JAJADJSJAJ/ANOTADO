@@ -297,8 +297,8 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
     if (!h || !hayCaja || reducido || typeof h.animate !== 'function') return;
     const a = h.animate(
       [
-        { boxShadow: '0 0 0 9999px rgb(0 0 0 / 0.75), 0 0 0 2px #e0362c, 0 0 0 2px rgb(224 54 44 / 0.5)' },
-        { boxShadow: '0 0 0 9999px rgb(0 0 0 / 0.75), 0 0 0 2px #e0362c, 0 0 0 9px rgb(224 54 44 / 0)' },
+        { boxShadow: '0 0 0 9999px rgb(0 0 0 / 0.75), 0 0 0 2px #ffffff, 0 0 0 2px rgb(255 255 255 / 0.45)' },
+        { boxShadow: '0 0 0 9999px rgb(0 0 0 / 0.75), 0 0 0 2px #ffffff, 0 0 0 9px rgb(255 255 255 / 0)' },
       ],
       { duration: 1400, iterations: Infinity, easing: 'ease-out' },
     );
@@ -336,7 +336,7 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
           width: c.w,
           height: c.h,
           transition: transicion,
-          boxShadow: `0 0 0 9999px rgb(0 0 0 / 0.75)${caja ? ', 0 0 0 2px #e0362c' : ''}`,
+          boxShadow: `0 0 0 9999px rgb(0 0 0 / 0.75)${caja ? ', 0 0 0 2px #ffffff' : ''}`,
         }}
       />
 
