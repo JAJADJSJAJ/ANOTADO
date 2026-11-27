@@ -1,6 +1,6 @@
 import { leerHorarios } from '@anotado/shared';
 import { type CSSProperties, useCallback, useEffect, useState } from 'react';
-import { Link, Navigate, NavLink, Outlet, useLocation, useMatch, useParams, useSearchParams } from 'react-router';
+import { Link, Navigate, NavLink, Outlet, useLocation, useMatch, useParams } from 'react-router';
 import { BotonSalir } from '../components/BotonSalir.tsx';
 import { BotonSonido } from '../components/BotonSonido.tsx';
 import { EsqueletoPagina } from '../components/Esqueletos.tsx';
@@ -39,7 +39,6 @@ export function NegocioLayout() {
       return false;
     }
   });
-  const [params, setParams] = useSearchParams();
   const salirTutorial = useCallback(() => {
     setTutorial(false);
     try {
@@ -48,17 +47,6 @@ export function NegocioLayout() {
       // Sin almacenamiento: se vuelve a ofrecer la próxima vez, nada más.
     }
   }, []);
-  useEffect(() => {
-    if (params.get('tutorial') !== '1') return;
-    setParams(
-      (p) => {
-        p.delete('tutorial');
-        return p;
-      },
-      { replace: true },
-    );
-  }, [params, setParams]);
-
   useEffect(() => {
     if (!slug || !userId) return;
     void supabase

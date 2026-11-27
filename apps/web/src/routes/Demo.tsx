@@ -68,7 +68,6 @@ export function Demo() {
     // Carga completa, no navigate: recién iniciada la sesión, Realtime todavía no tiene el
     // token nuevo y la cocina quedaba suscripta sin recibir avisos (los pedidos llegaban con
     // la recarga de cada 30 s). Medido en producción: con la página recién cargada, al instante.
-    // ?tutorial=1: el local abre ofreciendo el tutorial.
     window.location.replace(`/${data.slug}/mostrador`);
   }
 
@@ -106,7 +105,7 @@ export function Demo() {
   return (
     <div className="min-h-dvh">
       <section className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-5 py-8 sm:px-8">
-        <Link to="/login" className="self-start">
+        <Link to="/demo" className="self-start">
           <Marca />
         </Link>
         <div className="grid flex-1 items-center gap-10 py-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
