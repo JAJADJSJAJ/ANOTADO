@@ -72,7 +72,7 @@ export function PanelPedido(p: Props) {
   const mas = masAbierto || p.notas.trim() !== '' || (p.origen !== undefined && p.origen !== 'mostrador');
 
   return (
-    <section aria-label={p.titulo ?? 'Pedido'} className="flex h-full min-h-0 flex-col">
+    <section data-tutorial="panel" aria-label={p.titulo ?? 'Pedido'} className="flex h-full min-h-0 flex-col">
       <header className="flex items-baseline gap-2 border-b border-linea px-4 py-3.5">
         <h2 className="truncate font-bold">{p.titulo ?? 'Pedido'}</h2>
         {!vacio && (
