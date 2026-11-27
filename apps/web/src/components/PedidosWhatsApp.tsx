@@ -11,6 +11,8 @@ import { EsqueletoBandejaWhatsApp } from './Esqueletos.tsx';
 import { Icono } from './Icono.tsx';
 import { formatearTelefono, nombreCliente } from '../lib/whatsapp.ts';
 import { TarjetaWhatsApp } from './TarjetaWhatsApp.tsx';
+import { ABRIR_TELEFONO } from './Tutorial.tsx';
+import { useNegocio } from '../hooks/useNegocio.ts';
 
 /** Tarjeta nueva de esta pantalla, todavía sin conversación en la lista del servidor. */
 type Nueva = { clave: string; conversacionId: string | null };
@@ -48,6 +50,7 @@ export function PedidosWhatsApp({
   zonas: Zona[];
   onConfirmado: (pedido: PedidoConfirmado, etiqueta: string) => void;
 }) {
+  const { esDemo } = useNegocio();
   const [nuevas, setNuevas] = useState<Nueva[]>([]);
   // Tarjetas cerradas desde esta pantalla: se ocultan ya, sin esperar la recarga.
   const [cerradas, setCerradas] = useState<ReadonlySet<string>>(new Set());
@@ -96,7 +99,7 @@ export function PedidosWhatsApp({
   return (
     <section aria-label="Pedidos de WhatsApp" className="flex min-h-0 flex-1 flex-col gap-3 @3xl:flex-row @3xl:items-start">
       <aside data-tutorial="bandeja" className="flex min-w-0 shrink-0 flex-col gap-2 @3xl:sticky @3xl:top-[4.5rem] @3xl:w-72">
-        <button type="button" onClick={pegar} data-tutorial="pegar" className="btn w-full min-w-0 justify-start">
+        <button type="button" onClick={pegar} data-tutorial="pegar" className={`btn w-full min-w-0 justify-start ${esDemo ? 'btn-fantasma' : ''}`}>
           <Icono nombre="mas" />
           <span className="truncate">Pegar mensaje de un cliente</span>
         </button>
@@ -118,6 +121,16 @@ export function PedidosWhatsApp({
           <div className="tarjeta flex min-h-80">
             <Vacio icono="mensaje" titulo="No hay pedidos de WhatsApp en curso">
               Cuando un cliente escriba, aparece acá solo, con el pedido ya armado por la IA.
+              {esDemo && (
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent(ABRIR_TELEFONO))}
+                  className="btn btn-birome mt-4 flex w-full"
+                >
+                  <Icono nombre="mensaje" />
+                  Escribir como cliente
+                </button>
+              )}
             </Vacio>
           </div>
         )}

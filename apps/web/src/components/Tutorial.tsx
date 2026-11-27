@@ -25,11 +25,12 @@ type Paso = {
   pestana?: 'whatsapp' | 'manual' | 'entregas';
 };
 
-/** El primer botón visible cuyo texto arranca con alguna de estas palabras. */
-const botonConTexto = (...textos: string[]) => () =>
-  [...document.querySelectorAll('button')].find(
-    (b) => visible(b) && textos.some((t) => b.textContent?.trim().startsWith(t)),
-  ) ?? null;
+/**
+ * El último botón visible con ese texto: en la cocina las comandas van de la más vieja a la más
+ * nueva, y la demo es compartida, así que la del visitante es la del final.
+ */
+const ultimoBotonConTexto = (texto: string) => () =>
+  [...document.querySelectorAll('button')].filter((b) => visible(b) && b.textContent?.trim().startsWith(texto)).at(-1) ?? null;
 
 const PASOS: Paso[] = [
   {
@@ -86,22 +87,29 @@ const PASOS: Paso[] = [
   {
     titulo: 'Llegó la comanda',
     texto: 'Tu pedido aparece como un ticket, del más viejo (izquierda) al más nuevo. Tocá Empezar cuando el cocinero lo agarra.',
-    objetivo: botonConTexto('Empezar'),
+    objetivo: ultimoBotonConTexto('Empezar'),
     evento: 'cocina-empezado',
     pantalla: 'cocina',
   },
   {
     titulo: 'En preparación',
     texto: 'Ahora todos saben que se está cocinando. Cuando esté hecho, tocá Listo: al cliente le llega el aviso por WhatsApp.',
-    objetivo: botonConTexto('Listo'),
+    objetivo: ultimoBotonConTexto('Listo'),
     evento: 'cocina-listo',
     pantalla: 'cocina',
   },
   {
     titulo: 'Listo para entregar',
-    texto: 'La cocina lo terminó y al cliente le llegó el aviso. Ahora falta dárselo.',
+    texto: 'La comanda pasó a la fila de listos. Volvamos al mostrador a ver qué recibió el cliente.',
     objetivo: 'cocina-lista',
     pantalla: 'cocina',
+  },
+  {
+    titulo: 'Al cliente le llegó el aviso',
+    texto: 'Mirá el teléfono: el bot le avisó solo que su pedido está listo. Nadie tuvo que escribirle.',
+    objetivo: 'telefono-panel',
+    pantalla: 'mostrador',
+    pestana: 'whatsapp',
   },
   {
     titulo: 'Entregalo',
@@ -113,17 +121,8 @@ const PASOS: Paso[] = [
     pestana: 'entregas',
   },
   {
-    titulo: 'También a mano',
-    texto: 'Si te piden por teléfono o en el mostrador, lo cargás en Nuevo pedido en segundos.',
-    objetivo: 'nuevo-pedido',
-    pantalla: 'mostrador',
-  },
-  {
-    titulo: 'Y sin WhatsApp conectado',
-    texto: 'Pegá los mensajes que te mandó un cliente y la IA arma el pedido igual. Eso es Anotado.',
-    objetivo: 'pegar',
-    pantalla: 'mostrador',
-    pestana: 'whatsapp',
+    titulo: 'Eso es Anotado',
+    texto: 'Hiciste el recorrido completo: el cliente pidió con sus palabras, la IA lo anotó, la cocina lo preparó y se entregó, sin copiar nada a mano. Los pedidos por teléfono o del mostrador se cargan en Nuevo pedido. Ahora probá lo que quieras.',
   },
 ];
 
