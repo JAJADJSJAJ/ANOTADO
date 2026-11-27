@@ -77,7 +77,7 @@ export function ZonasEnvio({ negocioId, datos }: { negocioId: string; datos: Ret
 
 function FilaZona({ zona, onActiva, onBorrar }: { zona: Zona; onActiva: (a: boolean) => void; onBorrar: () => void }) {
   return (
-    <li className="flex animate-entra items-center gap-4 px-5 py-3.5">
+    <li className="flex entra-3d items-center gap-4 px-5 py-3.5">
       <Interruptor prendido={zona.activa} onCambio={onActiva} etiqueta={`Zona ${zona.nombre} activa`} />
       <span className={`min-w-0 flex-1 truncate font-semibold ${zona.activa ? '' : 'text-tinta-3'}`}>
         {zona.nombre}

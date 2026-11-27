@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { Icono } from './Icono.tsx';
 
 export type Aviso = {
@@ -35,7 +36,7 @@ export function ListaAvisos({
 }) {
   if (avisos.length === 0) return null;
   const visibles = enLinea ? avisos.slice(-1) : avisos;
-  return (
+  const lista = (
     <div
       aria-live="polite"
       className={
@@ -78,4 +79,6 @@ export function ListaAvisos({
       ))}
     </div>
   );
+  // Flotantes: al body, así la transición 3D de la pantalla (transform) no rompe el fixed.
+  return enLinea ? lista : createPortal(lista, document.body);
 }

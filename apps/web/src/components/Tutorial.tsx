@@ -3,10 +3,12 @@ import { useLocation, useNavigate } from 'react-router';
 import { Icono } from './Icono.tsx';
 
 /** Lo que avisan los componentes de la demo con window CustomEvent('anotado:tutorial'). */
-export type EventoTutorial = 'telefono-abierto' | 'mensaje-enviado' | 'pedido-confirmado' | 'cocina-empezado' | 'cocina-listo';
+export type EventoTutorial = 'telefono-abierto' | 'mensaje-enviado' | 'pedido-armado' | 'pedido-confirmado' | 'cocina-empezado' | 'cocina-listo';
 
 /** Evento que escucha TelefonoFlotante para abrirse solo (si se saltó el paso de abrirlo). */
 export const ABRIR_TELEFONO = 'anotado:abrir-telefono';
+/** Evento que minimiza el teléfono cuando el paso ya no es suyo (así no tapa el mostrador). */
+export const CERRAR_TELEFONO = 'anotado:cerrar-telefono';
 
 type Paso = {
   titulo: string;
@@ -30,12 +32,12 @@ const botonConTexto = (...textos: string[]) => () =>
 const PASOS: Paso[] = [
   {
     titulo: 'Este es tu local',
-    texto: 'Arriba tenés las pantallas: Pedidos (el mostrador) y Cocina. Te muestro cómo viaja un pedido de punta a punta.',
+    texto: 'Arriba están Pedidos (el mostrador) y Cocina. Vamos a seguir un pedido de punta a punta.',
     objetivo: 'barra',
   },
   {
     titulo: 'Sos el cliente',
-    texto: 'Abrí el teléfono: vas a escribirle al local como si fuera WhatsApp.',
+    texto: 'Abrí el teléfono: le vas a escribir al local como por WhatsApp.',
     objetivo: 'telefono',
     alClic: true,
     evento: 'telefono-abierto',
@@ -43,42 +45,50 @@ const PASOS: Paso[] = [
   },
   {
     titulo: 'Pedí como pide la gente',
-    texto: 'Escribí tu pedido con tus palabras, con faltas y todo ("dos muzza y una coca"), y mandalo.',
-    objetivo: 'telefono-input',
+    texto: 'Escribí tu pedido con tus palabras ("dos muzza y una coca") o tocá un ejemplo, y mandalo.',
+    objetivo: 'telefono-panel',
     evento: 'mensaje-enviado',
     pantalla: 'mostrador',
   },
   {
-    titulo: 'La IA lo anotó',
-    texto: 'El mensaje llegó al mostrador y la IA ya armó el pedido: productos, cantidades y precio. Si no aparece, dale unos segundos.',
+    titulo: 'La IA lo está anotando',
+    texto: 'En unos segundos el bot te contesta y el pedido queda armado. Si te pregunta algo, contestale desde el teléfono.',
+    objetivo: 'telefono-panel',
+    evento: 'pedido-armado',
+    pantalla: 'mostrador',
+  },
+  {
+    titulo: 'Llegó al mostrador',
+    texto: 'Acá está tu pedido: productos, cantidades y precio, armados por la IA. Si algo está mal, lo corregís acá mismo.',
     objetivo: 'tarjeta',
     pantalla: 'mostrador',
   },
   {
-    titulo: '¿Cómo se entrega?',
-    texto: 'Elegí si lo retira, va con delivery o es para una mesa.',
-    objetivo: 'entrega',
-    pantalla: 'mostrador',
-  },
-  {
-    titulo: 'Confirmalo',
-    texto: 'Un toque y el pedido sale impreso para la cocina.',
-    objetivo: 'confirmar',
+    titulo: 'Elegí la entrega y confirmá',
+    texto: 'Marcá si lo retira, va con delivery o es para una mesa, y tocá Confirmar pedido.',
+    objetivo: 'panel',
     evento: 'pedido-confirmado',
     pantalla: 'mostrador',
   },
   {
     titulo: 'Vamos a la cocina',
-    texto: 'Tocá Cocina para ver cómo le llega.',
+    texto: 'Tocá Cocina para ver cómo le llega el pedido.',
     objetivo: 'cocina',
     alClic: true,
   },
   {
     titulo: 'Cociná',
     texto: 'Tocá Empezar y después Listo: al cliente le llega el aviso por WhatsApp.',
-    // Después de Listo ya no queda botón: se ilumina la fila de listos para entregar.
-    objetivo: () => botonConTexto('Empezar', 'Listo')() ?? buscar('cocina-lista'),
+    // Primero la bienvenida de la cocina (tapa las comandas); después Empezar/Listo de la comanda;
+    // y cuando ya no queda botón, la fila de listos para entregar.
+    objetivo: () => buscar('cocina-activar') ?? botonConTexto('Empezar', 'Listo')() ?? buscar('cocina-lista'),
     evento: 'cocina-listo',
+    pantalla: 'cocina',
+  },
+  {
+    titulo: 'Listo para entregar',
+    texto: 'El pedido pasó a Listos para entregar y al cliente le llegó el aviso por WhatsApp. Ese es todo el viaje.',
+    objetivo: 'cocina-lista',
     pantalla: 'cocina',
   },
   {
@@ -94,6 +104,10 @@ const PASOS: Paso[] = [
     pantalla: 'mostrador',
   },
 ];
+
+/** Cuánto se muestra el "¡Bien!" antes de pasar solo al paso siguiente. */
+const PAUSA_HECHO = 900;
+const esDelTelefono = (p: Paso) => typeof p.objetivo === 'string' && p.objetivo.startsWith('telefono');
 
 const MARGEN = 8;
 
@@ -135,15 +149,15 @@ const menosMovimiento = () => typeof matchMedia === 'function' && matchMedia('(p
  */
 export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void }) {
   const [i, setI] = useState(0);
+  // La acción del paso ya se hizo: se muestra el "¡Bien!" un momento antes de seguir.
+  const [hecho, setHecho] = useState(false);
   const paso = PASOS[i]!;
   const [caja, setCaja] = useState<Caja | null>(null);
   const globo = useRef<HTMLDivElement>(null);
-  const hueco = useRef<HTMLDivElement>(null);
   const [tamGlobo, setTamGlobo] = useState({ w: 320, h: 180 });
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const reducido = menosMovimiento();
-  const hayCaja = caja !== null;
   // Eventos de la demo que ya pasaron (aunque haya sido antes de llegar al paso que los espera).
   const vistos = useRef(new Set<string>());
   // Si al paso se llegó yendo para adelante: volviendo con Anterior no se salta solo.
@@ -161,6 +175,7 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
   const ir = useCallback(
     (n: number) => {
       if (n >= PASOS.length) return onSalir();
+      setHecho(false);
       setI((actual) => {
         adelante.current = n > actual;
         return Math.max(0, n);
@@ -171,11 +186,24 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
 
   // Al entrar a un paso que vive en otra pantalla, ir para allá.
   useEffect(() => {
-    const p = PASOS[i]!.pantalla;
+    const actual = PASOS[i]!;
+    const p = actual.pantalla;
     if (p && !pathname.endsWith(`/${p}`)) navigate(`/${slug}/${p}`);
+    // El teléfono se abre solo en sus pasos (si se saltó el de abrirlo) y se minimiza en los demás.
+    if (esDelTelefono(actual) && actual.objetivo !== 'telefono') window.dispatchEvent(new CustomEvent(ABRIR_TELEFONO));
+    else if (!esDelTelefono(actual)) window.dispatchEvent(new CustomEvent(CERRAR_TELEFONO));
     // Solo al cambiar de paso, no en cada navegación.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i]);
+
+  // El paso actual queda en el documento: el CSS esconde el botón flotante del teléfono fuera de sus pasos.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    raiz.dataset.tutorialPaso = typeof paso.objetivo === 'string' ? paso.objetivo : 'otro';
+    return () => {
+      delete raiz.dataset.tutorialPaso;
+    };
+  }, [paso]);
 
   // Medir el objetivo: sondeo liviano (el DOM cambia solo: llegan mensajes, se abren paneles),
   // más ResizeObserver, scroll y resize para que el recorte siga al elemento sin saltos.
@@ -202,7 +230,13 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
     const intervalo = window.setInterval(medir, 250);
     window.addEventListener('resize', medir);
     window.addEventListener('scroll', medir, true);
+    // Al cambiar de pantalla, el wrapper .pantalla-3d entra girado: se vuelve a medir cuando termina.
+    const alTerminar = (e: AnimationEvent) => {
+      if (e.target instanceof Element && e.target.classList.contains('pantalla-3d')) medir();
+    };
+    document.addEventListener('animationend', alTerminar);
     return () => {
+      document.removeEventListener('animationend', alTerminar);
       window.clearInterval(intervalo);
       window.removeEventListener('resize', medir);
       window.removeEventListener('scroll', medir, true);
@@ -212,7 +246,10 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
 
   // Pasos que esperan una acción: por evento de la demo o por clic en el objetivo.
   useEffect(() => {
-    const siguiente = () => window.setTimeout(() => ir(i + 1), 350);
+    const siguiente = () => {
+      setHecho(true);
+      return window.setTimeout(() => ir(i + 1), PAUSA_HECHO);
+    };
     let espera: number | undefined;
     const alEvento = (e: Event) => {
       if (paso.evento && (e as CustomEvent<string>).detail === paso.evento && espera === undefined) espera = siguiente();
@@ -228,10 +265,9 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
     if (adelante.current && paso.evento) {
       const yaAbierto =
         paso.evento === 'telefono-abierto' && document.querySelector('[data-tutorial="telefono"][data-abierto="true"]') !== null;
-      if (yaAbierto || vistos.current.has(paso.evento)) espera = siguiente();
+      const yaArmado = paso.evento === 'pedido-armado' && document.documentElement.dataset.pedidoArmado === 'true';
+      if (yaAbierto || yaArmado || vistos.current.has(paso.evento)) espera = siguiente();
     }
-    // Para escribir hace falta el teléfono abierto: si se saltó el paso anterior, se abre solo.
-    if (paso.objetivo === 'telefono-input') window.dispatchEvent(new CustomEvent(ABRIR_TELEFONO));
     return () => {
       window.removeEventListener('anotado:tutorial', alEvento);
       document.removeEventListener('click', alClic, true);
@@ -261,7 +297,7 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
     const g = globo.current;
     if (!g) return;
     setTamGlobo((t) => (t.w === g.offsetWidth && t.h === g.offsetHeight ? t : { w: g.offsetWidth, h: g.offsetHeight }));
-    if (PASOS[i]!.objetivo !== 'telefono-input') {
+    if (PASOS[i]!.objetivo !== 'telefono-panel') {
       g.focus({ preventScroll: true });
       return;
     }
@@ -285,20 +321,6 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
     return () => obs.disconnect();
   }, []);
 
-  // El borde birome del recorte late suave (estático con menos movimiento).
-  useEffect(() => {
-    const h = hueco.current;
-    if (!h || !hayCaja || reducido || typeof h.animate !== 'function') return;
-    const a = h.animate(
-      [
-        { boxShadow: '0 0 0 9999px rgb(0 0 0 / 0.75), 0 0 0 2px #1f3fe0, 0 0 0 2px rgb(31 63 224 / 0.5)' },
-        { boxShadow: '0 0 0 9999px rgb(0 0 0 / 0.75), 0 0 0 2px #1f3fe0, 0 0 0 9px rgb(31 63 224 / 0)' },
-      ],
-      { duration: 1400, iterations: Infinity, easing: 'ease-out' },
-    );
-    return () => a.cancel();
-  }, [reducido, hayCaja]);
-
   const vw = typeof window === 'undefined' ? 1024 : window.innerWidth;
   const vh = typeof window === 'undefined' ? 768 : window.innerHeight;
   // Sin objetivo visible: el recorte se cierra en el centro y el globo queda centrado.
@@ -321,7 +343,6 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
         <div key={n} className="absolute" style={{ ...b, pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()} />
       ))}
       <div
-        ref={hueco}
         aria-hidden
         className="absolute rounded-xl"
         style={{
@@ -330,7 +351,8 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
           width: c.w,
           height: c.h,
           transition: transicion,
-          boxShadow: `0 0 0 9999px rgb(0 0 0 / 0.75)${caja ? ', 0 0 0 2px #1f3fe0' : ''}`,
+          // Fondo oscuro parejo y un borde fino; sin halos ni brillos.
+          boxShadow: `0 0 0 9999px rgb(0 0 0 / 0.62)${caja ? ', 0 0 0 1.5px rgb(255 255 255 / 0.9)' : ''}`,
         }}
       />
 
@@ -341,7 +363,7 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
         aria-labelledby="tutorial-titulo"
         aria-describedby="tutorial-texto"
         tabIndex={-1}
-        className="absolute w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-linea bg-hoja p-4 text-tinta shadow-alta outline-none"
+        className="absolute w-[min(20rem,calc(100vw-2rem))] rounded-2xl bg-hoja p-4 text-tinta shadow-[0_12px_32px_-12px_rgb(0_0_0/0.45)] outline-none"
         style={{
           left: pos.x,
           top: pos.y,
@@ -357,21 +379,35 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
           />
         )}
         <div key={i} className="animate-entra">
-          <p className="rotulo text-birome">
-            Paso <span className="num">{i + 1}</span> de <span className="num">{PASOS.length}</span>
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="rotulo shrink-0 text-tinta-3">
+              <span className="num">{i + 1}</span>/<span className="num">{PASOS.length}</span>
+            </p>
+            <span aria-hidden className="h-1 flex-1 overflow-hidden rounded-full bg-linea">
+              <span
+                className="block h-full rounded-full bg-tinta transition-[width] duration-500 ease-salida"
+                style={{ width: `${((i + (hecho ? 1 : 0)) / PASOS.length) * 100}%` }}
+              />
+            </span>
+          </div>
           <h2 id="tutorial-titulo" className="mt-1 text-lg leading-tight font-bold tracking-[-0.015em]">
             {paso.titulo}
           </h2>
           <p id="tutorial-texto" className="mt-1.5 text-[0.9375rem] leading-snug text-tinta-2">
             {paso.texto}
           </p>
-          {esperando && (
-            <p className="mt-2 flex items-center gap-2 text-sm text-tinta-3">
-              <span aria-hidden className="size-1.5 shrink-0 animate-latido rounded-full bg-birome" />
-              Avanza solo cuando lo hagas.
-            </p>
-          )}
+          {esperando &&
+            (hecho ? (
+              <p role="status" className="mt-2 flex animate-entra items-center gap-2 text-sm font-semibold text-ok">
+                <Icono nombre="check" className="size-4" />
+                ¡Bien! Seguimos.
+              </p>
+            ) : (
+              <p className="mt-2 flex items-center gap-2 text-sm text-tinta-3">
+                <span aria-hidden className="size-1.5 shrink-0 animate-latido rounded-full bg-tinta-3" />
+                {paso.evento === 'pedido-armado' ? 'Esperando a la IA…' : 'Avanza solo cuando lo hagas.'}
+              </p>
+            ))}
         </div>
         <div className="mt-4 flex items-center gap-2">
           <button type="button" onClick={onSalir} className="btn btn-fantasma btn-chico">
@@ -384,7 +420,7 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
                 <span className="max-sm:sr-only">Anterior</span>
               </button>
             )}
-            <button type="button" onClick={() => ir(i + 1)} className={`btn btn-chico ${esperando ? '' : 'btn-birome'}`}>
+            <button type="button" onClick={() => ir(i + 1)} className={`btn btn-chico ${esperando ? '' : 'btn-tinta'}`}>
               {i === PASOS.length - 1 ? 'Terminar' : esperando ? 'Saltar' : 'Siguiente'}
               {i < PASOS.length - 1 && <Icono nombre="flecha" />}
             </button>
@@ -395,17 +431,33 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
   );
 }
 
-/** Dónde va el globo: abajo del objetivo si entra, si no arriba; sin objetivo, al centro. */
+/**
+ * Dónde va el globo: abajo, arriba, a la derecha o a la izquierda del objetivo, lo primero que
+ * entre sin taparlo; si no entra en ningún lado, en la esquina que menos lo pisa. Sin objetivo, al centro.
+ */
 function ubicarGlobo(caja: Caja | null, g: { w: number; h: number }, vw: number, vh: number) {
   const borde = 16;
-  const limitarX = (x: number) => Math.min(Math.max(borde, x), Math.max(borde, vw - g.w - borde));
-  if (!caja) return { x: limitarX((vw - g.w) / 2), y: Math.max(borde, (vh - g.h) / 2), flecha: null };
-  const centro = caja.x + caja.w / 2;
-  const x = limitarX(centro - g.w / 2);
-  const flechaX = Math.min(Math.max(18, centro - x), g.w - 18);
   const sep = 14;
+  const limX = (x: number) => Math.min(Math.max(borde, x), Math.max(borde, vw - g.w - borde));
+  const limY = (y: number) => Math.min(Math.max(borde, y), Math.max(borde, vh - g.h - borde));
+  if (!caja) return { x: limX((vw - g.w) / 2), y: limY((vh - g.h) / 2), flecha: null };
+  const centro = caja.x + caja.w / 2;
+  const x = limX(centro - g.w / 2);
+  const flechaX = Math.min(Math.max(18, centro - x), g.w - 18);
   if (caja.y + caja.h + sep + g.h <= vh - borde) return { x, y: caja.y + caja.h + sep, flecha: { arriba: true, x: flechaX } };
   if (caja.y - sep - g.h >= borde) return { x, y: caja.y - sep - g.h, flecha: { arriba: false, x: flechaX } };
-  // Objetivo enorme (la tarjeta entera): el globo se apoya abajo, adentro de la pantalla.
-  return { x, y: Math.max(borde, vh - g.h - borde), flecha: null };
+  const yMedio = limY(caja.y + caja.h / 2 - g.h / 2);
+  if (caja.x + caja.w + sep + g.w <= vw - borde) return { x: caja.x + caja.w + sep, y: yMedio, flecha: null };
+  if (caja.x - sep - g.w >= borde) return { x: caja.x - sep - g.w, y: yMedio, flecha: null };
+  const esquinas = [
+    { x: borde, y: borde },
+    { x: vw - g.w - borde, y: borde },
+    { x: borde, y: vh - g.h - borde },
+    { x: vw - g.w - borde, y: vh - g.h - borde },
+  ];
+  const pisa = (e: { x: number; y: number }) =>
+    Math.max(0, Math.min(e.x + g.w, caja.x + caja.w) - Math.max(e.x, caja.x)) *
+    Math.max(0, Math.min(e.y + g.h, caja.y + caja.h) - Math.max(e.y, caja.y));
+  const mejor = esquinas.reduce((a, b) => (pisa(b) < pisa(a) ? b : a));
+  return { x: mejor.x, y: mejor.y, flecha: null };
 }

@@ -1,6 +1,6 @@
 import { leerHorarios } from '@anotado/shared';
-import { useCallback, useEffect, useState } from 'react';
-import { Link, Navigate, NavLink, Outlet, useMatch, useParams, useSearchParams } from 'react-router';
+import { type CSSProperties, useCallback, useEffect, useState } from 'react';
+import { Link, Navigate, NavLink, Outlet, useLocation, useMatch, useParams, useSearchParams } from 'react-router';
 import { BotonSalir } from '../components/BotonSalir.tsx';
 import { BotonSonido } from '../components/BotonSonido.tsx';
 import { EsqueletoPagina } from '../components/Esqueletos.tsx';
@@ -8,6 +8,7 @@ import { MensajeError, PantallaMensaje } from '../components/Estado.tsx';
 import { Icono } from '../components/Icono.tsx';
 import { Logo } from '../components/Marca.tsx';
 import { Tutorial } from '../components/Tutorial.tsx';
+import { useIndicador } from '../hooks/useIndicador.ts';
 import { useNegocio as useNegocioActual } from '../hooks/useNegocio.ts';
 import { useSesion } from '../hooks/useSesion.ts';
 import { type NegocioActual, NegocioContext, NOMBRE_ROL } from '../lib/contextos.ts';
@@ -26,6 +27,8 @@ export function NegocioLayout() {
   const [version, setVersion] = useState(0);
   // La cocina ocupa justo el alto de la pantalla (los tickets se desplazan adentro, no la página).
   const enCocina = useMatch('/:negocio/cocina') !== null;
+  // Pantalla de primer nivel (mostrador, cocina, admin): cambiar de sección de admin no la re-monta.
+  const pantalla = useLocation().pathname.split('/')[2] ?? '';
   // Tutorial de la demo: se monta acá para sobrevivir al cambio de pantalla.
   const [tutorial, setTutorial] = useState(false);
   const [params, setParams] = useSearchParams();
@@ -99,7 +102,10 @@ export function NegocioLayout() {
     <NegocioContext value={negocio}>
       <div className={`flex flex-col ${enCocina ? 'h-dvh' : 'min-h-dvh'}`}>
         <Barra negocio={negocio} email={sesion?.user.email ?? ''} onTutorial={() => setTutorial(true)} />
-        <Outlet />
+        {/* Cada pantalla entra con un leve giro (key = pantalla). Lo flotante de adentro va por portal. */}
+        <div key={pantalla} className="pantalla-3d flex min-h-0 flex-1 flex-col">
+          <Outlet />
+        </div>
       </div>
       {negocio.esDemo && negocio.rol !== 'cocina' && oferta && !tutorial && (
         <OfertaTutorial
@@ -116,10 +122,9 @@ export function NegocioLayout() {
   );
 }
 
-/** Pestaña de la barra: subrayado en tinta que se dibuja de izquierda a derecha. */
+/** Pestaña de la barra: se acerca en 3D al pasar el puntero; el subrayado es un indicador aparte. */
 const pestana =
-  'relative flex h-full shrink-0 items-center gap-2 px-3 text-sm font-semibold text-tinta-2 transition-colors hover:text-tinta aria-[current=page]:text-tinta ' +
-  'after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:origin-left after:scale-x-0 after:bg-tinta after:transition-transform after:duration-300 after:ease-salida aria-[current=page]:after:scale-x-100';
+  'pestana-3d relative flex h-full shrink-0 items-center gap-2 px-3 text-sm font-semibold text-tinta-2 hover:text-tinta aria-[current=page]:text-tinta';
 
 /**
  * Arriba de todo: a la izquierda el local, en el medio las pantallas de trabajo (las que se
@@ -136,9 +141,7 @@ function Barra({ negocio, email, onTutorial }: { negocio: NegocioActual; email: 
           {esDemo && <span className="chip chip-alerta hidden sm:inline-flex">Demo</span>}
         </Link>
 
-        <nav aria-label="Pantallas de trabajo" className="hidden h-full items-stretch sm:flex">
-          <PestanasTrabajo rol={rol} />
-        </nav>
+        <NavTrabajo rol={rol} className="hidden h-full sm:flex" />
 
         <div className="ml-auto flex items-center gap-1">
           {esDemo && rol !== 'cocina' && <BotonTutorial onClick={onTutorial} />}
@@ -153,10 +156,33 @@ function Barra({ negocio, email, onTutorial }: { negocio: NegocioActual; email: 
         </div>
       </div>
       {/* En el celular las pantallas de trabajo van en una segunda fila. */}
-      <nav aria-label="Pantallas de trabajo" className="flex h-11 items-stretch overflow-x-auto sin-barra border-t border-linea px-1 sm:hidden">
-        <PestanasTrabajo rol={rol} />
-      </nav>
+      <NavTrabajo rol={rol} className="flex h-11 overflow-x-auto sin-barra border-t border-linea px-1 sm:hidden" />
     </header>
+  );
+}
+
+/** Pantallas de trabajo con un subrayado que se desliza (y gira apenas) a la activa. */
+function NavTrabajo({ rol, className }: { rol: NegocioActual['rol']; className: string }) {
+  const { pathname } = useLocation();
+  const { ref, caja, animar } = useIndicador<HTMLElement>(pathname);
+  return (
+    <nav ref={ref} aria-label="Pantallas de trabajo" className={`nav-3d relative items-stretch ${className}`}>
+      <PestanasTrabajo rol={rol} />
+      {caja && (
+        <span
+          aria-hidden
+          className="indicador-3d"
+          style={{
+            width: caja.ancho - 24,
+            height: 2,
+            transform: `translate(${caja.x + 12}px, ${caja.y + caja.alto - 1}px)`,
+            transition: animar ? undefined : 'none',
+          }}
+        >
+          <span key={caja.n} className="indicador-3d-cara bg-tinta" />
+        </span>
+      )}
+    </nav>
   );
 }
 
@@ -193,18 +219,20 @@ function Cuenta({ email, rol }: { email: string; rol: string }) {
       <div
         id="menu-cuenta"
         popover="auto"
-        className="fixed inset-auto top-[3.75rem] right-3 m-0 w-64 rounded-xl border border-linea bg-hoja p-1.5 text-tinta shadow-alta transition-[opacity,translate,display] transition-discrete duration-150 ease-salida starting:open:-translate-y-1 starting:open:opacity-0 sm:right-5"
+        className="menu-3d fixed inset-auto top-[3.75rem] right-3 m-0 w-64 rounded-xl border border-linea bg-hoja p-1.5 text-tinta shadow-alta sm:right-5"
       >
-        <div className="px-2.5 pt-2 pb-2.5">
+        <div className="menu-3d-item px-2.5 pt-2 pb-2.5">
           <p className="truncate text-sm font-semibold">{email}</p>
           <p className="text-[0.8125rem] text-tinta-3">{rol}</p>
         </div>
         <div className="flex flex-col border-t border-linea pt-1.5">
-          <Link to="/" className="btn btn-fantasma justify-start px-2.5">
+          <Link to="/" className="menu-3d-item btn btn-fantasma justify-start px-2.5" style={{ '--i': 1 } as CSSProperties}>
             <Icono nombre="tienda" />
             Mis locales
           </Link>
-          <BotonSalir className="btn-fantasma justify-start px-2.5" />
+          <span className="menu-3d-item flex flex-col" style={{ '--i': 2 } as CSSProperties}>
+            <BotonSalir className="btn-fantasma justify-start px-2.5" />
+          </span>
         </div>
       </div>
     </>

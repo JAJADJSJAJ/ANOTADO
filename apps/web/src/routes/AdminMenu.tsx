@@ -78,7 +78,7 @@ export function AdminMenu() {
 
         {grupos.map(({ categoria, productos }) =>
           !categoria && productos.length === 0 ? null : (
-            <section key={categoria?.id ?? 'sin'} className="tarjeta animate-entra">
+            <section key={categoria?.id ?? 'sin'} className="tarjeta entra-3d">
               <EncabezadoCategoria
                 categoria={categoria}
                 editable={!negocio.esDemo}

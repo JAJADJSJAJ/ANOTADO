@@ -412,6 +412,7 @@ function PantallaInicio({ nombre, onEmpezar }: { nombre: string; onEmpezar: () =
           type="button"
           onClick={onEmpezar}
           data-sonido="no"
+          data-tutorial="cocina-activar"
           className="btn btn-birome mt-10 h-20 w-full rounded-2xl text-3xl font-extrabold"
         >
           Empezar

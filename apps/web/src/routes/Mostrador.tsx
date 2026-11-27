@@ -1,5 +1,5 @@
 import { agregarItem, type Borrador, borradorVacio, formatearPrecio, type Origen, telefonoDemo } from '@anotado/shared';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Agotados } from '../components/Agotados.tsx';
 import { ListaAvisos } from '../components/Avisos.tsx';
 import { Catalogo } from '../components/Catalogo.tsx';
@@ -59,6 +59,16 @@ export function Mostrador() {
     [negocio.esDemo, whatsapp.conversaciones, telefono],
   );
   const enCurso = conversaciones?.length ?? 0;
+  // Demo: avisa al tutorial cuando la IA ya armó el pedido del visitante (con al menos un producto).
+  const armado = !!telefono && !!conversaciones?.some((c) => c.cliente?.telefono === telefono && c.borrador.items.length > 0);
+  useEffect(() => {
+    // También queda marcado en el documento, por si el tutorial arranca con el pedido ya armado.
+    document.documentElement.dataset.pedidoArmado = String(armado);
+    if (armado) window.dispatchEvent(new CustomEvent('anotado:tutorial', { detail: 'pedido-armado' }));
+    return () => {
+      delete document.documentElement.dataset.pedidoArmado;
+    };
+  }, [armado]);
 
   // Carga manual.
   const [borrador, setBorrador] = useState<Borrador>(borradorVacio);

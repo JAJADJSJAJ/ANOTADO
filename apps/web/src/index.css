@@ -3,8 +3,8 @@
 @import 'tailwindcss';
 
 /*
- * "Birome sobre comanda": papel, tinta negra y una sola tinta de color, el azul de la birome
- * con la que se anota un pedido. Números en monoespaciada, como una impresora de tickets.
+ * Papel y tinta: blancos, grises y negro. El rojo (peligro) queda solo para errores y avisos graves.
+ * Números en monoespaciada, como una impresora de tickets.
  * Sin degradés ni brillos: superficies planas, líneas finas y una sombra corta de papel.
  * Verde, amarillo y rojo quedan solo para lo que significan (tiempo y estado).
  */
@@ -12,18 +12,18 @@
   --font-sans: 'Bricolage Grotesque Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', Consolas, monospace;
 
-  --color-papel: #f2f1ec;
+  --color-papel: #efefef;
   --color-hoja: #ffffff;
-  --color-ticket: #fffefa;
-  --color-tinta: #151513;
-  --color-tinta-2: #57564f;
-  --color-tinta-3: #8b8a82;
-  --color-linea: #e2e0d8;
-  --color-linea-fuerte: #cfccc2;
+  --color-ticket: #fcfcfc;
+  --color-tinta: #141414;
+  --color-tinta-2: #555555;
+  --color-tinta-3: #8a8a8a;
+  --color-linea: #e3e3e3;
+  --color-linea-fuerte: #cdcdcd;
 
-  --color-birome: #1f3fe0;
-  --color-birome-hondo: #1934c2;
-  --color-birome-suave: #e9edff;
+  --color-birome: #141414;
+  --color-birome-hondo: #000000;
+  --color-birome-suave: #ececec;
 
   --color-ok: #17804a;
   --color-ok-suave: #e3f3e9;
@@ -35,12 +35,12 @@
   --color-peligro-suave: #fbe7e5;
 
   /* Cocina: pantalla oscura para que los tickets resalten en una tablet. */
-  --color-noche: #121211;
-  --color-noche-2: #1c1c1a;
-  --color-noche-3: #262624;
-  --color-noche-linea: #2e2e2b;
-  --color-noche-tinta: #f1f0ea;
-  --color-noche-tinta-2: #a9a89f;
+  --color-noche: #121212;
+  --color-noche-2: #1c1c1c;
+  --color-noche-3: #262626;
+  --color-noche-linea: #2e2e2e;
+  --color-noche-tinta: #f0f0f0;
+  --color-noche-tinta-2: #a8a8a8;
   --color-noche-ok: #8fd4a9;
 
   /* Teléfono del cliente en la demo. */
@@ -463,12 +463,15 @@
     top: 3px;
     bottom: 3px;
     left: 0;
+    transition:
+      transform 300ms var(--ease-resorte),
+      width 240ms var(--ease-salida);
+  }
+  /* La cara blanca: se re-monta en cada cambio y da un flip 3D corto (.indicador-3d-cara). */
+  .segmentado > .indicador > span {
     border-radius: 8px;
     background: var(--color-hoja);
     box-shadow: 0 1px 2px rgb(20 20 18 / 0.14);
-    transition:
-      transform 240ms var(--ease-salida),
-      width 240ms var(--ease-salida);
   }
 }
 
@@ -556,6 +559,175 @@
   .escalonado > :nth-child(n + 7) { animation-delay: 240ms; }
 }
 
+/*
+ * ---------- 3D: letras, menús, pantallas ----------
+ * Todo anima solo transform/opacity. will-change no se deja puesto: las entradas usan
+ * animation (sin transform residual al terminar) y el tilt ya lo acota .tilt-3d-cara.
+ *
+ * .letras-3d          (Letras3D.tsx) cada letra gira desde rotateX(-90°) y atrás en Z, con
+ *                     resorte; --i = índice, --paso = ms entre letras, --retardo = demora inicial.
+ * .indicador-3d       pastilla/subrayado que se desliza al activo (useIndicador). La capa
+ *                     interna .indicador-3d-cara se re-monta en cada cambio y da un giro corto.
+ * .nav-3d             contenedor con perspectiva; sus .pestana-3d se acercan (translateZ) y se
+ *                     inclinan apenas (rotateX) al pasar el puntero. Solo con puntero fino.
+ * .menu-3d            popover que cae girando desde arriba (origin top) con @starting-style;
+ *                     sus .menu-3d-item entran escalonados en 3D.
+ * .entra-3d           tarjetas/filas que entran desde atrás con un leve giro; escalonar con
+ *                     style={{ '--i': n }} (40ms por paso).
+ * .capa-z / .capa-z-2 capas internas de una .tilt-3d-cara que flotan más cerca (parallax).
+ *                     Usar con .tilt-3d-capas en el .tilt-3d: filter y overflow aplanan el 3D,
+ *                     así que ahí la sombra de hover va con box-shadow.
+ * .pantalla-3d        pantalla nueva del local: rotateY ~4° + profundidad. fill-mode none:
+ *                     al terminar no queda transform (lo flotante va por portal igual).
+ * .dialogo-3d         <dialog> que abre con rotateX y escala desde atrás.
+ * Con prefers-reduced-motion: duración 1ms (regla global) y sin hover 3D.
+ */
+@layer components {
+  .letras-3d-palabra {
+    display: inline-block;
+    white-space: nowrap;
+    perspective: 600px;
+  }
+  .letras-3d-letra {
+    display: inline-block;
+    transform-origin: 50% 85%;
+    backface-visibility: hidden;
+    animation: letra-3d 720ms var(--ease-resorte) both;
+    animation-delay: calc(var(--retardo, 0ms) + var(--i, 0) * var(--paso, 22ms));
+  }
+  @keyframes letra-3d {
+    from {
+      opacity: 0;
+      transform: translateZ(-60px) translateY(0.35em) rotateX(-90deg);
+    }
+    40% {
+      opacity: 1;
+    }
+  }
+
+  .indicador-3d {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    transition:
+      transform 380ms var(--ease-resorte),
+      width 300ms var(--ease-salida),
+      height 300ms var(--ease-salida);
+  }
+  .indicador-3d-cara {
+    display: block;
+    width: 100%;
+    height: 100%;
+    animation: indicador-giro 460ms var(--ease-salida);
+  }
+  @keyframes indicador-giro {
+    from {
+      transform: perspective(300px) rotateX(55deg) scale(0.9);
+    }
+    50% {
+      transform: perspective(300px) rotateX(-12deg) scale(1.02);
+    }
+  }
+
+  .nav-3d {
+    perspective: 500px;
+  }
+  .pestana-3d {
+    transition:
+      color 150ms,
+      transform 220ms var(--ease-salida);
+  }
+
+  .menu-3d {
+    transform-origin: 50% 0;
+    opacity: 0;
+    transform: perspective(800px) rotateX(-28deg) scale(0.96);
+    transition:
+      opacity 180ms var(--ease-salida),
+      transform 260ms var(--ease-salida),
+      display 260ms allow-discrete,
+      overlay 260ms allow-discrete;
+  }
+  .menu-3d:popover-open {
+    opacity: 1;
+    transform: perspective(800px) rotateX(0) scale(1);
+    @starting-style {
+      opacity: 0;
+      transform: perspective(800px) rotateX(-28deg) scale(0.96);
+    }
+  }
+  .menu-3d:popover-open .menu-3d-item {
+    animation: item-3d 380ms var(--ease-resorte) both;
+    animation-delay: calc(60ms + var(--i, 0) * 45ms);
+  }
+  @keyframes item-3d {
+    from {
+      opacity: 0;
+      transform: perspective(600px) translateZ(-40px) rotateX(-35deg);
+    }
+  }
+
+  .entra-3d {
+    animation: entra-3d 560ms var(--ease-resorte) both;
+    animation-delay: calc(var(--i, 0) * 40ms);
+  }
+  @keyframes entra-3d {
+    from {
+      opacity: 0;
+      transform: perspective(900px) translateY(10px) translateZ(-50px) rotateX(-14deg);
+    }
+  }
+
+  .tilt-3d-cara {
+    transform-style: preserve-3d;
+  }
+  .tilt-3d-capas:hover .tilt-3d-cara {
+    filter: none;
+    box-shadow: var(--shadow-alta);
+  }
+  .capa-z,
+  .capa-z-2 {
+    transition: transform 220ms var(--ease-salida);
+  }
+  .tilt-3d:hover .capa-z {
+    transform: translateZ(14px);
+  }
+  .tilt-3d:hover .capa-z-2 {
+    transform: translateZ(26px);
+  }
+
+  .pantalla-3d {
+    transform-origin: 50% 0;
+    /* Sin fill-mode: al terminar no queda ningún transform puesto. */
+    animation: pantalla-3d 440ms var(--ease-salida);
+  }
+  @keyframes pantalla-3d {
+    from {
+      opacity: 0;
+      transform: perspective(1400px) translateZ(-40px) rotateY(4deg);
+    }
+  }
+
+  .dialogo-3d {
+    transform-origin: 50% 30%;
+    animation: dialogo-3d 380ms var(--ease-resorte);
+  }
+  @keyframes dialogo-3d {
+    from {
+      opacity: 0;
+      transform: perspective(1000px) translateZ(-120px) rotateX(18deg) scale(0.92);
+    }
+  }
+}
+
+/* Hover 3D solo con mouse (en touch el :hover queda pegado) y sin pedir menos movimiento. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .pestana-3d:hover {
+    transform: translateZ(14px) rotateX(10deg);
+  }
+}
+
 /* Quien pidió menos movimiento en el sistema: todo instantáneo. */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -580,6 +752,11 @@
   .eleva:hover {
     transform: none;
   }
+  /* Parallax quieto. */
+  .tilt-3d:hover .capa-z,
+  .tilt-3d:hover .capa-z-2 {
+    transform: none;
+  }
 }
 
 /* Filas que se desplazan de costado (pestañas, categorías): sin la barra gris del sistema. */
@@ -588,4 +765,10 @@
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* Tutorial: fuera de los pasos del teléfono, su botón flotante se esconde para no tapar lo que se muestra. */
+html[data-tutorial-paso]:not([data-tutorial-paso^='telefono']) [data-tutorial='telefono'] {
+  opacity: 0;
+  pointer-events: none;
 }

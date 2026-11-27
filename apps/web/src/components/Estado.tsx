@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Icono, type NombreIcono } from './Icono.tsx';
 import { Logo } from './Marca.tsx';
+import { Letras3D } from './Letras3D.tsx';
 
 /** Barra fina que corre: se ve que algo pasa sin tapar la pantalla con un spinner. */
 export function Cargando() {
@@ -59,7 +60,9 @@ export function PantallaMensaje({ titulo, children }: { titulo: string; children
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-4 p-6 text-center">
       <Logo className="mb-2 size-10" />
-      <h1 className="text-2xl font-bold tracking-[-0.02em]">{titulo}</h1>
+      <h1 className="text-2xl font-bold tracking-[-0.02em]">
+        <Letras3D texto={titulo} />
+      </h1>
       {children}
     </main>
   );

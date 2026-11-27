@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icono } from './Icono.tsx';
-import { ABRIR_TELEFONO } from './Tutorial.tsx';
+import { ABRIR_TELEFONO, CERRAR_TELEFONO } from './Tutorial.tsx';
 import { SimuladorWhatsApp } from './SimuladorWhatsApp.tsx';
 
 /**
@@ -29,8 +30,14 @@ export function TelefonoFlotante() {
       setMontado(true);
       setAbierto(true);
     };
+    // Y lo minimiza cuando el paso ya no es del teléfono, para que no tape el mostrador.
+    const alCerrar = () => setAbierto(false);
     window.addEventListener(ABRIR_TELEFONO, alPedido);
-    return () => window.removeEventListener(ABRIR_TELEFONO, alPedido);
+    window.addEventListener(CERRAR_TELEFONO, alCerrar);
+    return () => {
+      window.removeEventListener(ABRIR_TELEFONO, alPedido);
+      window.removeEventListener(CERRAR_TELEFONO, alCerrar);
+    };
   }, []);
 
   function abrir() {
@@ -39,7 +46,9 @@ export function TelefonoFlotante() {
     window.dispatchEvent(new CustomEvent('anotado:tutorial', { detail: 'telefono-abierto' }));
   }
 
-  return (
+  // Portal al body: la transición entre pantallas pone transform en el contenedor de la página,
+  // y un ancestro con transform rompe position:fixed.
+  return createPortal(
     <>
       <button
         type="button"
@@ -61,6 +70,7 @@ export function TelefonoFlotante() {
       {montado && (
         <section
           aria-label="Teléfono del cliente"
+          data-tutorial="telefono-panel"
           aria-hidden={!abierto}
           inert={!abierto}
           className={`fixed inset-x-0 bottom-0 z-40 flex h-[82dvh] flex-col overflow-hidden rounded-t-2xl border border-linea bg-hoja shadow-alta transition-[translate,opacity] ease-resorte sm:inset-x-auto sm:right-6 sm:bottom-6 sm:h-[min(38rem,calc(100dvh-6rem))] sm:w-[22rem] sm:rounded-2xl ${
@@ -84,6 +94,7 @@ export function TelefonoFlotante() {
           </div>
         </section>
       )}
-    </>
+    </>,
+    document.body,
   );
 }

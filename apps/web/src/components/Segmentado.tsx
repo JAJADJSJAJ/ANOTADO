@@ -25,6 +25,13 @@ export function Segmentado<T extends string>({
   const [indicador, setIndicador] = useState<{ x: number; ancho: number } | null>(null);
   // La primera vez el indicador aparece en su lugar, sin deslizarse desde la izquierda.
   const [animar, setAnimar] = useState(false);
+  // Sube en cada cambio de opción: key de la cara del indicador, para repetir el flip.
+  const [giro, setGiro] = useState(0);
+  const [previo, setPrevio] = useState(valor);
+  if (previo !== valor) {
+    setPrevio(valor);
+    setGiro((g) => g + 1);
+  }
 
   // Mide el botón elegido; vuelve a medir si cambia el tamaño (fuentes, ventana, contadores).
   useLayoutEffect(() => {
@@ -53,7 +60,9 @@ export function Segmentado<T extends string>({
       className={`segmentado ${className}`}
     >
       {indicador && (
-        <span aria-hidden className="indicador" style={{ width: indicador.ancho, transform: `translateX(${indicador.x}px)`, transition: animar ? undefined : 'none' }} />
+        <span aria-hidden className="indicador" style={{ width: indicador.ancho, transform: `translateX(${indicador.x}px)`, transition: animar ? undefined : 'none' }}>
+          <span key={giro} className={giro > 0 ? 'indicador-3d-cara' : 'block size-full'} />
+        </span>
       )}
       {opciones.map((o) => {
         const elegido = o.valor === valor;
