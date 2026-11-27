@@ -160,7 +160,7 @@ export function Entregas({ cocina }: { cocina: ReturnType<typeof usePedidosCocin
                 <span className="num w-14 text-lg font-extrabold">#{p.numero}</span>
                 <span className="min-w-0 flex-1 truncate text-sm text-tinta-2">{textoEntrega(p)}</span>
                 <span className={`chip chip-punto ${p.estado === 'en_cocina' ? 'chip-birome' : ''}`}>
-                  {p.estado === 'en_cocina' ? 'En preparación' : 'Esperando'}
+                  {ETIQUETA_ESTADO[p.estado]}
                 </span>
                 <span className="num w-14 text-right text-sm text-tinta-3">{minutosDesde(p.created_at, ahora)} min</span>
                 {puedeCancelar(negocio.rol, p.estado) && (

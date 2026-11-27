@@ -157,8 +157,8 @@ export const ResultadoEstadoSchema = z.object({
 });
 
 export const ETIQUETA_ESTADO: Record<EstadoPedido, string> = {
-  pendiente: 'Pendiente',
-  en_cocina: 'En cocina',
+  pendiente: 'Nuevo',
+  en_cocina: 'En preparación',
   listo: 'Listo',
   entregado: 'Entregado',
   cancelado: 'Cancelado',
