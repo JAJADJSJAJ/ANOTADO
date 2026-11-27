@@ -9,6 +9,7 @@ import {
   textoEntrega,
 } from '@anotado/shared';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { Agotados } from '../components/Agotados.tsx';
 import { ListaAvisos } from '../components/Avisos.tsx';
 import { Dialogo } from '../components/Dialogo.tsx';
@@ -252,11 +253,11 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
         ) : (
           <section
             aria-label="Pedidos en curso"
-            className={`flex min-h-0 flex-1 animate-aparece gap-4 px-4 pb-4 ${apilada ? 'flex-col overflow-y-auto' : 'items-start overflow-x-auto sm:px-5'}`}
+            className={`flex min-h-0 flex-1 animate-aparece gap-4 px-4 pb-4 ${apilada ? 'flex-col overflow-y-auto' : 'riel-3d items-start overflow-x-auto pt-2 sm:px-5'}`}
           >
-            {enCurso.map((p) => {
+            {enCurso.map((p, i) => {
               const minutos = minutosDesde(p.created_at, ahora);
-              return (
+              const tarjeta = (
                 <TarjetaCocina
                   key={p.id}
                   pedido={p}
@@ -270,6 +271,14 @@ export function Cocina({ incrustada = false, apilada = incrustada }: { incrustad
                   ancho={!apilada}
                   onAvanzar={() => void mover(p, 'avanzar')}
                 />
+              );
+              // En el riel, cada comanda más nueva queda un escalón más atrás (la más vieja, adelante).
+              return apilada ? (
+                tarjeta
+              ) : (
+                <div key={p.id} className="riel-3d-item shrink-0" style={{ '--i': Math.min(i, 6) } as CSSProperties}>
+                  {tarjeta}
+                </div>
               );
             })}
           </section>

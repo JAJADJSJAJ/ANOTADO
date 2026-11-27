@@ -10,6 +10,8 @@ interface Props {
   /** Lo que se muestra si no hay WebGL. */
   respaldo?: ReactNode;
   className?: string;
+  /** Historia guiada por scroll (ver OpcionesEscena.progreso). Tiene que ser un objeto estable. */
+  progreso?: { valor: number };
 }
 
 interface PropsLienzo extends Props {
@@ -17,7 +19,7 @@ interface PropsLienzo extends Props {
   hayWebGL: () => boolean;
 }
 
-function Lienzo({ montar, hayWebGL, compacta = false, respaldo = null, className = '' }: PropsLienzo) {
+function Lienzo({ montar, hayWebGL, compacta = false, respaldo = null, className = '', progreso }: PropsLienzo) {
   const host = useRef<HTMLDivElement>(null);
   // Sin WebGL no hay nada que montar: se decide al primer render.
   const [falla, setFalla] = useState(() => !hayWebGL());
@@ -28,12 +30,12 @@ function Lienzo({ montar, hayWebGL, compacta = false, respaldo = null, className
     if (!el) return;
     const estatica = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     try {
-      return montar(el, { estatica, compacta, alListo: () => setListo(true) });
+      return montar(el, { estatica, compacta, progreso, alListo: () => setListo(true) });
     } catch {
       // Se difiere para no actualizar estado de forma sincrónica dentro del efecto.
       queueMicrotask(() => setFalla(true));
     }
-  }, [montar, compacta]);
+  }, [montar, compacta, progreso]);
 
   if (falla) return <div className={className}>{respaldo}</div>;
   return (

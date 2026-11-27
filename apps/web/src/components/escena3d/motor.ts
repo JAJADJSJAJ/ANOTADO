@@ -64,6 +64,11 @@ export interface OpcionesEscena {
   compacta: boolean;
   /** Se llama cuando el primer cuadro ya está dibujado (para el fundido de entrada). */
   alListo?: () => void;
+  /**
+   * Si está, la historia no corre en loop: avanza con este valor (0 = empieza, 1 = comanda
+   * sellada), que la página actualiza con el scroll. La escena lo sigue suavizado.
+   */
+  progreso?: { valor: number };
 }
 
 export function hayWebGL(): boolean {
@@ -625,6 +630,7 @@ function armarEscena(renderer: THREE.WebGLRenderer, host: HTMLElement, op: Opcio
   // ------------------------------------------------------------ bucle
 
   let reloj = 0;
+  let tScroll = 0;
   let previo = 0;
   let raf = 0;
   let visible = true;
@@ -649,7 +655,11 @@ function armarEscena(renderer: THREE.WebGLRenderer, host: HTMLElement, op: Opcio
     const k = 1 - Math.exp(-dt * 3);
     raiz.rotation.y += (puntero.x * 0.14 - raiz.rotation.y) * k;
     raiz.rotation.x += (puntero.y * 0.07 - raiz.rotation.x) * k;
-    cuadro(reloj % CICLO, reloj);
+    if (op.progreso) {
+      const objetivo = Math.min(1, Math.max(0, op.progreso.valor)) * T.final;
+      tScroll += (objetivo - tScroll) * (1 - Math.exp(-dt * 6));
+      cuadro(tScroll, reloj);
+    } else cuadro(reloj % CICLO, reloj);
     dibujar();
     pedir();
   }

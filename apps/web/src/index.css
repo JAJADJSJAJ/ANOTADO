@@ -773,40 +773,6 @@ html[data-tutorial-paso]:not([data-tutorial-paso^='telefono']) [data-tutorial='t
   pointer-events: none;
 }
 
-/*
- * Fondo del local (Fondo3D.tsx): un piso cuadriculado en perspectiva que se inclina siguiendo
- * el mouse (--fx / --fy entre -1 y 1). Gris muy suave, detrás de todo.
- */
-.fondo-3d {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  perspective: 700px;
-  pointer-events: none;
-}
-.fondo-3d-piso {
-  position: absolute;
-  left: -50%;
-  right: -50%;
-  top: 45%;
-  height: 160%;
-  transform-origin: 50% 0;
-  transform: rotateX(calc(68deg + var(--fy, 0) * 4deg)) rotateZ(calc(var(--fx, 0) * 3deg));
-  background-image:
-    linear-gradient(to right, rgb(20 20 18 / 0.07) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(20 20 18 / 0.07) 1px, transparent 1px);
-  background-size: 64px 64px;
-  mask-image: linear-gradient(to bottom, transparent, black 25%, black 60%, transparent);
-  animation: fondo-avanza 6s linear infinite;
-  transition: transform 600ms var(--ease-salida);
-}
-@keyframes fondo-avanza {
-  to {
-    background-position: 0 64px;
-  }
-}
-
 /* Comanda despachada: sale hacia atrás girando, como un papel que se arranca del riel. */
 .sale-3d {
   opacity: 0;
@@ -816,9 +782,37 @@ html[data-tutorial-paso]:not([data-tutorial-paso^='telefono']) [data-tutorial='t
     transform 300ms var(--ease-salida);
 }
 
+
+/*
+ * Riel de la cocina: las comandas en fila con profundidad. La más vieja adelante; cada una
+ * más nueva, un escalón más atrás y apenas girada. Al pasar el mouse (o enfocar) viene al frente.
+ */
+.riel-3d {
+  perspective: 1400px;
+  perspective-origin: 0% 35%;
+}
+.riel-3d-item {
+  transform-origin: 0% 50%;
+  transform: translateZ(calc(var(--i, 0) * -55px)) rotateY(calc(var(--i, 0) * -3deg));
+  transition: transform 520ms var(--ease-resorte);
+}
+.riel-3d-item:hover,
+.riel-3d-item:focus-within {
+  transform: translateZ(24px);
+}
 @media (prefers-reduced-motion: reduce) {
-  .fondo-3d-piso {
-    animation: none;
-    transform: rotateX(68deg);
+  .riel-3d-item,
+  .riel-3d-item:hover,
+  .riel-3d-item:focus-within {
+    transform: none;
   }
+}
+
+/* Portada de la demo: el paso activo de la historia entra girando desde atrás. */
+.historia-paso {
+  transition: opacity 400ms var(--ease-salida);
+}
+.historia-paso-activo {
+  opacity: 1;
+  animation: entra-3d 650ms var(--ease-resorte);
 }
