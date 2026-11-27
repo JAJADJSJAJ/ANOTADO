@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { Icono } from './Icono.tsx';
 
 /** Lo que avisan los componentes de la demo con window CustomEvent('anotado:tutorial'). */
-export type EventoTutorial = 'telefono-abierto' | 'mensaje-enviado' | 'pedido-armado' | 'pedido-confirmado' | 'cocina-empezado' | 'cocina-listo';
+export type EventoTutorial = 'telefono-abierto' | 'mensaje-enviado' | 'pedido-armado' | 'pedido-confirmado' | 'cocina-empezado' | 'cocina-listo' | 'pedido-entregado';
 
 /** Evento que escucha TelefonoFlotante para abrirse solo (si se saltó el paso de abrirlo). */
 export const ABRIR_TELEFONO = 'anotado:abrir-telefono';
@@ -21,6 +21,8 @@ type Paso = {
   alClic?: boolean;
   /** Pantalla donde vive el paso: al entrar al paso, si no estás ahí, te lleva. */
   pantalla?: 'mostrador' | 'cocina';
+  /** Pestaña del mostrador que se abre al entrar al paso. */
+  pestana?: 'whatsapp' | 'manual' | 'entregas';
 };
 
 /** El primer botón visible cuyo texto arranca con alguna de estas palabras. */
@@ -32,7 +34,7 @@ const botonConTexto = (...textos: string[]) => () =>
 const PASOS: Paso[] = [
   {
     titulo: 'Este es tu local',
-    texto: 'Arriba están Pedidos (el mostrador) y Cocina. Vamos a seguir un pedido de punta a punta.',
+    texto: 'Arriba están Pedidos (el mostrador) y Cocina. Vamos a seguir un pedido de punta a punta: lo pide el cliente, lo confirmás, se cocina y se entrega.',
     objetivo: 'barra',
   },
   {
@@ -42,6 +44,7 @@ const PASOS: Paso[] = [
     alClic: true,
     evento: 'telefono-abierto',
     pantalla: 'mostrador',
+    pestana: 'whatsapp',
   },
   {
     titulo: 'Pedí como pide la gente',
@@ -49,26 +52,23 @@ const PASOS: Paso[] = [
     objetivo: 'telefono-panel',
     evento: 'mensaje-enviado',
     pantalla: 'mostrador',
+    pestana: 'whatsapp',
   },
   {
     titulo: 'La IA lo está anotando',
-    texto: 'En unos segundos el bot te contesta y el pedido queda armado. Si te pregunta algo, contestale desde el teléfono.',
+    texto: 'El bot te contesta en unos segundos. Si te pregunta algo (un tamaño, un gusto), contestale desde el teléfono: seguimos cuando el pedido esté completo.',
     objetivo: 'telefono-panel',
     evento: 'pedido-armado',
     pantalla: 'mostrador',
+    pestana: 'whatsapp',
   },
   {
     titulo: 'Llegó al mostrador',
-    texto: 'Acá está tu pedido: productos, cantidades y precio, armados por la IA. Si algo está mal, lo corregís acá mismo.',
-    objetivo: 'tarjeta',
-    pantalla: 'mostrador',
-  },
-  {
-    titulo: 'Elegí la entrega y confirmá',
-    texto: 'Marcá si lo retira, va con delivery o es para una mesa, y tocá Confirmar pedido.',
+    texto: 'La IA armó tu pedido con productos y precios. Revisalo (si algo está mal, lo corregís acá), elegí la entrega y tocá Confirmar pedido.',
     objetivo: 'panel',
     evento: 'pedido-confirmado',
     pantalla: 'mostrador',
+    pestana: 'whatsapp',
   },
   {
     titulo: 'Vamos a la cocina',
@@ -78,7 +78,7 @@ const PASOS: Paso[] = [
   },
   {
     titulo: 'Cociná',
-    texto: 'Tocá Empezar y después Listo: al cliente le llega el aviso por WhatsApp.',
+    texto: 'Tocá Abrir la cocina. Después, en la comanda, Empezar y Listo: al cliente le llega el aviso por WhatsApp.',
     // Primero la bienvenida de la cocina (tapa las comandas); después Empezar/Listo de la comanda;
     // y cuando ya no queda botón, la fila de listos para entregar.
     objetivo: () => buscar('cocina-activar') ?? botonConTexto('Empezar', 'Listo')() ?? buscar('cocina-lista'),
@@ -87,13 +87,22 @@ const PASOS: Paso[] = [
   },
   {
     titulo: 'Listo para entregar',
-    texto: 'El pedido pasó a Listos para entregar y al cliente le llegó el aviso por WhatsApp. Ese es todo el viaje.',
+    texto: 'La cocina lo terminó y al cliente le llegó el aviso. Ahora falta dárselo.',
     objetivo: 'cocina-lista',
     pantalla: 'cocina',
   },
   {
+    titulo: 'Entregalo',
+    texto: 'En Pedidos › Entregas está todo lo que salió de la cocina. Tocá Entregado cuando el cliente se lo lleva.',
+    // El más nuevo de los listos (la demo es compartida: puede haber pedidos de otros visitantes antes).
+    objetivo: () => [...document.querySelectorAll('[data-tutorial="entregado"]')].filter(visible).at(-1) ?? buscar('entregas'),
+    evento: 'pedido-entregado',
+    pantalla: 'mostrador',
+    pestana: 'entregas',
+  },
+  {
     titulo: 'También a mano',
-    texto: 'Si te piden por teléfono o en el mostrador, lo cargás acá en segundos.',
+    texto: 'Si te piden por teléfono o en el mostrador, lo cargás en Nuevo pedido en segundos.',
     objetivo: 'nuevo-pedido',
     pantalla: 'mostrador',
   },
@@ -102,6 +111,7 @@ const PASOS: Paso[] = [
     texto: 'Pegá los mensajes que te mandó un cliente y la IA arma el pedido igual. Eso es Anotado.',
     objetivo: 'pegar',
     pantalla: 'mostrador',
+    pestana: 'whatsapp',
   },
 ];
 
@@ -189,9 +199,14 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
     const actual = PASOS[i]!;
     const p = actual.pantalla;
     if (p && !pathname.endsWith(`/${p}`)) navigate(`/${slug}/${p}`);
+    // La pestaña del mostrador: se repite un par de veces por si el mostrador todavía está montando.
+    const pedirPestana = () => actual.pestana && window.dispatchEvent(new CustomEvent('anotado:pestana', { detail: actual.pestana }));
+    pedirPestana();
+    const reintentos = [300, 900].map((ms) => window.setTimeout(pedirPestana, ms));
     // El teléfono se abre solo en sus pasos (si se saltó el de abrirlo) y se minimiza en los demás.
     if (esDelTelefono(actual) && actual.objetivo !== 'telefono') window.dispatchEvent(new CustomEvent(ABRIR_TELEFONO));
     else if (!esDelTelefono(actual)) window.dispatchEvent(new CustomEvent(CERRAR_TELEFONO));
+    return () => reintentos.forEach((t) => window.clearTimeout(t));
     // Solo al cambiar de paso, no en cada navegación.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i]);

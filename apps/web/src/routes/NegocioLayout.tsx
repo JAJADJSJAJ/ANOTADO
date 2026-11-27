@@ -5,6 +5,7 @@ import { BotonSalir } from '../components/BotonSalir.tsx';
 import { BotonSonido } from '../components/BotonSonido.tsx';
 import { EsqueletoPagina } from '../components/Esqueletos.tsx';
 import { MensajeError, PantallaMensaje } from '../components/Estado.tsx';
+import { Fondo3D } from '../components/Fondo3D.tsx';
 import { Icono } from '../components/Icono.tsx';
 import { Logo } from '../components/Marca.tsx';
 import { Tutorial } from '../components/Tutorial.tsx';
@@ -100,6 +101,7 @@ export function NegocioLayout() {
 
   return (
     <NegocioContext value={negocio}>
+      <Fondo3D />
       <div className={`flex flex-col ${enCocina ? 'h-dvh' : 'min-h-dvh'}`}>
         <Barra negocio={negocio} email={sesion?.user.email ?? ''} onTutorial={() => setTutorial(true)} />
         {/* Cada pantalla entra con un leve giro (key = pantalla). Lo flotante de adentro va por portal. */}

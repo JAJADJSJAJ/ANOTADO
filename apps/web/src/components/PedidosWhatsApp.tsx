@@ -173,7 +173,7 @@ function ItemBandeja({
   const titulo = c ? (nombreCliente(c.cliente) ?? (c.cliente ? formatearTelefono(c.cliente.telefono) : c.etiqueta || 'Pegado a mano')) : 'Pegado a mano';
   const pendientes = c ? c.pendientes.dudosos.length + c.pendientes.preguntas.length + c.pendientes.errores.length : 0;
   const ahora = useAhora(0, 30_000);
-  const cara = useTilt3D<HTMLButtonElement>(4);
+  const cara = useTilt3D<HTMLButtonElement>(8);
   const espera = c?.listoAt ? Math.max(0, Math.floor((ahora - new Date(c.listoAt).getTime()) / 60_000)) : null;
   const estado = !c
     ? { texto: 'Nuevo', clase: '' }

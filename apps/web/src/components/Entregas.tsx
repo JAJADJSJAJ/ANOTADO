@@ -50,6 +50,7 @@ export function Entregas({ cocina }: { cocina: ReturnType<typeof usePedidosCocin
     actualizarLocal(p.id, { estado: r.estado });
     if (r.cambiado && accion === 'avanzar') {
       efecto('sello');
+      window.dispatchEvent(new CustomEvent('anotado:tutorial', { detail: 'pedido-entregado' }));
       avisar({
         tipo: 'deshacer',
         clave: p.id,
@@ -128,6 +129,7 @@ export function Entregas({ cocina }: { cocina: ReturnType<typeof usePedidosCocin
                         disabled={ocupado === p.id}
                         onClick={() => void entregar(p, 'avanzar')}
                         data-sonido="no"
+                        data-tutorial="entregado"
                         className="btn btn-tinta flex-1"
                       >
                         <Icono nombre="check" />

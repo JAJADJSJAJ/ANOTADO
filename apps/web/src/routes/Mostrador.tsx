@@ -41,6 +41,15 @@ export function Mostrador() {
 
   // Con IA, lo normal es que los pedidos lleguen por WhatsApp; sin IA, se cargan a mano.
   const [pestana, setPestana] = useState<Pestana>(negocio.iaPermitida ? 'whatsapp' : 'manual');
+  // El tutorial puede pedir una pestaña (por ejemplo Entregas, para entregar el pedido listo).
+  useEffect(() => {
+    const ir = (e: Event) => {
+      const p = (e as CustomEvent<unknown>).detail;
+      if (p === 'whatsapp' || p === 'manual' || p === 'entregas') setPestana(p);
+    };
+    window.addEventListener('anotado:pestana', ir);
+    return () => window.removeEventListener('anotado:pestana', ir);
+  }, []);
   const [verAgotados, setVerAgotados] = useState(false);
   const [version, setVersion] = useState(0);
   // Pedidos en curso en tiempo real: alimentan la pestaña Entregas y su contador.
@@ -60,7 +69,16 @@ export function Mostrador() {
   );
   const enCurso = conversaciones?.length ?? 0;
   // Demo: avisa al tutorial cuando la IA ya armó el pedido del visitante (con al menos un producto).
-  const armado = !!telefono && !!conversaciones?.some((c) => c.cliente?.telefono === telefono && c.borrador.items.length > 0);
+  // Sin preguntas abiertas: si el bot todavía pregunta algo ("¿qué tamaño de coca?"), el pedido no está listo.
+  const armado =
+    !!telefono &&
+    !!conversaciones?.some(
+      (c) =>
+        c.cliente?.telefono === telefono &&
+        c.borrador.items.length > 0 &&
+        c.pendientes.preguntas.length === 0 &&
+        c.pendientes.dudosos.length === 0,
+    );
   useEffect(() => {
     // También queda marcado en el documento, por si el tutorial arranca con el pedido ya armado.
     document.documentElement.dataset.pedidoArmado = String(armado);
@@ -143,7 +161,7 @@ export function Mostrador() {
           opciones={[
             { valor: 'whatsapp', texto: <>WhatsApp{enCurso > 0 && <Contador n={enCurso} />}</> },
             { valor: 'manual', texto: <span data-tutorial="nuevo-pedido">Nuevo pedido</span> },
-            { valor: 'entregas', texto: <>Entregas{listos > 0 && <Contador n={listos} />}</> },
+            { valor: 'entregas', texto: <><span data-tutorial="entregas">Entregas</span>{listos > 0 && <Contador n={listos} />}</> },
           ]}
         />
         <div className="ml-auto flex shrink-0 items-center gap-2">

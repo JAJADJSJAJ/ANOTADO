@@ -50,7 +50,7 @@ export function TarjetaCocina({
   const boton = BOTON[pedido.estado];
   const enCocina = pedido.estado === 'en_cocina';
   // Tilt 3D siguiendo el puntero (solo mouse, sin menos-movimiento).
-  const cara = useTilt3D<HTMLDivElement>(3);
+  const cara = useTilt3D<HTMLDivElement>(7);
   // Al sellar, la comanda acusa el golpe justo cuando el sello toca el papel.
   const animacion = sellado ? 'animate-sacudir [animation-delay:200ms]' : nuevo ? 'animate-imprimir' : '';
 
@@ -58,7 +58,7 @@ export function TarjetaCocina({
     <article
       aria-label={`Pedido ${pedido.numero}`}
       className={`tilt-3d relative shrink-0 transition-[opacity,translate] duration-300 ease-salida ${ancho ? 'w-[19rem] sm:w-[20.5rem]' : 'w-full'} ${
-        saliendo ? 'translate-x-10 opacity-0' : ''
+        saliendo ? 'sale-3d' : ''
       } ${animacion}`}
     >
       <div ref={cara} className="tilt-3d-cara papel-3d h-full">

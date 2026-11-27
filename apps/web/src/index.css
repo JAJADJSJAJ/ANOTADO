@@ -536,7 +536,7 @@
     --alto: 0px;
     transform-origin: 50% 0;
     /* Curvatura mínima de papel: la parte de abajo apenas hacia atrás. */
-    transform: rotateX(calc(1.2deg + var(--rx))) rotateY(var(--ry)) translateY(var(--alto));
+    transform: rotateX(calc(2.5deg + var(--rx))) rotateY(var(--ry)) translateY(var(--alto));
     transition:
       transform 220ms var(--ease-salida),
       filter 220ms var(--ease-salida);
@@ -669,13 +669,13 @@
   }
 
   .entra-3d {
-    animation: entra-3d 560ms var(--ease-resorte) both;
-    animation-delay: calc(var(--i, 0) * 40ms);
+    animation: entra-3d 720ms var(--ease-resorte) both;
+    animation-delay: calc(var(--i, 0) * 70ms);
   }
   @keyframes entra-3d {
     from {
       opacity: 0;
-      transform: perspective(900px) translateY(10px) translateZ(-50px) rotateX(-14deg);
+      transform: perspective(900px) translateY(24px) translateZ(-160px) rotateX(-38deg);
     }
   }
 
@@ -700,12 +700,12 @@
   .pantalla-3d {
     transform-origin: 50% 0;
     /* Sin fill-mode: al terminar no queda ningún transform puesto. */
-    animation: pantalla-3d 440ms var(--ease-salida);
+    animation: pantalla-3d 700ms var(--ease-resorte);
   }
   @keyframes pantalla-3d {
     from {
       opacity: 0;
-      transform: perspective(1400px) translateZ(-40px) rotateY(4deg);
+      transform: perspective(1200px) translateZ(-180px) rotateY(12deg) rotateX(4deg);
     }
   }
 
@@ -771,4 +771,48 @@
 html[data-tutorial-paso]:not([data-tutorial-paso^='telefono']) [data-tutorial='telefono'] {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Comanda despachada: sale hacia atrás girando, como un papel que se arranca del riel. */
+.sale-3d {
+  opacity: 0;
+  transform: perspective(900px) translateX(60px) translateZ(-220px) rotateY(-40deg) rotateZ(4deg);
+  transition:
+    opacity 300ms var(--ease-salida),
+    transform 300ms var(--ease-salida);
+}
+
+
+/*
+ * Riel de la cocina: las comandas en fila con profundidad. La más vieja adelante; cada una
+ * más nueva, un escalón más atrás y apenas girada. Al pasar el mouse (o enfocar) viene al frente.
+ */
+.riel-3d {
+  perspective: 1400px;
+  perspective-origin: 0% 35%;
+}
+.riel-3d-item {
+  transform-origin: 0% 50%;
+  transform: translateZ(calc(var(--i, 0) * -55px)) rotateY(calc(var(--i, 0) * -3deg));
+  transition: transform 520ms var(--ease-resorte);
+}
+.riel-3d-item:hover,
+.riel-3d-item:focus-within {
+  transform: translateZ(24px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .riel-3d-item,
+  .riel-3d-item:hover,
+  .riel-3d-item:focus-within {
+    transform: none;
+  }
+}
+
+/* Portada de la demo: el paso activo de la historia entra girando desde atrás. */
+.historia-paso {
+  transition: opacity 400ms var(--ease-salida);
+}
+.historia-paso-activo {
+  opacity: 1;
+  animation: entra-3d 650ms var(--ease-resorte);
 }
