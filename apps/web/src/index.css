@@ -766,3 +766,9 @@
     display: none;
   }
 }
+
+/* Tutorial: fuera de los pasos del teléfono, su botón flotante se esconde para no tapar lo que se muestra. */
+html[data-tutorial-paso]:not([data-tutorial-paso^='telefono']) [data-tutorial='telefono'] {
+  opacity: 0;
+  pointer-events: none;
+}

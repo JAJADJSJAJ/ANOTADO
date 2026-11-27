@@ -79,8 +79,9 @@ const PASOS: Paso[] = [
   {
     titulo: 'Cociná',
     texto: 'Tocá Empezar y después Listo: al cliente le llega el aviso por WhatsApp.',
-    // Después de Listo ya no queda botón: se ilumina la fila de listos para entregar.
-    objetivo: () => botonConTexto('Empezar', 'Listo')() ?? buscar('cocina-lista'),
+    // Primero la bienvenida de la cocina (tapa las comandas); después Empezar/Listo de la comanda;
+    // y cuando ya no queda botón, la fila de listos para entregar.
+    objetivo: () => buscar('cocina-activar') ?? botonConTexto('Empezar', 'Listo')() ?? buscar('cocina-lista'),
     evento: 'cocina-listo',
     pantalla: 'cocina',
   },
@@ -188,6 +189,15 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
     // Solo al cambiar de paso, no en cada navegación.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i]);
+
+  // El paso actual queda en el documento: el CSS esconde el botón flotante del teléfono fuera de sus pasos.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    raiz.dataset.tutorialPaso = typeof paso.objetivo === 'string' ? paso.objetivo : 'otro';
+    return () => {
+      delete raiz.dataset.tutorialPaso;
+    };
+  }, [paso]);
 
   // Medir el objetivo: sondeo liviano (el DOM cambia solo: llegan mensajes, se abren paneles),
   // más ResizeObserver, scroll y resize para que el recorte siga al elemento sin saltos.
