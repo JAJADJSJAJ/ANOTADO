@@ -77,11 +77,23 @@ const PASOS: Paso[] = [
     alClic: true,
   },
   {
-    titulo: 'Cociná',
-    texto: 'Tocá Abrir la cocina. Después, en la comanda, Empezar y Listo: al cliente le llega el aviso por WhatsApp.',
-    // Primero la bienvenida de la cocina (tapa las comandas); después Empezar/Listo de la comanda;
-    // y cuando ya no queda botón, la fila de listos para entregar.
-    objetivo: () => buscar('cocina-activar') ?? botonConTexto('Empezar', 'Listo')() ?? buscar('cocina-lista'),
+    titulo: 'Abrí la cocina',
+    texto: 'Esta es la pantalla que queda en la cocina del local. Al abrirla se activa el sonido de pedido nuevo y la pantalla no se apaga.',
+    objetivo: 'cocina-activar',
+    alClic: true,
+    pantalla: 'cocina',
+  },
+  {
+    titulo: 'Llegó la comanda',
+    texto: 'Tu pedido aparece como un ticket, del más viejo (izquierda) al más nuevo. Tocá Empezar cuando el cocinero lo agarra.',
+    objetivo: botonConTexto('Empezar'),
+    evento: 'cocina-empezado',
+    pantalla: 'cocina',
+  },
+  {
+    titulo: 'En preparación',
+    texto: 'Ahora todos saben que se está cocinando. Cuando esté hecho, tocá Listo: al cliente le llega el aviso por WhatsApp.',
+    objetivo: botonConTexto('Listo'),
     evento: 'cocina-listo',
     pantalla: 'cocina',
   },
@@ -115,8 +127,6 @@ const PASOS: Paso[] = [
   },
 ];
 
-/** Cuánto se muestra el "¡Bien!" antes de pasar solo al paso siguiente. */
-const PAUSA_HECHO = 900;
 const esDelTelefono = (p: Paso) => typeof p.objetivo === 'string' && p.objetivo.startsWith('telefono');
 
 const MARGEN = 8;
@@ -261,9 +271,10 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
 
   // Pasos que esperan una acción: por evento de la demo o por clic en el objetivo.
   useEffect(() => {
+    // Sin avance automático: se muestra el "¡Bien!" y el visitante sigue con Siguiente cuando quiere.
     const siguiente = () => {
       setHecho(true);
-      return window.setTimeout(() => ir(i + 1), PAUSA_HECHO);
+      return 0;
     };
     let espera: number | undefined;
     const alEvento = (e: Event) => {
@@ -415,12 +426,12 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
             (hecho ? (
               <p role="status" className="mt-2 flex animate-entra items-center gap-2 text-sm font-semibold text-ok">
                 <Icono nombre="check" className="size-4" />
-                ¡Bien! Seguimos.
+                ¡Bien! Tocá Siguiente cuando quieras.
               </p>
             ) : (
               <p className="mt-2 flex items-center gap-2 text-sm text-tinta-3">
                 <span aria-hidden className="size-1.5 shrink-0 animate-latido rounded-full bg-tinta-3" />
-                {paso.evento === 'pedido-armado' ? 'Esperando a la IA…' : 'Avanza solo cuando lo hagas.'}
+                {paso.evento === 'pedido-armado' ? 'Esperando a la IA…' : 'Hacelo vos para seguir.'}
               </p>
             ))}
         </div>
@@ -435,8 +446,8 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
                 <span className="max-sm:sr-only">Anterior</span>
               </button>
             )}
-            <button type="button" onClick={() => ir(i + 1)} className={`btn btn-chico ${esperando ? '' : 'btn-tinta'}`}>
-              {i === PASOS.length - 1 ? 'Terminar' : esperando ? 'Saltar' : 'Siguiente'}
+            <button type="button" onClick={() => ir(i + 1)} className={`btn btn-chico ${esperando && !hecho ? '' : 'btn-tinta'}`}>
+              {i === PASOS.length - 1 ? 'Terminar' : esperando && !hecho ? 'Saltar' : 'Siguiente'}
               {i < PASOS.length - 1 && <Icono nombre="flecha" />}
             </button>
           </div>

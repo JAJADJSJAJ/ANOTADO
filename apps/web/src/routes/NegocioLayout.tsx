@@ -31,10 +31,23 @@ export function NegocioLayout() {
   // Pantalla de primer nivel (mostrador, cocina, admin): cambiar de sección de admin no la re-monta.
   const pantalla = useLocation().pathname.split('/')[2] ?? '';
   // Tutorial de la demo: se monta acá para sobrevivir al cambio de pantalla.
-  const [tutorial, setTutorial] = useState(false);
+  // Primera visita a la demo: el tutorial arranca solo; al salir o terminar se recuerda.
+  const [tutorial, setTutorial] = useState(() => {
+    try {
+      return localStorage.getItem(CLAVE_VISTO) === null;
+    } catch {
+      return false;
+    }
+  });
   const [params, setParams] = useSearchParams();
-  const [oferta, setOferta] = useState(() => params.get('tutorial') === '1');
-  const salirTutorial = useCallback(() => setTutorial(false), []);
+  const salirTutorial = useCallback(() => {
+    setTutorial(false);
+    try {
+      localStorage.setItem(CLAVE_VISTO, '1');
+    } catch {
+      // Sin almacenamiento: se vuelve a ofrecer la próxima vez, nada más.
+    }
+  }, []);
   useEffect(() => {
     if (params.get('tutorial') !== '1') return;
     setParams(
@@ -109,15 +122,6 @@ export function NegocioLayout() {
           <Outlet />
         </div>
       </div>
-      {negocio.esDemo && negocio.rol !== 'cocina' && oferta && !tutorial && (
-        <OfertaTutorial
-          onEmpezar={() => {
-            setOferta(false);
-            setTutorial(true);
-          }}
-          onCerrar={() => setOferta(false)}
-        />
-      )}
       {/* El recorrido pasa por el mostrador: con rol cocina no se ofrece ni se monta. */}
       {negocio.esDemo && negocio.rol !== 'cocina' && tutorial && <Tutorial slug={negocio.slug} onSalir={salirTutorial} />}
     </NegocioContext>
@@ -249,58 +253,19 @@ export function InicioNegocio() {
 
 const CLAVE_VISTO = 'anotado:tutorial-visto';
 
-/** Botón de la barra en la demo: late suave hasta que se usa por primera vez. */
+/** Botón de la barra en la demo: vuelve a mostrar el tutorial (la primera vez arranca solo). */
 function BotonTutorial({ onClick }: { onClick: () => void }) {
-  const [nuevo, setNuevo] = useState(() => {
-    try {
-      return localStorage.getItem(CLAVE_VISTO) === null;
-    } catch {
-      return false;
-    }
-  });
   return (
     <button
       type="button"
       data-tutorial="boton-tutorial"
       onClick={() => {
-        setNuevo(false);
-        try {
-          localStorage.setItem(CLAVE_VISTO, '1');
-        } catch {
-          // Sin almacenamiento: vuelve a latir la próxima vez, nada más.
-        }
         onClick();
       }}
-      className={`btn btn-birome btn-chico max-sm:w-9 max-sm:px-0 ${nuevo ? 'animate-pulse' : ''}`}
+      className="btn btn-fantasma btn-chico max-sm:w-9 max-sm:px-0"
     >
       <Icono nombre="info" />
-      <span className="max-sm:sr-only">Tutorial</span>
+      <span className="max-sm:sr-only">Ver tutorial</span>
     </button>
-  );
-}
-
-/** Cartel chico al llegar con ?tutorial=1: ofrece el recorrido sin imponerlo. */
-function OfertaTutorial({ onEmpezar, onCerrar }: { onEmpezar: () => void; onCerrar: () => void }) {
-  return (
-    <div
-      role="dialog"
-      aria-labelledby="oferta-tutorial"
-      className="fixed inset-x-4 bottom-20 z-50 animate-entra rounded-2xl border border-linea bg-hoja p-4 shadow-alta sm:inset-x-auto sm:top-[4.5rem] sm:right-5 sm:bottom-auto sm:w-80"
-    >
-      <p id="oferta-tutorial" className="font-bold tracking-[-0.015em]">
-        ¿Te muestro cómo funciona?
-      </p>
-      <p className="mt-0.5 text-sm text-tinta-3">
-        <span className="num">40</span> segundos
-      </p>
-      <div className="mt-3 flex justify-end gap-2">
-        <button type="button" onClick={onCerrar} className="btn btn-fantasma btn-chico">
-          Ahora no
-        </button>
-        <button type="button" onClick={onEmpezar} className="btn btn-birome btn-chico" autoFocus>
-          Empezar
-        </button>
-      </div>
-    </div>
   );
 }

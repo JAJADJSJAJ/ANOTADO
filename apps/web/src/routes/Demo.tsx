@@ -69,7 +69,7 @@ export function Demo() {
     // token nuevo y la cocina quedaba suscripta sin recibir avisos (los pedidos llegaban con
     // la recarga de cada 30 s). Medido en producción: con la página recién cargada, al instante.
     // ?tutorial=1: el local abre ofreciendo el tutorial.
-    window.location.replace(`/${data.slug}/mostrador?tutorial=1`);
+    window.location.replace(`/${data.slug}/mostrador`);
   }
 
   if (sesion === undefined || (userId && !cuentaReal)) return <EsqueletoPagina />;
