@@ -50,7 +50,7 @@ export function Dialogo({
       aria-label={titulo}
       // Click en el fondo (fuera de la caja) cierra.
       onMouseDown={(e) => e.target === ref.current && onCerrar()}
-      className={`m-auto w-[calc(100%-2rem)] ${ancho} animate-entra rounded-2xl border border-linea bg-hoja p-0 text-tinta shadow-alta backdrop:animate-aparece`}
+      className={`m-auto w-[calc(100%-2rem)] ${ancho} dialogo-3d rounded-2xl border border-linea bg-hoja p-0 text-tinta shadow-alta backdrop:animate-aparece`}
     >
       <div className="flex flex-col gap-5 p-6">
         <header className="flex items-start gap-4">

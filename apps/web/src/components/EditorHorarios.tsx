@@ -1,4 +1,5 @@
 import { DIAS, type Dia, type Horarios, MAX_TURNOS_POR_DIA, type Turno } from '@anotado/shared';
+import type { CSSProperties } from 'react';
 import { Icono } from './Icono.tsx';
 
 const NOMBRE: Record<Dia, string> = {
@@ -30,7 +31,7 @@ export function EditorHorarios({ valor, onCambio }: { valor: Horarios; onCambio:
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               {turnos.length === 0 && <span className="pt-2 text-[0.9375rem] text-tinta-3">Cerrado</span>}
               {turnos.map(([abre, cierra], i) => (
-                <div key={i} className="flex animate-entra flex-wrap items-center gap-2">
+                <div key={i} className="flex entra-3d flex-wrap items-center gap-2" style={{ '--i': i } as CSSProperties}>
                   <input
                     type="time"
                     value={abre}

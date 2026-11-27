@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import type { Conversacion } from '../hooks/useConversaciones.ts';
 import type { Categoria, Producto } from '../hooks/useMenu.ts';
 import type { Zona } from '../hooks/useZonas.ts';
 import { useAhora } from '../hooks/useAhora.ts';
+import { useTilt3D } from '../hooks/useTilt3D.ts';
 import type { PedidoConfirmado } from '../lib/pedidos.ts';
 import { efecto } from '../lib/sonido.ts';
 import { MensajeError, Vacio } from './Estado.tsx';
@@ -102,11 +103,11 @@ export function PedidosWhatsApp({
         {error && <MensajeError>{error}</MensajeError>}
         {claves.length > 0 && (
           <ul aria-label="Conversaciones" className="-mx-1 flex gap-1.5 overflow-x-auto sin-barra px-1 pb-1 @3xl:mx-0 @3xl:flex-col @3xl:overflow-visible @3xl:px-0">
-            {visibles.map((c) => (
-              <ItemBandeja key={c.id} conversacion={c} elegida={actual === c.id} onElegir={() => setElegida(c.id)} />
+            {visibles.map((c, i) => (
+              <ItemBandeja key={c.id} i={i} conversacion={c} elegida={actual === c.id} onElegir={() => setElegida(c.id)} />
             ))}
-            {locales.map((n) => (
-              <ItemBandeja key={n.clave} conversacion={null} elegida={actual === n.clave} onElegir={() => setElegida(n.clave)} />
+            {locales.map((n, i) => (
+              <ItemBandeja key={n.clave} i={visibles.length + i} conversacion={null} elegida={actual === n.clave} onElegir={() => setElegida(n.clave)} />
             ))}
           </ul>
         )}
@@ -161,7 +162,9 @@ function ItemBandeja({
   conversacion: c,
   elegida,
   onElegir,
+  i,
 }: {
+  i: number;
   conversacion: Conversacion | null;
   elegida: boolean;
   onElegir: () => void;
@@ -170,6 +173,7 @@ function ItemBandeja({
   const titulo = c ? (nombreCliente(c.cliente) ?? (c.cliente ? formatearTelefono(c.cliente.telefono) : c.etiqueta || 'Pegado a mano')) : 'Pegado a mano';
   const pendientes = c ? c.pendientes.dudosos.length + c.pendientes.preguntas.length + c.pendientes.errores.length : 0;
   const ahora = useAhora(0, 30_000);
+  const cara = useTilt3D<HTMLButtonElement>(4);
   const espera = c?.listoAt ? Math.max(0, Math.floor((ahora - new Date(c.listoAt).getTime()) / 60_000)) : null;
   const estado = !c
     ? { texto: 'Nuevo', clase: '' }
@@ -184,21 +188,23 @@ function ItemBandeja({
           : null;
 
   return (
-    <li className="shrink-0 animate-entra @3xl:shrink">
+    // Entra desde atrás escalonada y se inclina con el mouse; el texto flota sobre la tarjeta.
+    <li className="tilt-3d tilt-3d-capas entra-3d shrink-0 @3xl:shrink" style={{ '--i': Math.min(i, 8) } as CSSProperties}>
       <button
+        ref={cara}
         type="button"
         aria-current={elegida}
         data-sonido="llave"
         onClick={onElegir}
-        className={`flex w-60 flex-col gap-1 rounded-xl border px-3 py-2.5 text-left transition-[background-color,border-color,box-shadow] duration-150 @3xl:w-full ${
+        className={`tilt-3d-cara flex w-60 flex-col gap-1 rounded-xl border px-3 py-2.5 text-left transition-[background-color,border-color,box-shadow,transform] duration-200 @3xl:w-full ${
           elegida ? 'border-tinta bg-hoja shadow-papel' : 'border-transparent hover:border-linea hover:bg-hoja/60'
         }`}
       >
-        <span className="flex items-center gap-2">
+        <span className="capa-z flex items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-[0.9375rem] font-semibold">{titulo}</span>
           {ultimo && <span className="num shrink-0 text-xs text-tinta-3">{hora(ultimo.created_at)}</span>}
         </span>
-        <span className="flex items-center gap-2">
+        <span className="capa-z-2 flex items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-sm text-tinta-2">
             {ultimo ? `${ultimo.rol === 'asistente' ? 'Bot: ' : ''}${ultimo.contenido}` : 'Sin mensajes todavía'}
           </span>

@@ -6,12 +6,12 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 // Todo se arma con geometrías y CanvasTexture (nada remoto, por la CSP).
 
 const COLOR = {
-  tinta: '#151513',
-  tinta2: '#57564f',
-  tinta3: '#8b8a82',
-  linea: '#cfccc2',
-  ticket: '#fffefa',
-  birome: '#1f3fe0',
+  tinta: '#141414',
+  tinta2: '#555555',
+  tinta3: '#8a8a8a',
+  linea: '#cdcdcd',
+  ticket: '#fcfcfc',
+  birome: '#e0362c',
   ok: '#17804a',
   okSuave: '#e3f3e9',
   alertaTinta: '#7a5300',
@@ -176,8 +176,8 @@ function dibujarCelular(ctx: CanvasRenderingContext2D, letras: number, enviado: 
     ctx.font = `500 21px ${MONO}`;
     ctx.fillStyle = '#6f7a70';
     ctx.fillText('21:04', x + 370 - 128, y + alto - 22);
-    // Doble tilde: gris al enviar, azul birome cuando el local lo leyó.
-    ctx.strokeStyle = leido ? COLOR.birome : '#8b958c';
+    // Doble tilde: gris al enviar, verde cuando el local lo leyó.
+    ctx.strokeStyle = leido ? COLOR.wa : '#8b958c';
     ctx.lineWidth = 3.2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -281,7 +281,7 @@ function dibujarComanda(ctx: CanvasRenderingContext2D) {
 
   // Ítems: cantidad en una cajita, nombre y nota.
   const item = (cant: string, nombre: string, y: number, nota?: string) => {
-    ctx.fillStyle = '#efede6';
+    ctx.fillStyle = '#efefef';
     rectRedondo(ctx, m, y - 40, 52, 52, 12);
     ctx.fill();
     ctx.fillStyle = COLOR.tinta;
@@ -316,7 +316,7 @@ function dibujarSello(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.fillStyle = COLOR.tinta;
   rectRedondo(ctx, 0, 0, w, h, h / 2);
   ctx.fill();
-  ctx.strokeStyle = '#8fa2ff';
+  ctx.strokeStyle = '#ff9a92';
   ctx.lineWidth = 7;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -400,7 +400,7 @@ function armarEscena(renderer: THREE.WebGLRenderer, host: HTMLElement, op: Opcio
   const sol = new THREE.DirectionalLight(0xffffff, 2.1);
   sol.position.set(2.5, 4, 5);
   escena.add(sol);
-  const contraluz = new THREE.DirectionalLight(COLOR.birome, 1.4);
+  const contraluz = new THREE.DirectionalLight(0xffffff, 0.8);
   contraluz.position.set(-4, 2, -3);
   escena.add(contraluz);
 

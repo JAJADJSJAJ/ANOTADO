@@ -202,7 +202,13 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
     const intervalo = window.setInterval(medir, 250);
     window.addEventListener('resize', medir);
     window.addEventListener('scroll', medir, true);
+    // Al cambiar de pantalla, el wrapper .pantalla-3d entra girado: se vuelve a medir cuando termina.
+    const alTerminar = (e: AnimationEvent) => {
+      if (e.target instanceof Element && e.target.classList.contains('pantalla-3d')) medir();
+    };
+    document.addEventListener('animationend', alTerminar);
     return () => {
+      document.removeEventListener('animationend', alTerminar);
       window.clearInterval(intervalo);
       window.removeEventListener('resize', medir);
       window.removeEventListener('scroll', medir, true);
@@ -291,8 +297,8 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
     if (!h || !hayCaja || reducido || typeof h.animate !== 'function') return;
     const a = h.animate(
       [
-        { boxShadow: '0 0 0 9999px rgb(0 0 0 / 0.75), 0 0 0 2px #1f3fe0, 0 0 0 2px rgb(31 63 224 / 0.5)' },
-        { boxShadow: '0 0 0 9999px rgb(0 0 0 / 0.75), 0 0 0 2px #1f3fe0, 0 0 0 9px rgb(31 63 224 / 0)' },
+        { boxShadow: '0 0 0 9999px rgb(0 0 0 / 0.75), 0 0 0 2px #e0362c, 0 0 0 2px rgb(224 54 44 / 0.5)' },
+        { boxShadow: '0 0 0 9999px rgb(0 0 0 / 0.75), 0 0 0 2px #e0362c, 0 0 0 9px rgb(224 54 44 / 0)' },
       ],
       { duration: 1400, iterations: Infinity, easing: 'ease-out' },
     );
@@ -330,7 +336,7 @@ export function Tutorial({ slug, onSalir }: { slug: string; onSalir: () => void 
           width: c.w,
           height: c.h,
           transition: transicion,
-          boxShadow: `0 0 0 9999px rgb(0 0 0 / 0.75)${caja ? ', 0 0 0 2px #1f3fe0' : ''}`,
+          boxShadow: `0 0 0 9999px rgb(0 0 0 / 0.75)${caja ? ', 0 0 0 2px #e0362c' : ''}`,
         }}
       />
 

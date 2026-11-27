@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { Escena3D } from './Escena3D.tsx';
 import { Icono } from './Icono.tsx';
 import { Logo, Marca } from './Marca.tsx';
+import { Letras3D } from './Letras3D.tsx';
 
 // Piezas de las pantallas sin local: entrar, registrarse, la demo y aceptar una invitación.
 
@@ -30,7 +31,7 @@ export function PantallaCuenta({ children, escenaMovil = false }: { children: Re
         <Marca claro className="relative z-10 text-lg" />
         <div className="relative z-10 mt-12 max-w-md">
           <h1 className="text-[2.75rem] leading-[1.02] font-bold tracking-[-0.035em] xl:text-5xl">
-            Los pedidos de WhatsApp, anotados solos.
+            <Letras3D texto="Los pedidos de WhatsApp, anotados solos." retardo={150} />
           </h1>
           <p className="mt-5 max-w-sm text-lg leading-snug text-white/65">
             La IA lee el mensaje y arma el pedido. El mostrador lo revisa, lo confirma y la cocina lo ve al instante.
@@ -105,7 +106,9 @@ export function TituloCuenta({ titulo, children }: { titulo: string; children?: 
   return (
     <div>
       <Logo className="mb-6 hidden size-9 lg:block" />
-      <h2 className="text-[1.75rem] leading-tight font-bold tracking-[-0.025em]">{titulo}</h2>
+      <h2 className="text-[1.75rem] leading-tight font-bold tracking-[-0.025em]">
+        <Letras3D texto={titulo} />
+      </h2>
       {children && <p className="mt-2 text-tinta-2">{children}</p>}
     </div>
   );

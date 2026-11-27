@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router';
 import { BotonSalir } from '../components/BotonSalir.tsx';
 import { EsqueletoLocales } from '../components/Esqueletos.tsx';
 import { useCargaMinima } from '../hooks/useCargaMinima.ts';
 import { MensajeError, Nota, PantallaMensaje } from '../components/Estado.tsx';
 import { Icono } from '../components/Icono.tsx';
+import { Letras3D } from '../components/Letras3D.tsx';
 import { Marca } from '../components/Marca.tsx';
 import { useSesion } from '../hooks/useSesion.ts';
+import { useTilt3D } from '../hooks/useTilt3D.ts';
 import { supabase } from '../lib/supabase.ts';
 
 type Membresia = { negocios: { nombre: string; slug: string } };
@@ -75,7 +77,7 @@ export function Inicio() {
         {membresias.length === 0 ? (
           <div>
             <h1 className="text-[1.75rem] leading-tight font-bold tracking-[-0.025em]">
-              {suspendidos.length > 0 ? 'Local suspendido' : 'Todavía no tenés un local'}
+              <Letras3D texto={suspendidos.length > 0 ? 'Local suspendido' : 'Todavía no tenés un local'} />
             </h1>
             {suspendidos.length === 0 && (
               <p className="mt-2 text-tinta-2">
@@ -85,25 +87,16 @@ export function Inicio() {
             )}
           </div>
         ) : (
-          <h1 className="text-[1.75rem] leading-tight font-bold tracking-[-0.025em]">Elegí el local</h1>
+          <h1 className="text-[1.75rem] leading-tight font-bold tracking-[-0.025em]">
+            <Letras3D texto="Elegí el local" />
+          </h1>
         )}
         {avisoSuspendidos}
 
         {membresias.length > 0 && (
-          <ul className="tarjeta divide-y divide-linea overflow-hidden">
+          <ul className="flex flex-col gap-2">
             {membresias.map((m, i) => (
-              <li key={m.negocios.slug} className="animate-entra" style={{ animationDelay: `${i * 50}ms` }}>
-                <Link
-                  to={`/${m.negocios.slug}`}
-                  className="group flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-papel/60"
-                >
-                  <span aria-hidden className="grid size-9 place-items-center rounded-lg bg-tinta text-sm font-bold text-white">
-                    {m.negocios.nombre.charAt(0).toUpperCase()}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate font-semibold">{m.negocios.nombre}</span>
-                  <Icono nombre="derecha" className="size-4 text-tinta-3 transition-transform group-hover:translate-x-0.5" />
-                </Link>
-              </li>
+              <FilaLocal key={m.negocios.slug} slug={m.negocios.slug} nombre={m.negocios.nombre} i={i} />
             ))}
           </ul>
         )}
@@ -124,5 +117,25 @@ export function Inicio() {
         </div>
       </div>
     </main>
+  );
+}
+
+/** Un local de la lista: tarjeta que se inclina con el mouse; la inicial y la flecha flotan más cerca. */
+function FilaLocal({ slug, nombre, i }: { slug: string; nombre: string; i: number }) {
+  const cara = useTilt3D<HTMLAnchorElement>(5);
+  return (
+    <li className="tilt-3d tilt-3d-capas entra-3d" style={{ '--i': i } as CSSProperties}>
+      <Link
+        ref={cara}
+        to={`/${slug}`}
+        className="tilt-3d-cara tarjeta flex items-center gap-3 px-4 py-3.5"
+      >
+        <span aria-hidden className="capa-z-2 grid size-9 place-items-center rounded-lg bg-tinta text-sm font-bold text-white">
+          {nombre.charAt(0).toUpperCase()}
+        </span>
+        <span className="capa-z min-w-0 flex-1 truncate font-semibold">{nombre}</span>
+        <Icono nombre="derecha" className="capa-z-2 size-4 text-tinta-3" />
+      </Link>
+    </li>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icono } from './Icono.tsx';
 import { ABRIR_TELEFONO } from './Tutorial.tsx';
 import { SimuladorWhatsApp } from './SimuladorWhatsApp.tsx';
@@ -39,7 +40,9 @@ export function TelefonoFlotante() {
     window.dispatchEvent(new CustomEvent('anotado:tutorial', { detail: 'telefono-abierto' }));
   }
 
-  return (
+  // Portal al body: la transición entre pantallas pone transform en el contenedor de la página,
+  // y un ancestro con transform rompe position:fixed.
+  return createPortal(
     <>
       <button
         type="button"
@@ -84,6 +87,7 @@ export function TelefonoFlotante() {
           </div>
         </section>
       )}
-    </>
+    </>,
+    document.body,
   );
 }
